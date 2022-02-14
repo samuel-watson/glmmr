@@ -13,7 +13,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // obj_fun
 double obj_fun(const arma::mat& A, const arma::vec& U2);
-RcppExport SEXP _codco_obj_fun(SEXP ASEXP, SEXP U2SEXP) {
+RcppExport SEXP _glmmr_obj_fun(SEXP ASEXP, SEXP U2SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -25,7 +25,7 @@ END_RCPP
 }
 // c_obj_fun
 double c_obj_fun(const arma::mat& M, const arma::vec& C);
-RcppExport SEXP _codco_c_obj_fun(SEXP MSEXP, SEXP CSEXP) {
+RcppExport SEXP _glmmr_c_obj_fun(SEXP MSEXP, SEXP CSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -37,7 +37,7 @@ END_RCPP
 }
 // gen_m
 arma::mat gen_m(const arma::mat& X, const arma::mat& A);
-RcppExport SEXP _codco_gen_m(SEXP XSEXP, SEXP ASEXP) {
+RcppExport SEXP _glmmr_gen_m(SEXP XSEXP, SEXP ASEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -49,7 +49,7 @@ END_RCPP
 }
 // gen_u
 arma::vec gen_u(const arma::mat& M, const arma::mat& X, const arma::vec& C);
-RcppExport SEXP _codco_gen_u(SEXP MSEXP, SEXP XSEXP, SEXP CSEXP) {
+RcppExport SEXP _glmmr_gen_u(SEXP MSEXP, SEXP XSEXP, SEXP CSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -62,7 +62,7 @@ END_RCPP
 }
 // remove_one
 double remove_one(const arma::mat& A, arma::uword i, const arma::vec& u);
-RcppExport SEXP _codco_remove_one(SEXP ASEXP, SEXP iSEXP, SEXP uSEXP) {
+RcppExport SEXP _glmmr_remove_one(SEXP ASEXP, SEXP iSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -75,7 +75,7 @@ END_RCPP
 }
 // remove_one_mat
 arma::mat remove_one_mat(const arma::mat& A, arma::uword i);
-RcppExport SEXP _codco_remove_one_mat(SEXP ASEXP, SEXP iSEXP) {
+RcppExport SEXP _glmmr_remove_one_mat(SEXP ASEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -87,7 +87,7 @@ END_RCPP
 }
 // add_one
 double add_one(const arma::mat& A, double sigma_jj, const arma::vec& f, const arma::vec& u);
-RcppExport SEXP _codco_add_one(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP, SEXP uSEXP) {
+RcppExport SEXP _glmmr_add_one(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -101,7 +101,7 @@ END_RCPP
 }
 // add_one_mat
 arma::mat add_one_mat(const arma::mat& A, double sigma_jj, const arma::vec& f);
-RcppExport SEXP _codco_add_one_mat(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP) {
+RcppExport SEXP _glmmr_add_one_mat(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -114,7 +114,7 @@ END_RCPP
 }
 // ChooseSwap
 double ChooseSwap(arma::uvec idx_in, arma::mat A, arma::mat sig, arma::vec u, arma::uvec& out2, arma::mat& out3);
-RcppExport SEXP _codco_ChooseSwap(SEXP idx_inSEXP, SEXP ASEXP, SEXP sigSEXP, SEXP uSEXP, SEXP out2SEXP, SEXP out3SEXP) {
+RcppExport SEXP _glmmr_ChooseSwap(SEXP idx_inSEXP, SEXP ASEXP, SEXP sigSEXP, SEXP uSEXP, SEXP out2SEXP, SEXP out3SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -130,7 +130,7 @@ END_RCPP
 }
 // Grad
 arma::uvec Grad(arma::uvec idx_in, arma::mat A, arma::mat sig, arma::vec u, double tol, bool trace);
-RcppExport SEXP _codco_Grad(SEXP idx_inSEXP, SEXP ASEXP, SEXP sigSEXP, SEXP uSEXP, SEXP tolSEXP, SEXP traceSEXP) {
+RcppExport SEXP _glmmr_Grad(SEXP idx_inSEXP, SEXP ASEXP, SEXP sigSEXP, SEXP uSEXP, SEXP tolSEXP, SEXP traceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -146,7 +146,7 @@ END_RCPP
 }
 // ChooseSwapRobust
 double ChooseSwapRobust(arma::uword nlist, arma::uvec idx_in, const arma::mat& A_list, const arma::mat& sig_list, const arma::vec& u_list, const arma::vec& weights, arma::uvec& out2, arma::mat& out3);
-RcppExport SEXP _codco_ChooseSwapRobust(SEXP nlistSEXP, SEXP idx_inSEXP, SEXP A_listSEXP, SEXP sig_listSEXP, SEXP u_listSEXP, SEXP weightsSEXP, SEXP out2SEXP, SEXP out3SEXP) {
+RcppExport SEXP _glmmr_ChooseSwapRobust(SEXP nlistSEXP, SEXP idx_inSEXP, SEXP A_listSEXP, SEXP sig_listSEXP, SEXP u_listSEXP, SEXP weightsSEXP, SEXP out2SEXP, SEXP out3SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -164,7 +164,7 @@ END_RCPP
 }
 // GradRobust
 arma::uvec GradRobust(arma::uword nlist, arma::uvec idx_in, arma::mat A_list, arma::mat M_list, arma::vec C_list, arma::mat X_list, arma::mat sig_list, arma::vec u_list, arma::vec weights, double tol, bool trace);
-RcppExport SEXP _codco_GradRobust(SEXP nlistSEXP, SEXP idx_inSEXP, SEXP A_listSEXP, SEXP M_listSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP u_listSEXP, SEXP weightsSEXP, SEXP tolSEXP, SEXP traceSEXP) {
+RcppExport SEXP _glmmr_GradRobust(SEXP nlistSEXP, SEXP idx_inSEXP, SEXP A_listSEXP, SEXP M_listSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP u_listSEXP, SEXP weightsSEXP, SEXP tolSEXP, SEXP traceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -185,7 +185,7 @@ END_RCPP
 }
 // uvec_minus
 arma::uvec uvec_minus(const arma::uvec& v, arma::uword rm_idx);
-RcppExport SEXP _codco_uvec_minus(SEXP vSEXP, SEXP rm_idxSEXP) {
+RcppExport SEXP _glmmr_uvec_minus(SEXP vSEXP, SEXP rm_idxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -197,7 +197,7 @@ END_RCPP
 }
 // GradRobustStep
 Rcpp::List GradRobustStep(arma::uvec idx_in, arma::vec C_list, arma::mat X_list, arma::mat sig_list, arma::vec weights);
-RcppExport SEXP _codco_GradRobustStep(SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP weightsSEXP) {
+RcppExport SEXP _glmmr_GradRobustStep(SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -212,7 +212,7 @@ END_RCPP
 }
 // GradRobustAlg1
 Rcpp::List GradRobustAlg1(arma::uvec idx_in, arma::vec C_list, arma::mat X_list, arma::mat sig_list, arma::vec weights);
-RcppExport SEXP _codco_GradRobustAlg1(SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP weightsSEXP) {
+RcppExport SEXP _glmmr_GradRobustAlg1(SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -225,74 +225,27 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// rcpparma_hello_world
-arma::mat rcpparma_hello_world();
-RcppExport SEXP _codco_rcpparma_hello_world() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(rcpparma_hello_world());
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_outerproduct
-arma::mat rcpparma_outerproduct(const arma::colvec& x);
-RcppExport SEXP _codco_rcpparma_outerproduct(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_outerproduct(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_innerproduct
-double rcpparma_innerproduct(const arma::colvec& x);
-RcppExport SEXP _codco_rcpparma_innerproduct(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_innerproduct(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_bothproducts
-Rcpp::List rcpparma_bothproducts(const arma::colvec& x);
-RcppExport SEXP _codco_rcpparma_bothproducts(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_bothproducts(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_codco_obj_fun", (DL_FUNC) &_codco_obj_fun, 2},
-    {"_codco_c_obj_fun", (DL_FUNC) &_codco_c_obj_fun, 2},
-    {"_codco_gen_m", (DL_FUNC) &_codco_gen_m, 2},
-    {"_codco_gen_u", (DL_FUNC) &_codco_gen_u, 3},
-    {"_codco_remove_one", (DL_FUNC) &_codco_remove_one, 3},
-    {"_codco_remove_one_mat", (DL_FUNC) &_codco_remove_one_mat, 2},
-    {"_codco_add_one", (DL_FUNC) &_codco_add_one, 4},
-    {"_codco_add_one_mat", (DL_FUNC) &_codco_add_one_mat, 3},
-    {"_codco_ChooseSwap", (DL_FUNC) &_codco_ChooseSwap, 6},
-    {"_codco_Grad", (DL_FUNC) &_codco_Grad, 6},
-    {"_codco_ChooseSwapRobust", (DL_FUNC) &_codco_ChooseSwapRobust, 8},
-    {"_codco_GradRobust", (DL_FUNC) &_codco_GradRobust, 11},
-    {"_codco_uvec_minus", (DL_FUNC) &_codco_uvec_minus, 2},
-    {"_codco_GradRobustStep", (DL_FUNC) &_codco_GradRobustStep, 5},
-    {"_codco_GradRobustAlg1", (DL_FUNC) &_codco_GradRobustAlg1, 5},
-    {"_codco_rcpparma_hello_world", (DL_FUNC) &_codco_rcpparma_hello_world, 0},
-    {"_codco_rcpparma_outerproduct", (DL_FUNC) &_codco_rcpparma_outerproduct, 1},
-    {"_codco_rcpparma_innerproduct", (DL_FUNC) &_codco_rcpparma_innerproduct, 1},
-    {"_codco_rcpparma_bothproducts", (DL_FUNC) &_codco_rcpparma_bothproducts, 1},
+    {"_glmmr_obj_fun", (DL_FUNC) &_glmmr_obj_fun, 2},
+    {"_glmmr_c_obj_fun", (DL_FUNC) &_glmmr_c_obj_fun, 2},
+    {"_glmmr_gen_m", (DL_FUNC) &_glmmr_gen_m, 2},
+    {"_glmmr_gen_u", (DL_FUNC) &_glmmr_gen_u, 3},
+    {"_glmmr_remove_one", (DL_FUNC) &_glmmr_remove_one, 3},
+    {"_glmmr_remove_one_mat", (DL_FUNC) &_glmmr_remove_one_mat, 2},
+    {"_glmmr_add_one", (DL_FUNC) &_glmmr_add_one, 4},
+    {"_glmmr_add_one_mat", (DL_FUNC) &_glmmr_add_one_mat, 3},
+    {"_glmmr_ChooseSwap", (DL_FUNC) &_glmmr_ChooseSwap, 6},
+    {"_glmmr_Grad", (DL_FUNC) &_glmmr_Grad, 6},
+    {"_glmmr_ChooseSwapRobust", (DL_FUNC) &_glmmr_ChooseSwapRobust, 8},
+    {"_glmmr_GradRobust", (DL_FUNC) &_glmmr_GradRobust, 11},
+    {"_glmmr_uvec_minus", (DL_FUNC) &_glmmr_uvec_minus, 2},
+    {"_glmmr_GradRobustStep", (DL_FUNC) &_glmmr_GradRobustStep, 5},
+    {"_glmmr_GradRobustAlg1", (DL_FUNC) &_glmmr_GradRobustAlg1, 5},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_codco(DllInfo *dll) {
+RcppExport void R_init_glmmr(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }
