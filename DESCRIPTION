@@ -8,7 +8,7 @@ Author@R: c(person("Sam", "Watson", email = "S.I.Watson@bham.ac.uk",
              person("Yi", "Pan", email = "ypan1988@gmail.com",
                   role = c("aut")))
 Maintainer: Sam Watson <S.I.Watson@bham.ac.uk>
-Description: More about what it does (maybe more than one line)
+Description: Design analysis tools for any study design that can be represented or modelled as a generalised linear mixed model including cluster randomised trials, cohort studies, spatial and spatio-temporal epidemiological models, and split-plot designs. 
 License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.7)
 LinkingTo: Rcpp, RcppArmadillo
@@ -18,3 +18,5 @@ Author: Sam Watson [aut, cre],
         Yi Pan [aut]
 URL: https://github.com/ypan1988/jmcm/
 BugReports: https://github.com/ypan1988/jmcm/issues
+Suggests: 
+    testthat
