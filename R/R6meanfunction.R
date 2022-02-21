@@ -86,8 +86,11 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           hash = NULL,
                           hash_do = function(){
                             digest::digest(c(self$formula,self$data,self$family,
-                                             digest::digest(as.character(self$parameters),serialize = FALSE),
+                                             self$parameters,
                                              self$randomiser))
+                            # digest::digest(c(self$formula,self$data,self$family,
+                            #                  digest::digest(as.character(self$parameters),serialize = FALSE),
+                            #                  self$randomiser))
                           },
                           genTerms = function(){
                             mf1 <- self$formula[[2]]

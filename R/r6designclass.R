@@ -102,7 +102,9 @@ Design <- R6::R6Class("Design",
                           ests <- pbapply::pbreplicate(iter, private$lme_est(par=par,
                                                                              value=value))
                         }
-                         ests <- apply(ests,2,function(x)x$b/x$se)
+                         
+                         ests <- apply(ests,2,function(x)x$par/x$SE)
+                         
                          ests <- ests[par,]
                          ests <- (1-pnorm(abs(ests)))*2
                          pwr <- mean(I(ests < alpha),na.rm=TRUE)
@@ -144,10 +146,11 @@ Design <- R6::R6Class("Design",
                         if(is.null(value))stop("set parameter value")
                         orig_par <- self$mean_function$parameters[par]
                         self$mean_function$parameters[par] <- value
+                        self$mean_function$check(verbose = FALSE)
                       }
                       re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
                       mu <- c(drop(self$mean_function$.__enclos_env__$private$Xb)) + as.matrix(self$covariance$Z%*%re)
-                   
+                      
                       f <- self$mean_function$family
                       if(f[1]=="poisson"){
                         if(f[2]=="log"){
@@ -192,7 +195,10 @@ Design <- R6::R6Class("Design",
                           y <- rgamma(self$n(),shape = 1/(mu*self$var_par),rate = 1/self$var_par)
                         }
                       }
-                      if(!missing(par))self$mean_function$parameters[par]<-orig_par
+                      if(!missing(par)){
+                        self$mean_function$parameters[par]<-orig_par
+                        self$check(verbose = FALSE)
+                      }
                       if(type=="y")return(y)
                       if(type=="data.frame")return(cbind(y,self$data$data,self$covariance$location))
                     },
@@ -302,82 +308,92 @@ Design <- R6::R6Class("Design",
                     },
                     lme_est = function(par=NULL,
                                        value=NULL){
-                      lambda <- Matrix::t(Matrix::chol(self$covariance$D))#,nrow=nrow(self$covariance$D)))
-                      #lambda <- Matrix::Matrix(lambda)
-                      
-                      parInds <- list(covar = c(1,2),
-                                      fixef = c(3:(2+ncol(self$mean_function$X))))
-                      devfunList <- list(Lind = seq_along(lambda@x),
-                                         pp = lme4::merPredD$new(
-                                           X = self$mean_function$X,
-                                           Zt = Matrix::t(self$covariance$Z),
-                                           Lambdat = lambda,
-                                           Lind = seq_along(lambda@x),
-                                           theta = as.double(lambda@x),
-                                           n = self$n()),
-                                         resp = lme4::glmResp$new(
-                                           y = self$sim_data(par=par,
-                                                             value=value),
-                                           family = self$mean_function$family,
-                                           weights = rep(1, self$n())),
-                                         lp0 = NULL,
-                                         baseOffset = rep(0, self$n()),
-                                         tolPwrss = 1e-6,
-                                         maxit = 30,
-                                         GQmat = lme4::GHrule(1),
-                                         compDev = TRUE,
-                                         fac = NULL,
-                                         verbose = TRUE,
-                                         parInds = parInds)
-                      #NEED TO GENERALISE TO ALL COVARIANCES
-                      cov2 <- self$covariance$clone(deep=TRUE)
-                      
-
-                      updateTheta <- function(pars){
-                        cov2$parameters <- relist(cov2$parameters,
-                                                  value = pars)[[1]]
-                        #cov2$parameters <- list(list(pars[1],pars[2]))
-                        cov2$check(verbose=FALSE)
-                        newD <- cov2$D
-                        cholD <- tryCatch(Matrix::chol(newD),error=function(e)NULL)
-                        if(is.null(cholD)){
-                          newD <- Matrix::nearPD(matrix(newD,nrow=nrow(cov2$D)))
-                          cholD <- tryCatch(Matrix::chol(newD),error=function(e)print("help!"))
-                        }
-                        Matrix::t(cholD)@x
-                      }
-                      
-                      # CHANGE FUNCTION OPTS BELOW
-                      devfun <- function(pars) {
-                        pp$setTheta(as.double(updateTheta(pars[parInds$covar])))
-                        spars <- as.numeric(pars[parInds$fixef])
-                        offset <- if (length(spars)==0) baseOffset else baseOffset + pp$X %*% spars
-                        resp$setOffset(offset)
-                        p <- lme4::glmerLaplaceHandle(pp$ptr(), resp$ptr(), 0, 1e-6, 30, TRUE)
-                        resp$updateWts()
-                        p
-                      }
-
-                      devfunEnv <- new.env()
-                      environment(devfun) <- list2env(devfunList, envir = devfunEnv)
-                      environment(devfun)$lp0 <- environment(devfun)$pp$linPred(1)
-                      
-                      n.cov.par <- length(unlist(cov2$parameters))
-
-                      opt <- tryCatch(minqa::bobyqa(par = c(rep(0.1,n.cov.par),rep(0,ncol(self$mean_function$X))),
-                                           fn = devfun,
-                                           lower = c(rep(1e-5,n.cov.par),rep(-Inf,ncol(self$mean_function$X)))),error=function(e)NULL)
-                      if(is.null(opt)){
-                        return(data.frame(b=rep(NA,ncol(self$mean_function$X)),se=rep(NA,ncol(self$mean_function$X))))
-                      } else {
-                        cov2$parameters <- relist(cov2$parameters,
-                                                  value = opt$par[seq_len(n.cov.par)])[[1]]#list(list(opt$par[1],opt$par[2]))
-                        cov2$check(verbose=FALSE)
-                        se <- sqrt(diag(solve(Matrix::crossprod(self$mean_function$X,cov2$Z)%*%cov2$D%*%Matrix::crossprod(cov2$Z,self$mean_function$X))))
-                        b <- opt$par[parInds$fixef]
-
-                        return(data.frame(b,se))
-                      }
+                      return(NULL)
+                      # lambda <-  Matrix::t(Matrix::chol(self$covariance$D))#,nrow=nrow(self$covariance$D)))
+                      # ncovpar <- length(unlist(self$covariance$parameters))
+                      # nmfpar <- ncol(self$mean_function$X)
+                      # parInds <- list(covar = c(1:ncovpar),
+                      #                 fixef = c((ncovpar+1):(ncovpar+nmfpar)))
+                      # ysim <- self$sim_data(par=par,
+                      #                       value=value)
+                      # dat1 <- cbind(ysim,self$mean_function$data)
+                      # print(summary(lme4::glmer(ysim~int+(1|cl),data=dat1,family=self$mean_function$family)))
+                      # 
+                      # orig_pars <- self$covariance$parameters
+                      # 
+                      # pp <- lme4::merPredD$new(
+                      #   X = self$mean_function$X,
+                      #   Zt = Matrix::t(self$covariance$Z),
+                      #   Lambdat = lambda,
+                      #   Lind = seq_along(lambda@x),
+                      #   theta = lambda@x,
+                      #   n = des$n())
+                      # 
+                      # resp <- lme4::glmResp$new(
+                      #   y = ysim,
+                      #   family = self$mean_function$family)
+                      # 
+                      # updateTheta <- function(pars){
+                      #   # self$covariance$parameters <- relist(self$covariance$parameters,
+                      #   #                           value = pars)[[1]]
+                      #   # self$covariance$check(verbose = FALSE)
+                      #   # newD <- self$covariance$D
+                      #   # newD <- (resp$resDev()/self$n())*(pp$Lambdat%*%Matrix::chol2inv(pp$L())%*%Matrix::t(pp$Lambdat))
+                      #   # cholD <- tryCatch(Matrix::chol(newD),error=function(e)NULL)
+                      #   # if(is.null(cholD)){
+                      #   #   newD <- Matrix::nearPD(newD)
+                      #   #   cholD <- tryCatch(Matrix::chol(newD),error=function(e)print("help!"))
+                      #   # }
+                      #   # Matrix::t(cholD)@x
+                      #   rep(pars,8)
+                      # }
+                      # 
+                      # devfun <- function(pars) {
+                      #   resp$setOffset(rep(0,self$n()))
+                      #   resp$updateMu(rep(0,self$n()))
+                      #   pp$setTheta(as.double(updateTheta(pars[parInds$covar])))
+                      #   spars <- as.numeric(pars[parInds$fixef])
+                      #   resp$setOffset( pp$X %*% spars)
+                      #   p <- lme4::glmerLaplaceHandle(pp$ptr(), resp$ptr(), 1, 1e-6, 30, TRUE)
+                      #   resp$updateWts()
+                      #   p
+                      # }
+                      # 
+                      # opt <- minqa::bobyqa(par = c(rep(0.01,ncovpar),rep(0.1,nmfpar)),
+                      #                      fn = devfun,
+                      #                      lower = c(rep(1e-5,ncovpar),rep(-Inf,nmfpar)))
+                      # 
+                      # 
+                      # # dev1 <- pirls(X = self$mean_function$X,
+                      # #               y=ysim,
+                      # #               Zt = Matrix::t(self$covariance$Z),
+                      # #               Lambdat = lambda,
+                      # #               thfun = updateTheta,
+                      # #               theta = runif(ncovpar,0.01,0.1),
+                      # #               weights = rep(1,self$n()),
+                      # #               offset=rep(0,self$n()),
+                      # #               eta=numeric(self$n()),
+                      # #               family=self$mean_function$family)
+                      # sigma <- (resp$resDev()/self$n())
+                      # beta <- as.numeric(opt$par[parInds$fixef])
+                      # print(sqrt((resp$resDev()/self$n())*diag(pp$unsc())))
+                      # print((resp$resDev()/self$n())*(pp$Lambdat%*%Matrix::crossprod(Matrix::solve(pp$L()))%*%Matrix::t(pp$Lambdat)))
+                      # lambda@x <- rep(opt$par[parInds$covar],8)
+                      # print(Matrix::tcrossprod(lambda))
+                      # 
+                      # if(is.null(opt)){
+                      #   return(data.frame(b=rep(NA,nmfpar),se=rep(NA,nmfpar)))
+                      # } else {
+                      #   
+                      #   se <- sqrt(diag(solve(Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X )))
+                      #   b <- opt$par[parInds$fixef]
+                      #   theta <- c(opt$par[parInds$covar],opt$par[parInds$covar]*(resp$resDev()/self$n()))
+                      #   self$covariance$parameters <- orig_pars
+                      #   self$covariance$check(verbose=FALSE)
+                      #   self$check(verbose=FALSE)
+                      #   
+                      #   return(data.frame(par= c(b,theta),SE = c(se,rep(NA,ncovpar*2))))
+                      # }
 
                     },
                     information_matrix = function(){
@@ -403,4 +419,112 @@ relist <- function(lst,value,p=0){
 }
 
 
-
+pirls <- function(X,y,Zt,Lambdat,thfun,theta,
+                  weights,offset=numeric(n),
+                  eta=numeric(n),family=binomial,
+                  tol = 10^-6, npirls = 30,nstephalf = 10,nAGQ = 1,verbose=0L,
+                  ...){
+  # FIXME: bad default starting value for eta
+  
+  n <- nrow(X); p <- ncol(X); q <- nrow(Zt)
+  stopifnot(nrow(X) == n, ncol(Zt) == n,
+            nrow(Lambdat) == q, ncol(Lambdat) == q, is.function(thfun))
+  
+  if (is.function(family)) family <- family() # ensure family is a list
+  
+  local({    
+    nth <- length(theta)
+    betaind <- -seq_len(nth) # indices to drop 1:nth
+    linkinv <- family$linkinv
+    variance <- family$variance
+    muEta <- family$mu.eta
+    aic <- family$aic
+    sqDevResid <- family$dev.resid
+    mu <- linkinv(eta)
+    beta <- numeric(p)
+    u <- numeric(q)
+    L <- Matrix::Cholesky(Matrix::tcrossprod(Lambdat %*% Zt), perm=FALSE, LDL=FALSE, Imult=1)
+    if (nAGQ > 0L) {
+      # create function for conducting PIRLS
+      function(thetabeta) {
+        # initialize
+        Lambdat@x[] <<- thfun(thetabeta[-betaind])
+        LtZt <- Lambdat %*% Zt
+        beta[] <<- thetabeta[betaind]
+        offb <- offset + X %*% beta
+        updatemu <- function(uu) {
+          eta[] <<- offb + as.vector(Matrix::crossprod(LtZt, uu))
+          mu[] <<- linkinv(eta)
+          sum(sqDevResid(y, mu, weights)) + sum(uu^2)
+        }
+        u[] <<- numeric(q)
+        olducden <- updatemu(u)
+        cvgd <- FALSE
+        for(i in 1:npirls){
+          # update w and muEta
+          Whalf <- Diagonal(x = sqrt(weights / variance(mu)))
+          # update weighted design matrix
+          LtZtMWhalf <- LtZt %*% (Diagonal(x = muEta(eta)) %*% Whalf)
+          # update Cholesky decomposition
+          L <- update(L, LtZtMWhalf, 1)
+          # alternative (more explicit but slower)
+          # Cholesky update
+          # L <- Cholesky(tcrossprod(LtZtMWhalf), perm=FALSE, LDL=FALSE, Imult=1)
+          # update weighted residuals
+          wtres <- Whalf %*% (y - mu)
+          # solve for the increment
+          delu <- as.vector(Matrix::solve(L, LtZtMWhalf %*% wtres - u))
+          if (verbose > 0L) {
+            cat(sprintf("inc: %12.4g", delu[1]))
+            nprint <- min(5, length(delu))
+            for (j in 2:nprint) cat(sprintf(" %12.4g", delu[j]))
+            cat("\n")
+          }
+          # update mu and eta and calculate
+          ucden <- updatemu(u + delu)
+          
+          if (verbose > 1L) {
+            cat(sprintf("%6.4f: %10.3f\n", 1, ucden))
+          }
+          
+          if(abs((olducden - ucden) / ucden) < tol){
+            cvgd <- TRUE
+            break
+          }
+          # step-halving
+          if(ucden > olducden){
+            for(j in 1:nstephalf){
+              ucden <- updatemu(u + (delu <- delu/2))
+              if (verbose > 1L) {
+                cat(sprintf("%6.4f: %10.3f\n", 1/2^j, ucden))
+              }
+              if(ucden <= olducden) break
+            }
+            if(ucden > olducden) stop("Step-halving failed")
+          }
+          # set old unscaled conditional log density
+          # to the new value
+          olducden <- ucden
+          # update the conditional modes (take a step)
+          u[] <<- u + delu
+        }
+        if(!cvgd) stop("PIRLS failed to converge")
+        
+        # create Laplace approx to -2log(L)
+        ldL2 <- 2*Matrix::determinant(L, logarithm = TRUE)$modulus
+        attributes(ldL2) <- NULL
+        # FIXME: allow for quadrature approximations too
+        resid <- y - mu
+        Lm2ll <- aic(y,rep.int(1,n),mu,weights,var(resid)) + sum(u^2) + ldL2 #+ (q/2)*log(2*pi)
+        
+        if (verbose > 0L) {
+          cat(sprintf("%10.3f: %12.4g", Lm2ll, thetabeta[1]))
+          for (j in 2:length(thetabeta)) cat(sprintf(" %12.4g", thetabeta[j]))
+          cat("\n")
+        }
+        
+        Lm2ll
+      }
+    } else stop("code for nAGQ == 0 needs to be added")
+  })
+}
