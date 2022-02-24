@@ -27,7 +27,7 @@ pexp <- function(x){
 }
 
 gr <- function(x){
-  I(x$data==0)*x$pars[1]
+  I(x$data==0)*x$pars[1]^2
 }
 
 ## create block matrix

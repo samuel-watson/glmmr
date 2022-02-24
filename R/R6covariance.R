@@ -161,9 +161,9 @@ Covariance <- R6::R6Class("Covariance",
                             D.sublist[[d]] <- matrix(1, nrow=ncol(private$Zlist[[d]]),
                                                      ncol=ncol(private$Zlist[[d]]))
                             if(update){
-                               pars <-rev(self$parameters)[[d]][1:ngroup]
+                               pars <-rev(self$parameters[[d]])[1:ngroup]
                             } else {
-                              pars <- rev(new_pars)[[d]]
+                              pars <- rev(new_pars[[d]])
                             }
                             for(j in 1:ngroup){
                               D.sublist[[d]] <- D.sublist[[d]]*
