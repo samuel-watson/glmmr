@@ -44,3 +44,7 @@ blockmat <- function(...){
   }
   Reduce(rbind,rlist)
 }
+
+log_mvnd <- function(s,logdet,invD){
+  Matrix::drop(-(length(s)/2)*log(2*pi)-0.5*logdet-0.5*Matrix::t(s)%*%invD%*%s)
+}
