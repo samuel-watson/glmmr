@@ -1,3 +1,6 @@
-useDynLib(codco, .registration=TRUE)
+import(Rcpp)
+import(methods)
+importFrom(rstan, sampling)
+useDynLib(glmmr, .registration=TRUE)
 importFrom(Rcpp, evalCpp)
 exportPattern("^[[:alpha:]]+")

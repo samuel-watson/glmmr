@@ -10,8 +10,20 @@ Author@R: c(person("Sam", "Watson", email = "S.I.Watson@bham.ac.uk",
 Maintainer: Sam Watson <S.I.Watson@bham.ac.uk>
 Description: Design analysis tools for any study design that can be represented or modelled as a generalised linear mixed model including cluster randomised trials, cohort studies, spatial and spatio-temporal epidemiological models, and split-plot designs. 
 License: GPL (>= 2)
-Imports: Rcpp (>= 1.0.7)
-LinkingTo: Rcpp, RcppArmadillo
+Imports: 
+    methods,
+    Rcpp (>= 1.0.7),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.18.1),
+    rstantools (>= 2.1.1)
+LinkingTo: 
+    BH (>= 1.66.0),
+    Rcpp (>= 0.12.0),
+    RcppArmadillo,
+    RcppEigen (>= 0.3.3.3.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.18.1),
+    StanHeaders (>= 2.18.0)
 RoxygenNote: 6.0.1
 NeedsCompilation: yes
 Author: Sam Watson [aut, cre],
@@ -20,3 +32,8 @@ URL: https://github.com/ypan1988/jmcm/
 BugReports: https://github.com/ypan1988/jmcm/issues
 Suggests: 
     testthat
+Biarch: true
+Depends: 
+    R (>= 3.4.0)
+SystemRequirements: GNU make
+Encoding: UTF-8
