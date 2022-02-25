@@ -90,6 +90,8 @@ Design <- R6::R6Class("Design",
                         self$mean_function$parameters[[par]] <- old_par
                       } else if(type=="sim"){
                         return(NULL)
+                        #UPDATE!!
+                        
                         # if(parallel){
                         #   cl <- parallel::makeCluster(parallel::detectCores()-2)
                         #   parallel::clusterEvalQ(cl,require(Matrix))
@@ -462,96 +464,6 @@ Design <- R6::R6Class("Design",
                     hash_do = function(){
                       digest::digest(c(self$covariance$.__enclos_env__$private$hash,
                                        self$mean_function$.__enclos_env__$private$hash))
-                    },
-                    lme_est = function(par=NULL,
-                                       value=NULL){
-                      return(NULL)
-                      # lambda <-  Matrix::t(Matrix::chol(self$covariance$D))#,nrow=nrow(self$covariance$D)))
-                      # ncovpar <- length(unlist(self$covariance$parameters))
-                      # nmfpar <- ncol(self$mean_function$X)
-                      # parInds <- list(covar = c(1:ncovpar),
-                      #                 fixef = c((ncovpar+1):(ncovpar+nmfpar)))
-                      # ysim <- self$sim_data(par=par,
-                      #                       value=value)
-                      # dat1 <- cbind(ysim,self$mean_function$data)
-                      # print(summary(lme4::glmer(ysim~int+(1|cl),data=dat1,family=self$mean_function$family)))
-                      # 
-                      # orig_pars <- self$covariance$parameters
-                      # 
-                      # pp <- lme4::merPredD$new(
-                      #   X = self$mean_function$X,
-                      #   Zt = Matrix::t(self$covariance$Z),
-                      #   Lambdat = lambda,
-                      #   Lind = seq_along(lambda@x),
-                      #   theta = lambda@x,
-                      #   n = des$n())
-                      # 
-                      # resp <- lme4::glmResp$new(
-                      #   y = ysim,
-                      #   family = self$mean_function$family)
-                      # 
-                      # updateTheta <- function(pars){
-                      #   # self$covariance$parameters <- relist(self$covariance$parameters,
-                      #   #                           value = pars)[[1]]
-                      #   # self$covariance$check(verbose = FALSE)
-                      #   # newD <- self$covariance$D
-                      #   # newD <- (resp$resDev()/self$n())*(pp$Lambdat%*%Matrix::chol2inv(pp$L())%*%Matrix::t(pp$Lambdat))
-                      #   # cholD <- tryCatch(Matrix::chol(newD),error=function(e)NULL)
-                      #   # if(is.null(cholD)){
-                      #   #   newD <- Matrix::nearPD(newD)
-                      #   #   cholD <- tryCatch(Matrix::chol(newD),error=function(e)print("help!"))
-                      #   # }
-                      #   # Matrix::t(cholD)@x
-                      #   rep(pars,8)
-                      # }
-                      # 
-                      # devfun <- function(pars) {
-                      #   resp$setOffset(rep(0,self$n()))
-                      #   resp$updateMu(rep(0,self$n()))
-                      #   pp$setTheta(as.double(updateTheta(pars[parInds$covar])))
-                      #   spars <- as.numeric(pars[parInds$fixef])
-                      #   resp$setOffset( pp$X %*% spars)
-                      #   p <- lme4::glmerLaplaceHandle(pp$ptr(), resp$ptr(), 1, 1e-6, 30, TRUE)
-                      #   resp$updateWts()
-                      #   p
-                      # }
-                      # 
-                      # opt <- minqa::bobyqa(par = c(rep(0.01,ncovpar),rep(0.1,nmfpar)),
-                      #                      fn = devfun,
-                      #                      lower = c(rep(1e-5,ncovpar),rep(-Inf,nmfpar)))
-                      # 
-                      # 
-                      # # dev1 <- pirls(X = self$mean_function$X,
-                      # #               y=ysim,
-                      # #               Zt = Matrix::t(self$covariance$Z),
-                      # #               Lambdat = lambda,
-                      # #               thfun = updateTheta,
-                      # #               theta = runif(ncovpar,0.01,0.1),
-                      # #               weights = rep(1,self$n()),
-                      # #               offset=rep(0,self$n()),
-                      # #               eta=numeric(self$n()),
-                      # #               family=self$mean_function$family)
-                      # sigma <- (resp$resDev()/self$n())
-                      # beta <- as.numeric(opt$par[parInds$fixef])
-                      # print(sqrt((resp$resDev()/self$n())*diag(pp$unsc())))
-                      # print((resp$resDev()/self$n())*(pp$Lambdat%*%Matrix::crossprod(Matrix::solve(pp$L()))%*%Matrix::t(pp$Lambdat)))
-                      # lambda@x <- rep(opt$par[parInds$covar],8)
-                      # print(Matrix::tcrossprod(lambda))
-                      # 
-                      # if(is.null(opt)){
-                      #   return(data.frame(b=rep(NA,nmfpar),se=rep(NA,nmfpar)))
-                      # } else {
-                      #   
-                      #   se <- sqrt(diag(solve(Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X )))
-                      #   b <- opt$par[parInds$fixef]
-                      #   theta <- c(opt$par[parInds$covar],opt$par[parInds$covar]*(resp$resDev()/self$n()))
-                      #   self$covariance$parameters <- orig_pars
-                      #   self$covariance$check(verbose=FALSE)
-                      #   self$check(verbose=FALSE)
-                      #   
-                      #   return(data.frame(par= c(b,theta),SE = c(se,rep(NA,ncovpar*2))))
-                      # }
-
                     },
                     information_matrix = function(){
                       Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X
