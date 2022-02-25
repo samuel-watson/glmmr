@@ -89,26 +89,27 @@ Design <- R6::R6Class("Design",
                         pwr <- pnorm(value/(sqrt(v0)) - qnorm(1-alpha/2))
                         self$mean_function$parameters[[par]] <- old_par
                       } else if(type=="sim"){
-                        if(parallel){
-                          cl <- parallel::makeCluster(parallel::detectCores()-2)
-                          parallel::clusterEvalQ(cl,require(Matrix))
-                          parallel::clusterEvalQ(cl,require(lme4))
-                          parallel::clusterEvalQ(cl,require(minqa))
-                         ests <- pbapply::pbreplicate(iter, private$lme_est(par=par,
-                                                                            value=value),
-                                                      cl=cl)
-                         parallel::stopCluster(cl)
-                        } else {
-                          ests <- pbapply::pbreplicate(iter, private$lme_est(par=par,
-                                                                             value=value))
-                        }
-                         
-                         ests <- apply(ests,2,function(x)x$par/x$SE)
-                         
-                         ests <- ests[par,]
-                         ests <- (1-pnorm(abs(ests)))*2
-                         pwr <- mean(I(ests < alpha),na.rm=TRUE)
-                         if(any(is.na(ests)))message(paste0("failure to converge in ",length(which(is.na(ests)))," models"))
+                        return(NULL)
+                        # if(parallel){
+                        #   cl <- parallel::makeCluster(parallel::detectCores()-2)
+                        #   parallel::clusterEvalQ(cl,require(Matrix))
+                        #   parallel::clusterEvalQ(cl,require(lme4))
+                        #   parallel::clusterEvalQ(cl,require(minqa))
+                        #  ests <- pbapply::pbreplicate(iter, private$lme_est(par=par,
+                        #                                                     value=value),
+                        #                               cl=cl)
+                        #  parallel::stopCluster(cl)
+                        # } else {
+                        #   ests <- pbapply::pbreplicate(iter, private$lme_est(par=par,
+                        #                                                      value=value))
+                        # }
+                        #  
+                        #  ests <- apply(ests,2,function(x)x$par/x$SE)
+                        #  
+                        #  ests <- ests[par,]
+                        #  ests <- (1-pnorm(abs(ests)))*2
+                        #  pwr <- mean(I(ests < alpha),na.rm=TRUE)
+                        #  if(any(is.na(ests)))message(paste0("failure to converge in ",length(which(is.na(ests)))," models"))
                       }
                       return(pwr)
                     },
@@ -217,6 +218,162 @@ Design <- R6::R6Class("Design",
                       if(verbose)message("Monte Carlo integration")
                       samps <- pbapply::pbreplicate(iter,self$posterior(prior,var,do.call(prior.fun,list())))
                       summary(samps)
+                    },
+                    MCNR = function(y,
+                                            start=c(0,0,1,0.1),
+                                            verbose=TRUE,
+                                            tol = 1e-2,
+                                            m=100,
+                                            bSEonly=TRUE,
+                                            use_cmdstanr=TRUE){
+                      
+                      theta <- start
+                      thetanew <- rep(1,length(theta))
+                      if(verbose)cat("\nStart: ",start,"\n")
+                      iter <- 0
+                      P <- ncol(self$mean_function$X)
+                      parInds <- list(b = c(1:ncol(self$mean_function$X)),
+                                      sig = (ncol(self$mean_function$X)+1),
+                                      cov = c((ncol(self$mean_function$X)+2):(ncol(self$mean_function$X)+1+
+                                                                                length(unlist(self$covariance$parameters)))))
+                      
+                      niter <- m
+                      P = ncol(self$mean_function$X)
+                      Q = ncol(self$covariance$Z)
+                      #covFix <- FALSE
+                      
+                      D_func <- function(pars){
+                        self$covariance$parameters <- relist(self$covariance$parameters,
+                                                             pars)[[1]]
+                        self$check(verbose=FALSE)
+                        logdetD <- 2*sum(log(Matrix::diag(Matrix::chol(self$covariance$D))))
+                        invD <- Matrix::solve(self$covariance$D)
+                        Q <- dim(dsamps)[3]
+                        
+                        dmv <- sapply(1:dim(dsamps)[1],function(i)log_mvnd(as.matrix(dsamps[i,1,]),logdetD,invD))
+                        -mean(dmv)
+                      }
+                      
+                      #parse family
+                      file_type <- mcnr_family(self$mean_function$family)
+                      invfunc <- self$mean_function$family$linkinv
+                      
+                      ## set up sampler
+                      if(use_cmdstanr){
+                        if(!requireNamespace("cmdstanr"))stop("cmdstanr not available")
+                        model_file <- system.file("stan",
+                                                  file_type$file,
+                                                  package = "glmmr",
+                                                  mustWork = TRUE)
+                        mod <- cmdstanr::cmdstan_model(model_file)
+                        
+                      }
+                      while(any(abs(theta-thetanew)>tol)){
+                        iter <- iter + 1
+                        if(verbose)cat("\nIter: ",iter,": ")
+                        thetanew <- theta
+                        
+                        
+                        Xb <- Matrix::drop(self$mean_function$X %*% thetanew[parInds$b])
+                        
+                        data <- list(
+                          N = self$n(),
+                          P = P,
+                          Q = Q,
+                          Xb = Xb,
+                          L = as.matrix(Matrix::t(Matrix::chol(self$covariance$D))),
+                          Z = as.matrix(self$covariance$Z),
+                          y = y,
+                          sigma = thetanew[parInds$sig],
+                          type=as.numeric(file_type$type)
+                        )
+                        
+                        if(use_cmdstanr){
+                          capture.output(fit <- mod$sample(data = data,
+                                                           chains = 1,
+                                                           iter_warmup = 500,
+                                                           iter_sampling = m,
+                                                           refresh = 0),
+                                         file=tempfile())
+                          dsamps <- fit$draws("gamma")
+                        } else {
+                          capture.output(fit <- rstan::sampling(stanmodels[[gsub(".stan","",file_type$file)]],
+                                                                chains = 1,
+                                                                iter_warmup = 500,
+                                                                iter_sampling = m))
+                          dsamps <- extract(fit,"gamma")
+                        }
+                        
+                        
+                        
+                        
+                        resids <- sapply(1:niter, function(i) y-invfunc(Matrix::drop(Xb - self$covariance$Z%*%as.matrix(dsamps[i,1,]))))
+                        
+                        
+                        sigmas <- c(apply(resids,2,sd))
+                        sigmahat <- mean(sigmas)
+                        XtWXlist <- lapply(1:niter,function(i)Matrix::crossprod(self$mean_function$X,Matrix::diag(sigmas[i],self$n()))%*%
+                                             self$mean_function$X)
+                        EXtWX <- Reduce(`+`,XtWXlist)/niter
+                        Wulist <- lapply(1:niter,function(i)Matrix::diag(sigmas[i],self$n())%*%resids[,i])
+                        EWu <- Reduce(`+`,Wulist)/niter
+                        
+                        theta[parInds$b] <-  theta[parInds$b] + Matrix::drop(Matrix::solve(EXtWX)%*%Matrix::t(self$mean_function$X)%*%EWu)
+                        theta[parInds$sig] <- sigmahat
+                        
+                        opts <-  minqa::bobyqa(theta[parInds$cov],
+                                               fn = D_func,
+                                               lower = rep(1e-6,length(parInds$cov)),
+                                               control = list(rhobeg = 0.02,
+                                                              rhoend = 0.02*tol))
+                        
+                        theta[parInds$cov] <- opts$par
+                        
+                        #if(abs(theta[parInds$cov]-thetanew[parInds$cov])<cov_tol)covFix <- TRUE
+                        
+                        if(verbose)cat("\ntheta:",theta)
+                      }
+                      
+                      #need to rewrite L_func for each families likelihood!
+                      L_func <- function(pars){
+                        niter <- dim(dsamps)[1]
+                        dlist <- sapply(1:niter,function(i)self$covariance$Z %*% Matrix::Matrix(dsamps[i,1,]))
+                        zd <- Matrix::drop(Reduce(rbind,dlist))
+                        mu <- rep(Matrix::drop(self$mean_function$X %*% pars[1:P]),niter) + zd
+                        mu <- invfunc(mu)
+                        n <- self$n()
+                        # change density for the model
+                        if(self$mean_function$family[[1]]=="gaussian"){
+                          lf <- log(dnorm(rep(y,niter),mu,theta[parInds$sig]))
+                        } else if(self$mean_function$family[[1]]=="binomial"){
+                          lf <- log(dbinom(rep(y,niter),1,mu))
+                        }
+                        lfa <- aggregate(lf,list(rep(1:niter,each=n)),sum)
+                        -mean(lfa$x)
+                      }
+                      
+                      log_lik <- function(pars){
+                        l1 <- L_func(pars[parInds$b])
+                        l2 <- D_func(pars[parInds$cov])
+                        -l1-l2
+                      }
+                      
+                      #FULL HESSIAN WON'T WORK FOR GLM MODELS AS SIGMA NOT A PARAMETER IN THE MODEL
+                      # HAVE REMOVED FROM SE EVALUATION FOR ALL MODELS FOR NOW
+                      # BUT BETTER TO REPORT ONLY FOR GAUSSIAN MODELS
+                      
+                      if(bSEonly){
+                        hess <- pracma::hessian(function(x)-L_func(x),theta[c(parInds$b)])
+                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
+                        res <- data.frame(par = theta,SE=c(SE,rep(NA,length(parInds$cov)+1)))
+                      } else {
+                        hess <- pracma::hessian(log_lik,theta[c(parInds$b,parInds$cov)])
+                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
+                        res <- data.frame(par = theta[c(parInds$b,parInds$cov,parInds$sig)],SE=c(SE,NA))
+                      }
+                      
+                      
+                      return(res)
                     },
                     posterior = function(prior,
                                          var,

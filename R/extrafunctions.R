@@ -48,3 +48,13 @@ blockmat <- function(...){
 log_mvnd <- function(s,logdet,invD){
   Matrix::drop(-(length(s)/2)*log(2*pi)-0.5*logdet-0.5*Matrix::t(s)%*%invD%*%s)
 }
+
+mcnr_family <- function(family){
+  f1 <- family[[1]]
+  link <- family[[2]]
+  gaussian_list <- c("identity")
+  binomial_list <- c("logit","log","identity","probit")
+  type <- which(get(paste0(f1,"_list"))==link)
+  return(list(file = paste0("mcml_",f1,".stan"),type=type))
+}
+
