@@ -1,14 +1,69 @@
-
+#' R6 Class representing a covariance function and data
+#' 
+#' The covariance is defined by a covariance function, data, and parameters.
+#' A new instance can be generated with $new(). The class will generate the 
+#' relevant matrices Z and D automatically.  
 Covariance <- R6::R6Class("Covariance",
                       public = list(
+                        #' @field data Data frame with data required to build covariance
                         data=NULL,
+                        #' @field formula Covariance function formula. See `help(Covariance$new())` for details.
                         formula = NULL,
+                        #' @field parameters List of lists holding the model parameters. See `help(Covariance$new())` for details.
                         parameters = NULL,
+                        #' @field Z Design matrix
                         Z = NULL,
+                        #' @field D Covariance matrix of the random effects
                         D = NULL,
+                        #' @description 
+                        #' Return the size of the design
+                        #' @return Scalar 
                         n= function(){
                           nrow(self$Z)
                         },
+                        #' @description 
+                        #' Create a new Covariance object
+                        #' @param formula Formula describing the covariance function. See Details
+                        #' @param data Data frame with data required for constructing the covariance.
+                        #' @param parameters List of lists with parameter values for the functions in the model
+                        #' formula. See Details.
+                        #' @param verbose Logical whether to provide detailed output.
+                        #' @details A covariance function is specified as an additive formula made up of 
+                        #' components with structure \code{(1|f(j))}. The left side of the vertical bar 
+                        #' specifies the covariates in the model that have a random effects structure. 
+                        #' The right side of the vertical bar specify the covariance function `f` for 
+                        #' that term using variable named in the data `j`. If there are multiple 
+                        #' covariates on the left side, it is assumed their random effects are 
+                        #' correlated, e.g. \code{(1+x|f(j))}. Additive functions are assumed to be 
+                        #' independent, for example, \code{(1|f(j))+(x|f(j))} would create random effects 
+                        #' with zero correlation for the intercept and the parameter on covariate \code{x}. 
+                        #' Covariance functions on the right side of the vertical bar are multiplied 
+                        #' together, i.e. \code{(1|f(j)*g(t))}. 
+                        #' 
+                        #' There are several common functions included for a named variable in data \code{x},
+                        #' see respective help files for the functions for parameterisation:
+                        #' * \code{gr(x)}: Indicator function   
+                        #' * \code{fexp(x)}: Exponential function
+                        #' * \code{pexp(x)}: Power function
+                        #' 
+                        #' One can add other functions by specifying a function that takes a list as an 
+                        #' argument with first element called data that contains the data, and a second 
+                        #' element called pars that contains the parameters as a vector.
+                        #' 
+                        #' Parameters are provided to the covariance function as a list of lists. 
+                        #' The elements of the list should be lists corresponding to the additive elements of the 
+                        #' covariance function. Each of those lists should have elements that are vectors or scalars 
+                        #' providing the values of the parameters for each function in the order they are written. 
+                        #' For example,
+                        #' * Formula: `~(1|gr(j))+(1|gr(j)*gr(t))`; parameters: `list(list(0.05),list(1,0.01))`
+                        #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `list(list(0.05,c(1,0.8)))`
+                        #' @return A Covariance object
+                        #' @seealso \code{gr}, \code{fexp}, \code{pexp}
+                        #' @examples 
+                        #' df <- nelder(~(cl(5)*t(5)) > ind(5))
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       data= df)
                         initialize = function(formula=NULL,
                                               data = NULL,
                                               parameters= NULL,
@@ -23,6 +78,17 @@ Covariance <- R6::R6Class("Covariance",
                             private$cov_form()
                           }
                         },
+                        #' @description 
+                        #' Check if anything has changed and update matrices if so.
+                        #' @param verbose Logical whether to report if any changes detected.
+                        #' @return NULL
+                        #' @examples 
+                        #' df <- nelder(~(cl(5)*t(5)) > ind(5))
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       data= df)
+                        #' cov$parameters <- list(list(0.01,0.1))
+                        #' cov$check(verbose=FALSE)
                         check = function(verbose=TRUE){
                           new_hash <- private$hash_do()
                           if(private$hash[1] != new_hash[1]){
@@ -35,8 +101,16 @@ Covariance <- R6::R6Class("Covariance",
 
                           invisible(self)
                         },
+                        #' @description 
+                        #' Show details of Covariance object
+                        #' @param ... ignored
+                        #' @examples
+                        #' df <- nelder(~(cl(5)*t(5)) > ind(5))
+                        #' Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       data= df)
                         print = function(){
-                          # MAKE CLEARER ABOUT FUNCTIONS AND PARAMETERS
+                          # MAKE CLEARER ABOUT FUNCTIONS AND PARAMETERS?
 
                           cat("Covariance\n")
                           print(self$formula)
@@ -44,10 +118,33 @@ Covariance <- R6::R6Class("Covariance",
                           print(unlist(self$parameters))
                           #print(head(self$data))
                         },
+                        #' @description 
+                        #' Keep specified indices and removes the rest
+                        #' @param index vector of indices to keep
+                        #' @examples 
+                        #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       data= df)
+                        #' cov$subset(1:100)                     
                         subset = function(index){
                           self$data <- self$data[index,]
                           self$check()
                         },
+                        #' @description 
+                        #' Generate a new D matrix
+                        #' 
+                        #' @details 
+                        #' D is the covariance matrix of the random effects terms in the generalised linear mixed
+                        #' model. This function will return a matrix D for a given set of parameters.
+                        #' @param parameters list of lists, see initialize()
+                        #' @return matrix 
+                        #' @examples 
+                        #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       data= df)
+                        #' cov$sampleD(list(list(0.01,0.1)))
                         sampleD = function(parameters){
                           return(private$genD(update = FALSE,
                                               new_pars = parameters))
