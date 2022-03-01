@@ -285,7 +285,7 @@ Covariance <- R6::R6Class("Covariance",
                           D <- do.call(Matrix::bdiag,D.sublist)
 
                           #add warning if number of re > n
-
+                          if(nrow(self$Z) < ncol(self$Z))warning("More random effects than observations")
 
                           if(update){
                             self$D <- D

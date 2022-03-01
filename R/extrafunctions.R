@@ -1,7 +1,26 @@
-
-
-# function to identify group membership
+#' Generate matrix mapping between data frames
+#' 
+#' For a data frames `x` and `target`, the function will return a matrix mapping the rows of
+#' `x` to those of `target`.
+#' 
+#' @details 
+#' `x` is a data frame with n rows and `target` a data frame with m rows. This function will
+#' return a n times m matrix that maps the rows of `x` to those of `target` based on the values
+#' in the columns specified by the argument `by`
+#' 
+#' @param x data.frame 
+#' @param target data.frame to map to
+#' @param by vector of strings naming columns in `x` and `target`
+#' @return A matrix with nrow(x) rows and nrow(target) columns
+#' @examples 
+#' df <- nelder(~(cl(10)*t(5)) > ind(10))
+#' df_unique <- df[!duplicated(df[,c('cl','t')]),]
+#' match_rows(df,df_unique,c('cl','t'))
+#' @export
 match_rows <- function(x,target,by){
+  if(!is(x,"data.frame")|!is(target,"data.frame"))stop("x and target must be data frames")
+  if(!all(by%in%colnames(x))|!all(by%in%colnames(target)))stop("by must contain column names of x and target")
+  
   if(ncol(target)==1){
     tstr <- target[,by]
     xstr <- x[,by]
@@ -15,23 +34,70 @@ match_rows <- function(x,target,by){
   return(Z)
 }
 
-## model non-linear functons below
-
+#' Exponential covariance function
+#' 
+#' Exponential covariance function
+#' 
+#' @details 
+#' The function:
+#' 
+#' \dexp{f(x) = \theta_1*exp(-\theta_2*x)}
+#' 
+#' @param x A list with named elements `pars` and `data`. `pars` is a vector with two parameter values, and
+#' `data` is the data `x`
+#' @return vector of values of the function
+#' @examples 
+#' fexp(list(pars = c(1,0.2),data=runif(10)))
+#' @export
 fexp <- function(x){
   if(length(x$pars)!=2)stop("two parameters required for fexp")
   x$pars[1]*exp(-x$pars[2]*x$data)
 }
 
+#' Power exponential covariance function
+#' 
+#' Power exponential covariance function
+#' 
+#' @details 
+#' The function:
+#' 
+#' \dexp{f(x) = \theta_1^x}
+#' 
+#' @param x A list with named elements `pars` and `data`. `pars` is a vector with one parameter value, and
+#' `data` is the data `x`
+#' @return vector of values of the function
+#' @examples 
+#' fexp(list(pars = c(0.8),data=runif(10)))
+#' @export
 pexp <- function(x){
   x$pars[1]^x$data
 }
 
+#' Group indicator covariance function
+#' 
+#' Group indicator covariance function
+#' 
+#' @details 
+#' The function:
+#' 
+#' \dexp{f(x) = 1(x==0)*\theta_1}
+#' 
+#' @param x A list with named elements `pars` and `data`. `pars` is a vector with one parameter value, and
+#' `data` is the data `x`
+#' @return vector of values of the function
+#' @examples 
+#' fexp(list(pars = c(0.8),data=c(0,1,0,2,3,4,0)))
+#' @export
 gr <- function(x){
   I(x$data==0)*x$pars[1]^2
 }
 
-## create block matrix
-
+#' Create block matrix
+#' 
+#' Create a block matrix from the inputs
+#' 
+#' @details 
+#' Takes a sequence of matrices and produces a block matrix. 
 blockmat <- function(...){
   matlist <- list(...)
   n <- length(matlist)
@@ -40,15 +106,30 @@ blockmat <- function(...){
   for(i in 1:n){
     N <- (N+1)%%n
     N[N==0] <- n
-    rlist[[i]] <- Reduce(cbind,matlist[N])
+    if(i<n)matlistt <- matlist[N]
+    rlist[[i]] <- Reduce(cbind,matlistt[N])
   }
   Reduce(rbind,rlist)
 }
 
+#' Log density of multivariate normal distribution
+#' 
+#' Log density of multivariate normal distribution
+#' 
+#' @param s vector of observed values
+#' @param logdet log determinant of the covariance matrix
+#' @param invD inverse of the covariance matrix
+#' @return Matrix
 log_mvnd <- function(s,logdet,invD){
   Matrix::drop(-(length(s)/2)*log(2*pi)-0.5*logdet-0.5*Matrix::t(s)%*%invD%*%s)
 }
 
+#' Returns the file name and type for MCNR function
+#' 
+#' Returns the file name and type for MCNR function
+#' 
+#' @param family family object
+#' @return list with filename and type
 mcnr_family <- function(family){
   f1 <- family[[1]]
   link <- family[[2]]
