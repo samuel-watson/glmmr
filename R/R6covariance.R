@@ -1,8 +1,15 @@
 #' R6 Class representing a covariance function and data
 #' 
-#' The covariance is defined by a covariance function, data, and parameters.
+#' For the generalised linear mixed model 
+#' 
+#' \deqn{Y \sim F(\mu,\sigma)}
+#' \deqn{\mu = h^-1(X\beta + Z\gamma)}
+#' \deqn{\gamma \sim MVN(0,D)}
+#' 
+#' where h is the link function, this class defines Z and D. The covariance is defined by a covariance function, data, and parameters.
 #' A new instance can be generated with $new(). The class will generate the 
 #' relevant matrices Z and D automatically.  
+#' @export
 Covariance <- R6::R6Class("Covariance",
                       public = list(
                         #' @field data Data frame with data required to build covariance
