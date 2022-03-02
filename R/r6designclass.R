@@ -133,13 +133,13 @@ Design <- R6::R6Class("Design",
                       if(type=="sim_data")out <- private$sim_data
                       
                       #process and generate the outputs!
-                      .prnt.errors(.summarize.errors(out,
+                      prnt.errors(summarize.errors(out,
                                                      par = par,
                                                      true = self$mean_function$parameters[par],
                                                      alpha=alpha),
                                    digits = digits)
                       
-                      .prnt.stats(.summarize.stats(out,
+                      prnt.stats(summarize.stats(out,
                                                    par = par),
                                   digits=2)
                       
