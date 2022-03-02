@@ -139,3 +139,34 @@ mcnr_family <- function(family){
   return(list(file = paste0("mcml_",f1,".stan"),type=type))
 }
 
+#' Generate a list of a given structure with new values
+#' 
+#' Generate a list of a given structure with new values
+#' 
+#' @param lst List whose structure will be replicated with the new values
+#' @param value vector of values to replace in `lst`. The order of replacement is given by `unlist(lst)`
+#' @param p Used internally to track level of recursion
+#' @return A list of the same structure as `lst` but with the values given by `value`
+#' @examples 
+#' df <- nelder(~(cl(5)*t(5)) > ind(5))
+#' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+#'                       parameters = list(list(0.05,0.8)),
+#'                       data= df)
+#' cov$parameters <- relist(cov$parameters,
+#'                          c(0.01,0.5))
+#' @export
+relist <- function(lst,value,p=0){
+  if(is(lst,"list")){
+    for(i in 1:length(lst)){
+      out <- Recall(lst[[i]],value,p=p)
+      lst[[i]] <- out[[1]]
+      p <- out[[2]]
+    }
+  } else {
+    for(i in 1:length(lst)){
+      lst[i] <- value[p+1]
+      p <- p + 1
+    }
+  }
+  return(list(lst,p))
+}

@@ -68,7 +68,7 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           check = function(verbose=TRUE){
                             if(private$hash != private$hash_do()){
                               if(verbose)message("changes found, updating")
-                              self$generate()
+                              private$generate()
                             }},
                           #' @description 
                           #' Create a new MeanFunction object

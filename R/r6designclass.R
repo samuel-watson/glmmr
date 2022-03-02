@@ -60,6 +60,36 @@ Design <- R6::R6Class("Design",
                     n = function(){
                       self$mean_function$n()
                     },
+                    xsq = function(x){
+                      re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
+                      mu <- c(drop(as.matrix(self$mean_function$X)%*%self$mean_function$parameters)) + as.matrix(self$covariance$Z%*%re)
+                      #y <- rbinom(self$n(),1,exp(mu)/(1+exp(mu)))
+                      f <- self$mean_function$family
+                      if(f[1]=="poisson"){
+                        if(f[2]=="log"){
+                          y <- rpois(self$n(),exp(mu))
+                        }
+                        if(f[2]=="identity"){
+                          y <- rpois(self$n(),mu)
+                        }
+                      }
+
+                      if(f[1]=="binomial"){
+                        if(f[2]=="logit"){
+                          y <- rbinom(self$n(),1,exp(mu)/(1+exp(mu)))
+                        }
+                        if(f[2]=="log"){
+                          y <- rbinom(self$n(),1,exp(mu))
+                        }
+                        if(f[2]=="identity"){
+                          y <- rbinom(self$n(),1,mu)
+                        }
+                        if(f[2]=="probit"){
+                          y <- rbinom(self$n(),1,pnorm(mu))
+                        }
+                      }
+                      return(y)
+                    },
                     generate = function(){
                       # add check for var par with gaussian family
 
@@ -69,6 +99,52 @@ Design <- R6::R6Class("Design",
                       private$genS(D = self$covariance$D,
                                    Z = self$covariance$Z,
                                    W = private$W)
+                    },
+                    analysis = function(type,
+                                        iter,
+                                        par,
+                                        alpha = 0.05,
+                                        parallel,
+                                        verbose = TRUE,
+                                        digits = 2,
+                                        ...){
+                      
+                      if(type=="sim_data"&is.null(private$sim_data))stop("no simulation data saved in object")
+                      if(type=="sim"){
+                        if(parallel){
+                          cl <- parallel::makeCluster(parallel::detectCores()-1)
+                          parallel::clusterEvalQ(cl,library(Matrix))
+                          #change when package built!
+                          parallel::clusterEvalQ(cl,devtools::load_all())
+                          # out <- parallel::parLapply(cl,
+                          #                            1:10,
+                          #                            function(i)self$gen_sim_data(m=m))
+                          out <- pbapply::pblapply(1:iter,
+                                                   function(i)private$gen_sim_data(...),
+                                                   cl=cl)
+                          parallel::stopCluster(cl)
+                        } else {
+                          out <- pbapply::pblapply(1:iter,
+                                                   function(i)private$gen_sim_data(...))
+                        }
+                        if(verbose)message("saving simulation data")
+                        private$sim_data <- out
+                      }
+                      if(type=="sim_data")out <- private$sim_data
+                      
+                      #process and generate the outputs!
+                      .prnt.errors(.summarize.errors(out,
+                                                     par = par,
+                                                     true = self$mean_function$parameters[par],
+                                                     alpha=alpha),
+                                   digits = digits)
+                      
+                      .prnt.stats(.summarize.stats(out,
+                                                   par = par),
+                                  digits=2)
+                      
+                      return(out)
+                      
                     },
                     power = function(par,
                                      value,
@@ -142,17 +218,15 @@ Design <- R6::R6Class("Design",
                           scale_color_viridis_c(name=treat)+
                           scale_size_area()
                       }},
-                    sim_data = function(type = "y",
-                                        par=NULL,
-                                        value=NULL){
-                      if(!is.null(par)){
-                        if(is.null(value))stop("set parameter value")
-                        orig_par <- self$mean_function$parameters[par]
-                        self$mean_function$parameters[par] <- value
-                        self$mean_function$check(verbose = FALSE)
-                      }
+                    sim_data = function(type = "y"){
+                      # if(!is.null(par)){
+                      #   if(is.null(value))stop("set parameter value")
+                      #   orig_par <- self$mean_function$parameters[par]
+                      #   self$mean_function$parameters[par] <- value
+                      #   self$mean_function$check(verbose = FALSE)
+                      # }
                       re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
-                      mu <- c(drop(self$mean_function$.__enclos_env__$private$Xb)) + as.matrix(self$covariance$Z%*%re)
+                      mu <- c(drop(as.matrix(self$mean_function$X)%*%self$mean_function$parameters)) + as.matrix(self$covariance$Z%*%re)
                       
                       f <- self$mean_function$family
                       if(f[1]=="poisson"){
@@ -198,12 +272,13 @@ Design <- R6::R6Class("Design",
                           y <- rgamma(self$n(),shape = 1/(mu*self$var_par),rate = 1/self$var_par)
                         }
                       }
-                      if(!missing(par)){
-                        self$mean_function$parameters[par]<-orig_par
-                        self$check(verbose = FALSE)
-                      }
-                      if(type=="y")return(y)
-                      if(type=="data.frame")return(cbind(y,self$data$data,self$covariance$location))
+                      # if(!missing(par)){
+                      #   self$mean_function$parameters[par]<-orig_par
+                      #   self$check(verbose = FALSE)
+                      # }
+                      if(type=="data.frame")y <- cbind(y,self$data$data,self$covariance$location)
+                      return(y)
+                      
                     },
                     check = function(verbose=TRUE){
                       self$covariance$check(verbose=verbose)
@@ -222,27 +297,55 @@ Design <- R6::R6Class("Design",
                       summary(samps)
                     },
                     MCNR = function(y,
-                                            start=c(0,0,1,0.1),
-                                            verbose=TRUE,
-                                            tol = 1e-2,
-                                            m=100,
-                                            bSEonly=TRUE,
-                                            use_cmdstanr=TRUE){
+                                    start,
+                                    verbose=TRUE,
+                                    tol = 1e-2,
+                                    m=100,
+                                    options = list()){
+                     
+                      #set options
+                      if(!is(options,"list"))stop("options should be a list")
+                      b_se_only <- ifelse("b_se_only"%in%names(options),options$b_se_only,FALSE)
+                      use_cmdstanr <- ifelse("use_cmdstanr"%in%names(options),options$use_cmdstanr,FALSE)
+                      skip_cov_optim <- ifelse("skip_cov_optim"%in%names(options),options$skip_cov_optim,FALSE)
+                      
+                      P <- ncol(self$mean_function$X)
+                      R <- length(unlist(self$covariance$parameters))
+                      
+                      family <- self$mean_function$family[[1]]
+                      
+                      parInds <- list(b = 1:P,
+                                      cov = (P+1):(P+R),
+                                      sig = P+R+1)
+                      
+                      #check starting values
+                      if(family%in%c("gaussian")){
+                        if(missing(start)){
+                          start <- c(self$mean_function$parameters,unlist(self$covariance$parameters),self$var_par)
+                        }
+                        if(length(start)!=(P+R+1))stop("wrong number of starting values")
+                        all_pars <- 1:(P+R+1)
+                      }
+                      
+                      if(family%in%c("binomial")){
+                        if(!missing(start)){
+                          if(length(start)!=(P+R)){
+                            stop("wrong number of starting values")
+                          }
+                        } else {
+                          if(verbose)message("starting values not set, setting defaults")
+                          start <- c(self$mean_function$parameters,unlist(self$covariance$parameters))
+                        }
+                        start <- c(start,1)
+                        all_pars <- 1:(P+R)
+                      }
                       
                       theta <- start
                       thetanew <- rep(1,length(theta))
-                      if(verbose)cat("\nStart: ",start,"\n")
+                      if(verbose)cat("\nStart: ",start[all_pars],"\n")
                       iter <- 0
-                      P <- ncol(self$mean_function$X)
-                      parInds <- list(b = c(1:ncol(self$mean_function$X)),
-                                      sig = (ncol(self$mean_function$X)+1),
-                                      cov = c((ncol(self$mean_function$X)+2):(ncol(self$mean_function$X)+1+
-                                                                                length(unlist(self$covariance$parameters)))))
-                      
                       niter <- m
-                      P = ncol(self$mean_function$X)
                       Q = ncol(self$covariance$Z)
-                      #covFix <- FALSE
                       
                       D_func <- function(pars){
                         self$covariance$parameters <- relist(self$covariance$parameters,
@@ -252,7 +355,7 @@ Design <- R6::R6Class("Design",
                         invD <- Matrix::solve(self$covariance$D)
                         Q <- dim(dsamps)[3]
                         
-                        dmv <- sapply(1:dim(dsamps)[1],function(i)log_mvnd(as.matrix(dsamps[i,1,]),logdetD,invD))
+                        dmv <- sapply(1:dim(dsamps)[1],function(i)log_mvnd(dsamps[i,],logdetD,invD))
                         -mean(dmv)
                       }
                       
@@ -298,18 +401,18 @@ Design <- R6::R6Class("Design",
                                                            refresh = 0),
                                          file=tempfile())
                           dsamps <- fit$draws("gamma")
+                          dsamps <- matrix(dsamps[,1,],ncol=Q)
                         } else {
-                          capture.output(fit <- rstan::sampling(stanmodels[[gsub(".stan","",file_type$file)]],
+                          capture.output(suppressWarnings(fit <- rstan::sampling(stanmodels[[gsub(".stan","",file_type$file)]],
+                                                                data = data,
                                                                 chains = 1,
-                                                                iter_warmup = 500,
-                                                                iter_sampling = m))
-                          dsamps <- extract(fit,"gamma")
+                                                                warmup = 500,
+                                                                iter = 500+m)))
+                          dsamps <- rstan::extract(fit,"gamma",permuted=FALSE)
+                          dsamps <- matrix(dsamps[,1,],ncol=Q)
                         }
                         
-                        
-                        
-                        
-                        resids <- sapply(1:niter, function(i) y-invfunc(Matrix::drop(Xb - self$covariance$Z%*%as.matrix(dsamps[i,1,]))))
+                        resids <- sapply(1:niter, function(i) y-invfunc(Matrix::drop(Xb - self$covariance$Z%*%Matrix::Matrix(dsamps[i,]))))
                         
                         
                         sigmas <- c(apply(resids,2,sd))
@@ -323,40 +426,40 @@ Design <- R6::R6Class("Design",
                         theta[parInds$b] <-  theta[parInds$b] + Matrix::drop(Matrix::solve(EXtWX)%*%Matrix::t(self$mean_function$X)%*%EWu)
                         theta[parInds$sig] <- sigmahat
                         
-                        opts <-  minqa::bobyqa(theta[parInds$cov],
-                                               fn = D_func,
-                                               lower = rep(1e-6,length(parInds$cov)),
-                                               control = list(rhobeg = 0.02,
-                                                              rhoend = 0.02*tol))
+                        if(!skip_cov_optim){
+                          opts <-  minqa::bobyqa(theta[parInds$cov],
+                                                 fn = D_func,
+                                                 lower = rep(1e-6,length(parInds$cov)),
+                                                 control = list(rhobeg = 0.02,
+                                                                rhoend = 0.02*tol))
+                          
+                          theta[parInds$cov] <- opts$par
+                        }
                         
-                        theta[parInds$cov] <- opts$par
-                        
-                        #if(abs(theta[parInds$cov]-thetanew[parInds$cov])<cov_tol)covFix <- TRUE
-                        
-                        if(verbose)cat("\ntheta:",theta)
+                        if(verbose)cat("\ntheta:",theta[all_pars])
                       }
                       
                       #need to rewrite L_func for each families likelihood!
-                      L_func <- function(pars){
+                      L_func <- function(pars,family){
                         niter <- dim(dsamps)[1]
-                        dlist <- sapply(1:niter,function(i)self$covariance$Z %*% Matrix::Matrix(dsamps[i,1,]))
+                        dlist <- sapply(1:niter,function(i)self$covariance$Z %*% Matrix::Matrix(dsamps[i,]))
                         zd <- Matrix::drop(Reduce(rbind,dlist))
                         mu <- rep(Matrix::drop(self$mean_function$X %*% pars[1:P]),niter) + zd
                         mu <- invfunc(mu)
                         n <- self$n()
                         # change density for the model
-                        if(self$mean_function$family[[1]]=="gaussian"){
-                          lf <- log(dnorm(rep(y,niter),mu,theta[parInds$sig]))
-                        } else if(self$mean_function$family[[1]]=="binomial"){
+                        if(family=="gaussian"){
+                          lf <- log(dnorm(rep(y,niter),mu,pars[P+1]))
+                        } else if(family=="binomial"){
                           lf <- log(dbinom(rep(y,niter),1,mu))
                         }
                         lfa <- aggregate(lf,list(rep(1:niter,each=n)),sum)
                         -mean(lfa$x)
                       }
                       
-                      log_lik <- function(pars){
-                        l1 <- L_func(pars[parInds$b])
-                        l2 <- D_func(pars[parInds$cov])
+                      log_lik <- function(pars,L,family){
+                        l1 <- L_func(pars[1:L],family=family)
+                        l2 <- D_func(pars[(L+1):length(pars)])
                         -l1-l2
                       }
                       
@@ -364,14 +467,35 @@ Design <- R6::R6Class("Design",
                       # HAVE REMOVED FROM SE EVALUATION FOR ALL MODELS FOR NOW
                       # BUT BETTER TO REPORT ONLY FOR GAUSSIAN MODELS
                       
-                      if(bSEonly){
-                        hess <- pracma::hessian(function(x)-L_func(x),theta[c(parInds$b)])
-                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
-                        res <- data.frame(par = theta,SE=c(SE,rep(NA,length(parInds$cov)+1)))
+                      if(verbose)cat("\n\nCalculating standard errors...\n")
+                      
+                      if(family%in%c("gaussian")){
+                        mf_pars <- theta[c(parInds$b,parInds$sig)]
+                        mf_pars_names <- c(paste0("b",1:P),"sigma")
                       } else {
-                        hess <- pracma::hessian(log_lik,theta[c(parInds$b,parInds$cov)])
+                        mf_pars <- theta[c(parInds$b)]
+                        mf_pars_names <- c(paste0("b",1:P))
+                      }
+                      
+                      cov_pars_names <- paste0("cov",1:R)
+                      
+                      if(b_se_only){
+                        hess <- pracma::hessian(function(x,family)-L_func(x,family),
+                                                mf_pars,
+                                                family=family)
                         SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
-                        res <- data.frame(par = theta[c(parInds$b,parInds$cov,parInds$sig)],SE=c(SE,NA))
+                        res <- data.frame(par = c(mf_pars_names,cov_pars_names),
+                                          est = c(mf_pars,theta[parInds$cov]),
+                                          SE=c(SE,rep(NA,length(parInds$cov) )))
+                      } else {
+                        hess <- pracma::hessian(log_lik,
+                                                c(mf_pars,theta[parInds$cov]),
+                                                L = length(mf_pars),
+                                                family = family)
+                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
+                        res <- data.frame(par = c(mf_pars_names,cov_pars_names),
+                                          est = c(mf_pars,theta[parInds$cov]),
+                                          SE=SE)
                       }
                       
                       
@@ -460,6 +584,12 @@ Design <- R6::R6Class("Design",
                       }
 
                     },
+                    saved_sim_data = NULL,
+                    gen_sim_data = function(...){
+                      ysim <- self$sim_data()
+                      res <- do.call(self$MCNR,list(y=ysim,verbose=FALSE,...))
+                      return(res[,c('est','SE')])
+                    },
                     hash = NULL,
                     hash_do = function(){
                       digest::digest(c(self$covariance$.__enclos_env__$private$hash,
@@ -469,22 +599,5 @@ Design <- R6::R6Class("Design",
                       Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X
                     }
                   ))
-
-
-relist <- function(lst,value,p=0){
-  if(is(lst,"list")){
-    for(i in 1:length(lst)){
-      out <- Recall(lst[[i]],value,p=p)
-      lst[[i]] <- out[[1]]
-      p <- out[[2]]
-    }
-  } else {
-    for(i in 1:length(lst)){
-      lst[i] <- value[p+1]
-      p <- p + 1
-    }
-  }
-  return(list(lst,p))
-}
 
 
