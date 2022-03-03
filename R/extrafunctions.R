@@ -135,6 +135,7 @@ mcnr_family <- function(family){
   link <- family[[2]]
   gaussian_list <- c("identity")
   binomial_list <- c("logit","log","identity","probit")
+  poisson_list <- c("log")
   type <- which(get(paste0(f1,"_list"))==link)
   return(list(file = paste0("mcml_",f1,".stan"),type=type))
 }

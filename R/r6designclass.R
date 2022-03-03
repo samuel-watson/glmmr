@@ -301,6 +301,7 @@ Design <- R6::R6Class("Design",
                                     verbose=TRUE,
                                     tol = 1e-2,
                                     m=100,
+                                    max.iter = 30,
                                     options = list()){
                      
                       #set options
@@ -308,6 +309,7 @@ Design <- R6::R6Class("Design",
                       b_se_only <- ifelse("b_se_only"%in%names(options),options$b_se_only,FALSE)
                       use_cmdstanr <- ifelse("use_cmdstanr"%in%names(options),options$use_cmdstanr,FALSE)
                       skip_cov_optim <- ifelse("skip_cov_optim"%in%names(options),options$skip_cov_optim,FALSE)
+                      skip_se <- ifelse("skip_se"%in%names(options),options$skip_se,FALSE)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -327,7 +329,7 @@ Design <- R6::R6Class("Design",
                         all_pars <- 1:(P+R+1)
                       }
                       
-                      if(family%in%c("binomial")){
+                      if(family%in%c("binomial","poisson")){
                         if(!missing(start)){
                           if(length(start)!=(P+R)){
                             stop("wrong number of starting values")
@@ -373,7 +375,7 @@ Design <- R6::R6Class("Design",
                         mod <- cmdstanr::cmdstan_model(model_file)
                         
                       }
-                      while(any(abs(theta-thetanew)>tol)){
+                      while(any(abs(theta-thetanew)>tol)&iter <= max.iter){
                         iter <- iter + 1
                         if(verbose)cat("\nIter: ",iter,": ")
                         thetanew <- theta
@@ -452,6 +454,8 @@ Design <- R6::R6Class("Design",
                           lf <- log(dnorm(rep(y,niter),mu,pars[P+1]))
                         } else if(family=="binomial"){
                           lf <- log(dbinom(rep(y,niter),1,mu))
+                        } else if(family=="poisson"){
+                          lf <- log(dpois(rep(y,niter),mu))
                         }
                         lfa <- aggregate(lf,list(rep(1:niter,each=n)),sum)
                         -mean(lfa$x)
@@ -479,25 +483,48 @@ Design <- R6::R6Class("Design",
                       
                       cov_pars_names <- paste0("cov",1:R)
                       
-                      if(b_se_only){
-                        hess <- pracma::hessian(function(x,family)-L_func(x,family),
-                                                mf_pars,
-                                                family=family)
-                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
-                        res <- data.frame(par = c(mf_pars_names,cov_pars_names),
-                                          est = c(mf_pars,theta[parInds$cov]),
-                                          SE=c(SE,rep(NA,length(parInds$cov) )))
+                      if(!skip_se){
+                        if(b_se_only){
+                          hess <- tryCatch(pracma::hessian(function(x,family)-L_func(x,family),
+                                                           mf_pars,
+                                                           family=family),error=function(e)NULL)
+                          if(!is.null(hess)){
+                            SE <- tryCatch(sqrt(Matrix::diag(Matrix::solve(-hess))),error=function(e)rep(NA,length(mf_pars)))
+                          } else {
+                            SE <- rep(NA,length(mf_pars))
+                          }
+                          
+                          res <- data.frame(par = c(mf_pars_names,cov_pars_names),
+                                            est = c(mf_pars,theta[parInds$cov]),
+                                            SE=c(SE,rep(NA,length(parInds$cov) )))
+                        } else {
+                          hess <- tryCatch(pracma::hessian(log_lik,
+                                                           c(mf_pars,theta[parInds$cov]),
+                                                           L = length(mf_pars),
+                                                           family = family),error=function(e)NULL)
+                          if(!is.null(hess)){
+                            SE <- tryCatch(sqrt(Matrix::diag(Matrix::solve(-hess))),error=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)))
+                          } else {
+                            SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
+                          }
+                          res <- data.frame(par = c(mf_pars_names,cov_pars_names),
+                                            est = c(mf_pars,theta[parInds$cov]),
+                                            SE=SE)
+                        }
+                        
+                        if(any(is.na(res$SE[1:P]))){
+                          warning("Hessian was not positive definite, using approximation")
+                          self$check(verbose=FALSE)
+                          res$SE[1:P] <- sqrt(Matrix::diag(Matrix::solve(private$information_matrix())))
+                        }
+                          
                       } else {
-                        hess <- pracma::hessian(log_lik,
-                                                c(mf_pars,theta[parInds$cov]),
-                                                L = length(mf_pars),
-                                                family = family)
-                        SE <- sqrt(Matrix::diag(Matrix::solve(-hess)))
                         res <- data.frame(par = c(mf_pars_names,cov_pars_names),
                                           est = c(mf_pars,theta[parInds$cov]),
-                                          SE=SE)
+                                          SE=NA)
                       }
                       
+                      if(iter >= max.iter|any(abs(theta-thetanew)>tol))warning("not converged")
                       
                       return(res)
                     },

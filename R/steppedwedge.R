@@ -39,18 +39,18 @@ stepped_wedge <- function(J,
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){
       f1 <- "~(1|gr(J))"
-      pars <- list(list(bp_var))
+      pars <- list(list(sqrt(bp_var)))
     } else {
       f1 <- "~(1|gr(J)) + (1|gr(ind))"
-      pars <- list(list(bp_var),list(ind_var))
+      pars <- list(list(sqrt(bp_var)),list(sqrt(ind_var)))
     }
   } else {
     if(is.null(iac[1]) || is.na(iac[1])){
-      f1 <- "~ (1|gr(J)) + (1|gr(J)*gr(t))"
-      pars <- list(list(bp_var),list(1,wp_var))
+      f1 <- "~ (1|gr(J)) + (1|gr(J*t))"
+      pars <- list(list(sqrt(bp_var)),list(sqrt(wp_var)))
     } else {
-      f1 <- "~ (1|gr(J)) + (1|gr(J)*gr(t)) + (1|gr(ind))"
-      pars <- list(list(bp_var),list(1,wp_var),list(ind_var))
+      f1 <- "~ (1|gr(J)) + (1|gr(J*t)) + (1|gr(ind))"
+      pars <- list(list(sqrt(bp_var)),list(sqrt(wp_var)),list(sqrt(ind_var)))
     }
   }
   
@@ -64,7 +64,7 @@ stepped_wedge <- function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = as.list(c(rep(0,t+1)))
+      parameters = c(rep(0,t+1))
       
     ),
     var_par = sigma
