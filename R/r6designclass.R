@@ -108,6 +108,26 @@ Design <- R6::R6Class("Design",
                         if(verbose)message("saving simulation data")
                         private$saved_sim_data <- out
                       }
+                      if(type == "sim_approx"){
+                        if(parallel){
+                          cl <- parallel::makeCluster(parallel::detectCores()-1)
+                          parallel::clusterEvalQ(cl,library(Matrix))
+                          #change when package built!
+                          parallel::clusterEvalQ(cl,devtools::load_all())
+                          # out <- parallel::parLapply(cl,
+                          #                            1:10,
+                          #                            function(i)self$gen_sim_data(m=m))
+                          out <- pbapply::pblapply(1:iter,
+                                                   function(i)private$gen_sim_data_approx(par=par),
+                                                   cl=cl)
+                          parallel::stopCluster(cl)
+                        } else {
+                          out <- pbapply::pblapply(1:iter,
+                                                   function(i)private$gen_sim_data_approx(par=par))
+                        }
+                        if(verbose)message("saving simulation data")
+                        private$saved_sim_data <- out
+                      }
                       if(type=="sim_data")out <- private$saved_sim_data
                       
                       #process and generate the outputs!
@@ -611,7 +631,7 @@ Design <- R6::R6Class("Design",
                         self$check(verbose = FALSE)
                         
                         nid <- nid[-maxid]
-                        
+                        iter <- iter+1
                         # check significance
                         if(pval[par] >= alpha & is.null(sig)){
                           sig <- iter
@@ -626,7 +646,7 @@ Design <- R6::R6Class("Design",
                           attr(sigsign,"id") <- which(!c(1:n)%in%nid)
                         }
                         
-                        iter <- iter+1
+                        
                         if(verbose)cat("\rIteration: ",iter)
                         
                       }
@@ -728,6 +748,20 @@ Design <- R6::R6Class("Design",
                       # choose mcem for glmm and mcnr for lmm
                       res <- do.call(self$MCML,list(y=ysim,verbose=TRUE,options= list(method="mcem",
                                                                                       no_warnings=TRUE),...))
+                      dfb <- self$dfbeta(y=ysim,
+                                         par = par,
+                                         b_hat = res[grepl("b",res$par),'est'])
+                      
+                      return(list(res,dfb))
+                    },
+                    gen_sim_data_approx = function(par,
+                                            ...){
+                      
+                      ysim <- self$sim_data()
+                      # choose mcem for glmm and mcnr for lmm
+                      invM <- Matrix::solve(private$information_matrix())
+                      b <- Matrix::drop(invM %*% Matrix::crossprod(self$mean_function$X,Matrix::solve(self$Sigma))%*%ysim)
+                      res <- data.frame(par = paste0("b",1:length(b)),est=b,SE= sqrt(Matrix::drop(Matrix::diag(invM))))
                       dfb <- self$dfbeta(y=ysim,
                                          par = par,
                                          b_hat = res[grepl("b",res$par),'est'])
