@@ -43,13 +43,14 @@ prnt.errors <- function(errors,digits=2){
 }
 
 summarize.stats <- function(out,
-                             par){
+                             par,
+                            alpha=0.05){
 
   tstats <- lapply(out,function(i)i$est/i$SE)
   pstats <- lapply(tstats,function(i)(1-pnorm(abs(i)))*2)
   pstats <- Reduce(rbind,pstats)
   pstats <- pstats[,par]
-
+  thresh <- qnorm(1-alpha/2)
   ses <- Reduce(rbind,lapply(out,function(i)i$SE))
   cis <- ses*thresh*2
   cis <- cis[,par]
@@ -74,3 +75,32 @@ prnt.stats <- function(x,digits=2){
   rownames(cidf ) <- names(x$citot)
   print(cidf)
 }
+
+summarize.dfbeta <- function(out,
+                             n){
+  
+  #significance change
+  n.sig <- drop(Reduce(rbind,lapply(out,function(i)i[[1]])))
+  p.sig <- n.sig/n
+  
+  # sign change
+  n.sign <- drop(Reduce(rbind,lapply(out,function(i)i[[2]])))
+  p.sign <- n.sign/n
+  
+  # sigsign change
+  n.sigsign <- drop(Reduce(rbind,lapply(out,function(i)i[[3]])))
+  p.sigsign <- n.sigsign/n
+  
+  return(list(n.sig, p.sig, n.sign, p.sign, n.sigsign, p.sigsign))
+}
+
+prnt.dfbeta <- function(x, digits = 2){
+  cat("Robustness \n-----------------------\n")
+  cat("Mean minimum number of observations required to: \n\n")
+  dfb <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
+                    Number = round(c(mean(x[[1]]),mean(x[[3]]),mean(x[[5]])),digits = digits),
+                    Proportion = round(c(mean(x[[2]]),mean(x[[4]]),mean(x[[6]])),digits = digits))
+  print(dfb)
+  
+}
+

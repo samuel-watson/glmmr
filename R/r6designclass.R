@@ -87,7 +87,7 @@ Design <- R6::R6Class("Design",
                                         ...){
                       
                       
-                      if(type=="sim_data"&is.null(private$sim_data))stop("no simulation data saved in object")
+                      if(type=="sim_data"&is.null(private$saved_sim_data))stop("no simulation data saved in object")
                       if(type=="sim"){
                         if(parallel){
                           cl <- parallel::makeCluster(parallel::detectCores()-1)
@@ -111,17 +111,20 @@ Design <- R6::R6Class("Design",
                       if(type=="sim_data")out <- private$saved_sim_data
                       
                       #process and generate the outputs!
-                      # prnt.errors(summarize.errors(out,
-                      #                                par = par,
-                      #                                true = self$mean_function$parameters[par],
-                      #                                alpha=alpha),
-                      #              digits = digits)
-                      # 
-                      # prnt.stats(summarize.stats(out,
-                      #                              par = par),
-                      #             digits=2)
-                      
-                      return(out)
+                      self$print()
+                      cat(paste0("True parameter value: ",self$mean_function$parameters[par],"\n"))
+                      prnt.errors(summarize.errors(lapply(out,function(i)i[[1]]),
+                                                     par = par,
+                                                     true = self$mean_function$parameters[par],
+                                                     alpha=alpha),
+                                   digits = digits)
+                      cat("\n\n")
+                      prnt.stats(summarize.stats(lapply(out,function(i)i[[1]]),
+                                                   par = par),
+                                  digits=2)
+                      cat("\n\n")
+                      prnt.dfbeta(summarize.dfbeta(lapply(out,function(i)i[[2]]),n=self$n()),digits = 2)
+                      #return(out)
                       
                     },
                     power = function(par,
@@ -271,7 +274,8 @@ Design <- R6::R6Class("Design",
                         mf_parInd <- c(parInds$b)
                       }
                       
-                      
+                      orig_par_b <- self$mean_function$parameters
+                      orig_par_cov <- self$covariance$parameters
                       
                       #check starting values
                       if(family%in%c("gaussian")){
@@ -555,6 +559,10 @@ Design <- R6::R6Class("Design",
                       attr(res,"m") <- m
                       attr(res,"tol") <- tol
                       
+                      self$mean_function$parameters <- orig_par_b 
+                      self$covariance$parameters <- orig_par_cov
+                      self$check(verbose=FALSE)
+                      
                       return(res)
                     },
                     dfbeta = function(y,
@@ -562,6 +570,9 @@ Design <- R6::R6Class("Design",
                                       alpha=0.05,
                                       b_hat ,
                                       verbose = TRUE){
+                      
+                      orig_par_b <- self$mean_function$parameters
+                      orig_par_cov <- self$covariance$parameters
                       
                       iter <- 0
                       sig <- NULL
@@ -619,6 +630,11 @@ Design <- R6::R6Class("Design",
                         if(verbose)cat("\rIteration: ",iter)
                         
                       }
+                      
+                      self$mean_function$parameters <- orig_par_b 
+                      self$covariance$parameters <- orig_par_cov
+                      self$check(verbose=FALSE)
+                      
                       return(list(sig,sign,sigsign))
                     },
                     posterior = function(prior,
