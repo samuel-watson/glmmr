@@ -20,17 +20,21 @@ summarize.errors <- function(out,
   if(length(ss.ests)>0){
     ss.ests.sgn <- ss.ests[sign(ss.ests)==sign(true)]
     if(length(ss.ests.sgn)>0){
-      m.err <- mean(ss.ests.sgn)/true
+      m.err <- mean(abs(ss.ests.sgn))/abs(true)
     }
   }
 
-  # type S
-  s.err <- NA
+  # type S2
+  s.err1 <- NA
+  s.err1 <- mean(sign(bests[,par])!=sign(true))
+  
+  # type S2
+  s.err2 <- NA
   if(length(ss.ests)>0){
-    s.err <- mean(sign(ss.ests)!=sign(true))
+    s.err2 <- mean(sign(ss.ests)!=sign(true))
   }
 
-  setNames(c(pwr,m.err,s.err),c("p","m","s"))
+  setNames(c(pwr,m.err,s.err1,s.err2),c("p","m","s1","s2"))
 
 }
 
@@ -38,7 +42,7 @@ prnt.errors <- function(errors,digits=2){
   cat("Errors\n----------------------------------\n")
 
   errdf <- data.frame(Value = round(errors,digits))
-  rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S (Wrong sign)")
+  rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
   print(errdf)
 }
 
