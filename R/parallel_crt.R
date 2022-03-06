@@ -1,8 +1,9 @@
 
-stepped_wedge <- function(J,
+parallel_crt <-  function(J,
                           M,
-                          nper=1,
-                          beta=c(rep(0,J+1),0),
+                          t,
+                          ratio,
+                          beta=c(rep(0,t),0),
                           icc,
                           cac = NULL,
                           iac = NULL,
@@ -26,19 +27,15 @@ stepped_wedge <- function(J,
     sigma <- var*(1-icc[1])
   }
   
-  t <- J+1
   if(!is.null(iac[1]) && !is.na(iac[1])){
     df <- nelder(formula(paste0("~ (J(",J,") > ind(",M,")) * t(",t,")")))
   } else {
     df <- nelder(formula(paste0("~ (J(",J,") * t(",t,")) > ind(",M,")")))
   }
   
-  df <- df[order(df$J,df$t),]
-  int <- c()
-  for(i in 1:J){
-    int <- c(int,rep(c(rep(0,t-(i)),rep(1,i)),1))
-  }
-  df$int <- rep(int,each=M)
+  ## assign treatment
+  df$int <- 0
+  df[df$cl <= round(J*ratio,0),'int'] <- 1
   
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){

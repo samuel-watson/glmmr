@@ -1,13 +1,12 @@
 
-stepped_wedge <- function(J,
-                          M,
-                          nper=1,
-                          beta=c(rep(0,J+1),0),
-                          icc,
-                          cac = NULL,
-                          iac = NULL,
-                          var = 1,
-                          family = gaussian()){
+staircase_crt <-  function(J,
+                           M,
+                           beta=c(rep(0,J+1),0),
+                           icc,
+                           cac = NULL,
+                           iac = NULL,
+                           var = 1,
+                           family = gaussian()){
   if(missing(icc))stop("icc must be set as a minimum")
   
   ndesigns <- length(icc) * ifelse(!is.null(cac[1]),length(cac),1) *
@@ -25,7 +24,6 @@ stepped_wedge <- function(J,
   } else {
     sigma <- var*(1-icc[1])
   }
-  
   t <- J+1
   if(!is.null(iac[1]) && !is.na(iac[1])){
     df <- nelder(formula(paste0("~ (J(",J,") > ind(",M,")) * t(",t,")")))
@@ -39,6 +37,16 @@ stepped_wedge <- function(J,
     int <- c(int,rep(c(rep(0,t-(i)),rep(1,i)),1))
   }
   df$int <- rep(int,each=M)
+  
+  # remove the non-staircase observations
+  df$J <- J+1 - df$J
+  for(j in 1:J){
+    df <- rbind(df[df$J == j&df$t %in%c(j,j+1),],
+                df[df$J != j,])
+  }
+  df <- df[df$t %in% c(2:J),]
+  df$t <- df$t - 1
+  df <- df[order(df$J,df$t),]
   
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){
@@ -68,7 +76,7 @@ stepped_wedge <- function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = c(rep(0,t+1))
+      parameters = c(rep(0,J))
       
     ),
     var_par = sigma
