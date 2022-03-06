@@ -59,9 +59,15 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      #initialise from random starting index
                      n <- private$designs[[1]]$mean_function$n()
                      idx_in <- sort(sample(1:n,m,replace=FALSE))
-                     idx_out <- grad_robust_step(
+                     if(!is(C,"list")){
+                       Clist <- list()
+                       for(i in 1:self$n()){
+                         Clist[[i]] <- matrix(C,ncol=1)
+                       }
+                     }
+                     idx_out <- grad_robust2_step(
                        idx_in,
-                       C_list = list(matrix(C,ncol=1)),
+                       C_list = Clist,
                        X_list = private$genXlist(),
                        sig_list = private$genSlist(),
                        rm_cols = rm_cols,

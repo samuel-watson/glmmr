@@ -355,11 +355,12 @@ grad_robust_step <- function(idx_in,
   rm1A <- list()
   for(i in 1:length(sig_list))
   {
+    
     A_list[[i]] <- solve(sig_list[[i]][idx_in,idx_in])
     M_list[[i]] <- gen_m(X_list[[i]][idx_in,],A_list[[i]])
     u_list[[i]] <- (t(C_list[[i]]) %*% solve(M_list[[i]])) %*% t(X_list[[i]])
   }
-
+  
   # the objective function here is now c^T M^-1 c - i've implemented c_obj_func in gd_search.cpp
   new_val_vec <- matrix(sapply(1:length(A_list),function(i)c_obj_fun(M_list[[i]], C_list[[i]])),nrow=1)
   new_val <- as.numeric(new_val_vec %*% w)
