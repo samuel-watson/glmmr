@@ -35,7 +35,7 @@ parallel_crt <-  function(J,
   
   ## assign treatment
   df$int <- 0
-  df[df$cl <= round(J*ratio,0),'int'] <- 1
+  df[df$J <= round(J*ratio,0),'int'] <- 1
   
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){
@@ -78,12 +78,6 @@ parallel_crt <-  function(J,
     dsvalues <- expand.grid(icc=icc,cac=cac,iac=iac)
     
     for(i in 1:(ndesigns-1)){
-      assign(paste0("d",i+1),
-             Design$new(
-               covariance = d1$covariance$clone(deep=TRUE),
-               mean.function = d1$mean_function$clone(),
-               var_par = 1
-             ))
       
       if(!is.null(dsvalues$cac[i+1]) && !is.na(dsvalues$cac[i+1])){
         wp_var <- dsvalues$icc[i+1]*var*(1-dsvalues$cac[i+1])
@@ -108,21 +102,25 @@ parallel_crt <-  function(J,
         }
       } else {
         if(is.null(dsvalues$iac[i+1]) || is.na(dsvalues$iac[i+1])){
-          f1 <- "~ (1|gr(J)) + (1|gr(J)*gr(t))"
-          pars <- list(list(bp_var),list(1,wp_var))
+          f1 <- "~ (1|gr(J)) + (1|gr(J*t))"
+          pars <- list(list(bp_var),list(wp_var))
         } else {
-          f1 <- "~ (1|gr(J)) + (1|gr(J)*gr(t)) + (1|gr(ind))"
-          pars <- list(list(bp_var),list(1,wp_var),list(ind_var))
+          f1 <- "~ (1|gr(J)) + (1|gr(J*t)) + (1|gr(ind))"
+          pars <- list(list(bp_var),list(wp_var),list(ind_var))
         }
       }
       
       
-      ds1$add(get(paste0("d",i+1)))
-      ds1$.__enclos_env__$private$designs[[i+1]]$var_par <- sigma
-      ds1$.__enclos_env__$private$designs[[i+1]]$covariance <- Covariance$new(
-        data=df,
-        formula = f1,
-        parameters = pars
+      ds1$add(
+        Design$new(
+          covariance = Covariance$new(
+            data=df,
+            formula = f1,
+            parameters = pars
+          ),
+          mean.function = d1$mean_function$clone(),
+          var_par = 1
+        )
       )
       
       # $parameters <- pars
