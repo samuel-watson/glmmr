@@ -1,3 +1,77 @@
+
+print.mcml <- function(x, digits =2, ...){
+  cat("Markov chain Monte Carlo Maximum Likelihood Estimation\nAlgorithm: ",
+      ifelse(x$method=="mcem","Markov Chain Expectation Maximisation",
+             "Markov Chain Newton-Raphson"),
+      ifelse(x$sim_step," with simulated likelihood step\n","\n"))
+  if(!x$hessian)warning("Hessian was not positive definite, standard errors are approximate")
+  if(!x$converged)warning("Algorithm did not converge")
+  cat("\nNumber of Monte Carlo simulations per iteration: ",x$m," with tolerance ",x$tol,"\n")
+  pars <- x$coefficients[!grepl("d",x$coefficients$par),c('est','SE')]
+  z <- pars$est/pars$SE
+  pars <- cbind(pars,z=z,p=2*(1-pnorm(abs(z))))
+  colnames(pars) <- c("Estimate","Std. Err.","Z value","P value")
+  rownames(pars) <- x$coefficients$par[!grepl("d",x$coefficients$par)]
+  print(apply(pars,2,round,digits = digits))
+}
+
+print.glmmr.sim <- function(x, digits = 2,...){
+  ## sim summary
+  cat("glmmr simulation-based analysis\n",paste0(rep("-",31),collapse = ""),"\n")
+  cat("Number of iterations: ",x$nsim,"\n")
+  cat("Simulation method: ",x$sim_method,"\n")
+  cat("For model with family",x$family[[1]],", link function",x$family[[2]],", ",
+      x$n,"observations and \nMean function: ",as.character(x$mean_formula),"\nCovariance function: ",
+      as.character(x$cov_formula),"\nTrue beta parameters: ",x$b_parameters,"\nCovariance parameters: ",unlist(x$cov_parameters),"\n")
+  cat("\nSimulation diagnostics \n",paste0(rep("-",31),collapse = ""),
+      "\nSimulation algorithm: ",x$mcml_method,"\n")
+  conv <- mean(x$convergence)
+  ## get coverage
+  thresh <- qnorm(1-x$alpha/2)
+  cover <- Reduce(rbind,lapply(x$coefficients,function(i){
+    (i$est[grepl("b",i$par)] - thresh*i$SE[grepl("b",i$par)]) <= x$b_parameters & 
+      (i$est[grepl("b",i$par)] + thresh*i$SE[grepl("b",i$par)]) >= x$b_parameters
+  }))
+  cover <- colMeans(cover)
+  cat("MCML algorithm convergence: ",round(conv*100,1),"%\nalpha: ",paste0(x$alpha*100,"%"),
+      "\nCI coverage (beta):",paste0(round(cover*100,1),"%"))
+  
+  ## errors 
+  cat("\n\n Errors\n",paste0(rep("-",31),collapse = ""),"\n")
+  nbeta <- sum(grepl("b",x$coefficients[[1]]$par))
+  errdf <- sapply(1:nbeta,function(i)summarize.errors(x$coefficients,
+                                  par = i,
+                                  true = x$b_parameters[i],
+                                  alpha = x$alpha))
+  rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
+  colnames(errdf) <- paste0("b",1:nbeta)
+  print(apply(errdf,2,round,digits=digits))
+  
+  ## statistics
+  cat("\n\n Distribution of statistics\n",paste0(rep("-",31),collapse = ""),"\np-values\n")
+  statdf <- sapply(1:nbeta,function(i)summarize.stats(x$coefficients,
+                                                      par = i,
+                                                      alpha = x$alpha))
+  pvdf <- apply(statdf,2,function(i)i$ptot)
+  rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
+  colnames(pvdf) <- paste0("b",1:nbeta)
+  print(apply(pvdf,2,round,digits = digits))
+  cat("\nConfidence interval half-width (+/-) quantiles\n")
+  cidf <- apply(statdf,2,function(i)i$citot)
+  colnames(cidf) <- paste0("b",1:nbeta)
+  print(apply(cidf,2,round,digits = digits))
+  
+  ##robustness
+  cat("\n\n Robustness (DFBETA) for parameter: ",paste0("b",x$par),"\n",paste0(rep("-",41),collapse = ""),"\n")
+  
+  dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
+  cat("Mean minimum number of observations required to: \n\n")
+  dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
+                    Number = round(c(mean(dfb[[1]]),mean(dfb[[3]]),mean(dfb[[5]])),digits = digits),
+                    Proportion = round(c(mean(dfb[[2]]),mean(dfb[[4]]),mean(dfb[[6]])),digits = digits))
+  print(dfbdf)
+}
+
 summarize.errors <- function(out,
                               par,
                               true,
@@ -38,13 +112,13 @@ summarize.errors <- function(out,
 
 }
 
-prnt.errors <- function(errors,digits=2){
-  cat("Errors\n----------------------------------\n")
-
-  errdf <- data.frame(Value = round(errors,digits))
-  rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
-  print(errdf)
-}
+# prnt.errors <- function(errors,digits=2){
+#   cat("Errors\n----------------------------------\n")
+# 
+#   errdf <- data.frame(Value = round(errors,digits))
+#   rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
+#   print(errdf)
+# }
 
 summarize.stats <- function(out,
                              par,
@@ -56,7 +130,7 @@ summarize.stats <- function(out,
   pstats <- pstats[,par]
   thresh <- qnorm(1-alpha/2)
   ses <- Reduce(rbind,lapply(out,function(i)i$SE))
-  cis <- ses*thresh*2
+  cis <- ses*thresh
   cis <- cis[,par]
 
   pgr <- c(0,0.01,0.05,0.1,0.25,0.5,1)
@@ -68,17 +142,17 @@ summarize.stats <- function(out,
   return(list(ptot = ptot,citot = citot))
 }
 
-prnt.stats <- function(x,digits=2){
-  cat("P-value distribution \n-----------------------\n")
-  pvdf <- data.frame(Proportion = round(x$ptot,digits))
-  rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
-  print(pvdf)
-
-  cat("\n\nCI width quantiles \n---------------------\n")
-  cidf <- data.frame(Quantile = round(unname(x$citot),digits))
-  rownames(cidf ) <- names(x$citot)
-  print(cidf)
-}
+# prnt.stats <- function(x,digits=2){
+#   cat("P-value distribution \n-----------------------\n")
+#   pvdf <- data.frame(Proportion = round(x$ptot,digits))
+#   rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
+#   print(pvdf)
+# 
+#   cat("\n\nCI width quantiles \n---------------------\n")
+#   cidf <- data.frame(Quantile = round(unname(x$citot),digits))
+#   rownames(cidf ) <- names(x$citot)
+#   print(cidf)
+# }
 
 summarize.dfbeta <- function(out,
                              n){
@@ -98,13 +172,13 @@ summarize.dfbeta <- function(out,
   return(list(n.sig, p.sig, n.sign, p.sign, n.sigsign, p.sigsign))
 }
 
-prnt.dfbeta <- function(x, digits = 2){
-  cat("Robustness \n-----------------------\n")
-  cat("Mean minimum number of observations required to: \n\n")
-  dfb <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
-                    Number = round(c(mean(x[[1]]),mean(x[[3]]),mean(x[[5]])),digits = digits),
-                    Proportion = round(c(mean(x[[2]]),mean(x[[4]]),mean(x[[6]])),digits = digits))
-  print(dfb)
-  
-}
+# prnt.dfbeta <- function(x, digits = 2){
+#   cat("Robustness \n-----------------------\n")
+#   cat("Mean minimum number of observations required to: \n\n")
+#   dfb <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
+#                     Number = round(c(mean(x[[1]]),mean(x[[3]]),mean(x[[5]])),digits = digits),
+#                     Proportion = round(c(mean(x[[2]]),mean(x[[4]]),mean(x[[6]])),digits = digits))
+#   print(dfb)
+#   
+# }
 

@@ -105,8 +105,30 @@ Design <- R6::R6Class("Design",
                           out <- pbapply::pblapply(1:iter,
                                                    function(i)private$gen_sim_data(par=par,...))
                         }
+                        
+                        res <- list(
+                          coefficients = lapply(out,function(i)i[[1]]$coefficients),
+                          dfbeta = lapply(out,function(i)i[[2]]),
+                          sim_method = "full.sim",
+                          mcml_method = out[[1]][[1]]$method,
+                          convergence = unlist(lapply(out,function(i)i[[1]]$converged)),
+                          m = out[[1]][[1]]$m,
+                          tol =out[[1]][[1]]$tol,
+                          nsim = iter,
+                          alpha = alpha,
+                          b_parameters = self$mean_function$parameters,
+                          cov_parameters = self$covariance$parameters,
+                          mean_formula = self$mean_function$formula,
+                          cov_formula = self$covariance$formula,
+                          family = self$mean_function$family,
+                          n = self$n(),
+                          par = par
+                        )
+                        
+                        class(res) <- "glmmr.sim"
+                        
                         if(verbose)message("saving simulation data")
-                        private$saved_sim_data <- out
+                        private$saved_sim_data <- res
                       }
                       if(type == "sim_approx"){
                         if(parallel){
@@ -125,26 +147,34 @@ Design <- R6::R6Class("Design",
                           out <- pbapply::pblapply(1:iter,
                                                    function(i)private$gen_sim_data_approx(par=par))
                         }
+                        
+                        res <- list(
+                          coefficients = lapply(out,function(i)i[[1]]),
+                          dfbeta = lapply(out,function(i)i[[2]]),
+                          sim_method = "approx.sim",
+                          mcml_method = NA,
+                          convergence = NA,
+                          m = NA,
+                          tol = NA,
+                          nsim = iter,
+                          alpha = alpha,
+                          b_parameters = self$mean_function$parameters,
+                          cov_parameters = self$covariance$parameters,
+                          mean_formula = self$mean_function$formula,
+                          cov_formula = self$covariance$formula,
+                          family = self$mean_function$family,
+                          n = self$n(),
+                          par = par
+                        )
+                        
+                        class(res) <- "glmmr.sim"
+                        
                         if(verbose)message("saving simulation data")
-                        private$saved_sim_data <- out
+                        private$saved_sim_data <- res
                       }
-                      if(type=="sim_data")out <- private$saved_sim_data
+                      if(type=="sim_data")res <- private$saved_sim_data
                       
-                      #process and generate the outputs!
-                      self$print()
-                      cat(paste0("True parameter value: ",self$mean_function$parameters[par],"\n"))
-                      prnt.errors(summarize.errors(lapply(out,function(i)i[[1]]),
-                                                     par = par,
-                                                     true = self$mean_function$parameters[par],
-                                                     alpha=alpha),
-                                   digits = digits)
-                      cat("\n\n")
-                      prnt.stats(summarize.stats(lapply(out,function(i)i[[1]]),
-                                                   par = par),
-                                  digits=2)
-                      cat("\n\n")
-                      prnt.dfbeta(summarize.dfbeta(lapply(out,function(i)i[[2]]),n=self$n()),digits = 2)
-                      #return(out)
+                      invisible(res)
                       
                     },
                     power = function(par,
@@ -571,19 +601,27 @@ Design <- R6::R6Class("Design",
                                           SE=NA)
                       }
                       
+                     out <- list(coefficients = res,
+                                 converged = !not_conv,
+                                 method = method,
+                                 hessian = hessused,
+                                 m = m,
+                                 tol = tol,
+                                 sim_lik = sim_lik_step)
                      
+                     class(out) <- "mcml"
                       
-                      attr(res,"converged") <- !not_conv
-                      attr(res,"method") <- method
-                      attr(res,"hessian") <- hessused
-                      attr(res,"m") <- m
-                      attr(res,"tol") <- tol
+                      # attr(res,"converged") <- !not_conv
+                      # attr(res,"method") <- method
+                      # attr(res,"hessian") <- hessused
+                      # attr(res,"m") <- m
+                      # attr(res,"tol") <- tol
                       
                       self$mean_function$parameters <- orig_par_b 
                       self$covariance$parameters <- orig_par_cov
                       self$check(verbose=FALSE)
                       
-                      return(res)
+                      return(out)
                     },
                     dfbeta = function(y,
                                       par,
@@ -654,6 +692,8 @@ Design <- R6::R6Class("Design",
                       self$mean_function$parameters <- orig_par_b 
                       self$covariance$parameters <- orig_par_cov
                       self$check(verbose=FALSE)
+                      
+                      
                       
                       return(list(sig,sign,sigsign))
                     },
@@ -750,7 +790,7 @@ Design <- R6::R6Class("Design",
                                                                                       no_warnings=TRUE),...))
                       dfb <- self$dfbeta(y=ysim,
                                          par = par,
-                                         b_hat = res[grepl("b",res$par),'est'])
+                                         b_hat = res$coefficients[grepl("b",res$coefficients$par),'est'])
                       
                       return(list(res,dfb))
                     },
