@@ -162,6 +162,7 @@ Covariance <- R6::R6Class("Covariance",
                         Distlist = NULL,
                         flist = NULL,
                         flistvars = NULL,
+                        Funclist = NULL,
                         Zlist = NULL,
                         cov_functions = function(arg,x,pars){
                           if(arg=="exponential"){
@@ -224,12 +225,14 @@ Covariance <- R6::R6Class("Covariance",
                           # build each Z matrix and cbind
                           Zlist <- list()
                           Distlist <- list()
+                          Funclist <- list()
                           for(i in 1:length(flist)){
                             data_nodup <- self$data[!duplicated(self$data[,flistvars[[i]]$rhs]),flistvars[[i]]$rhs]
                             if(!is(data_nodup,"data.frame")){
                               data_nodup <- data.frame(data_nodup)
                               colnames(data_nodup) <- flistvars[[i]]$rhs
                             }
+                            Distlist[[i]] <- as.matrix(data_nodup)
                             zdim2 <- nrow(data_nodup)
                             Zlist[[i]] <- match_rows(self$data,data_nodup,by=flistvars[[i]]$rhs)
                             if(length(flistvars[[i]]$lhs)>0){
@@ -239,63 +242,99 @@ Covariance <- R6::R6Class("Covariance",
                               }
                               Zlist[[i]] <- Reduce(cbind,ZlistNew)
                             }
-                            Dist1 <- list()
-                            for(j in 1:length(unique(flistvars[[i]]$groups))){
-                              Dist1[[j]] <- as.matrix(dist(data_nodup[,flistvars[[i]]$rhs[flistvars[[i]]$groups==j]],upper = TRUE, diag=TRUE))
-                            }
-                            Distlist[[i]] <- Dist1
+                            # Dist1 <- list()
+                            # for(j in 1:length(unique(flistvars[[i]]$groups))){
+                            #   Dist1[[j]] <- as.matrix(dist(data_nodup[,flistvars[[i]]$rhs[flistvars[[i]]$groups==j]],upper = TRUE, diag=TRUE))
+                            # }
+                            # Distlist[[i]] <- Dist1
+                            
+                            #create matrix for functions
+                            
                           }
+                          
+                          fl <- rev(flistvars)
+                          fnames <- c("gr","fexp","pexp")
+                          fnpar <- c(1,2,1)
+                          parcount <- 0
+                          Funclist <- list()
+                          
+                          for(i in 1:length(fl)){
+                            nfunc <- length(fl[[i]]$funs)
+                            f1 <- matrix(-1,nrow=9,ncol=nfunc)
+                            for(k in 1:nfunc){
+                              f1[1,k] <- which(fnames==rev(fl[[i]]$funs)[[k]])
+                              for(l in 1:sum(fl[[i]]$groups==(nfunc +1 - k))){
+                                f1[1+l,k] <- which(fl[[i]]$groups==(nfunc +1 - k))[l] - 1
+                              }
+                              # deal with the parameters
+                              npar1 <- fnpar[f1[1,k]]
+                              f1[6:(5+npar1),k] <- ((parcount + 1):(parcount + npar1)) - 1
+                              parcount <- parcount + npar1
+                            }
+                            
+                            Funclist[[i]] <- f1
+                          }
+                          
                           Z <- Reduce(cbind,Zlist)
                           Z <- Matrix::Matrix(Z)
-                          if(ncol(Z)>nrow(Z))warning("Model underidentified")
+                          #if(ncol(Z)>nrow(Z))warning("Model underidentified")
+                          if(nrow(Z) < ncol(Z))warning("More random effects than observations")
                           self$Z <- Z
-                          private$Distlist <- Distlist
+                          private$Distlist <- rev(Distlist)
                           private$flistvars <- flistvars
                           private$flist <- flist
                           for(i in 1:length(Zlist))Zlist[[i]] <- Matrix::Matrix(Zlist[[i]])
                           private$Zlist <- Zlist
+                          private$Funclist <- Funclist
+                          
+                          
                           private$genD()
 
                         },
                         genD = function(update=TRUE,
                                         new_pars=NULL){
-                          D.sublist <- list()
-                          for(d in 1:length(private$flist)){
-                            ngroup <- length(unique(private$flistvars[[d]]$groups))
-                            D.sublist[[d]] <- matrix(1, nrow=ncol(private$Zlist[[d]]),
-                                                     ncol=ncol(private$Zlist[[d]]))
-                            if(update){
-                               pars <-rev(self$parameters[[d]])[1:ngroup]
-                            } else {
-                              pars <- rev(new_pars[[d]])
-                            }
-                            for(j in 1:ngroup){
-                              D.sublist[[d]] <- D.sublist[[d]]*
-                                do.call(as.character(private$flistvars[[d]]$funs[[j]]),
-                                        list(list(data=private$Distlist[[d]][[j]],
-                                                  pars=pars[[j]])))
-                            }
-                            #remove AsIs class
-                            class(D.sublist[[d]]) <- "matrix"
-
-                            if(length(private$flistvars[[d]]$lhs)>0){
-                              #fix cov parameter here
-                              Dmatlist <- list(D.sublist[[d]])
-                              for(j in 2:length(private$flistvars[[d]]$lhs)){
-                                Dmatlist[[j]] <- diag(zdim2)*self$parameters[[d]][[ngroup-1+j]]
-                              }
-                              D.sublist[[d]] <- do.call("blockmat",Dmatlist)
-                            }
-                          }
-
-                          #finally bdiag to combine them all
-                          D <- do.call(Matrix::bdiag,D.sublist)
+                          
+                          D <- genD(private$Funclist,
+                                    private$Distlist,
+                                    self$parameters)
+                          
+                          # D.sublist <- list()
+                          # for(d in 1:length(private$flist)){
+                          #   ngroup <- length(unique(private$flistvars[[d]]$groups))
+                          #   D.sublist[[d]] <- matrix(1, nrow=ncol(private$Zlist[[d]]),
+                          #                            ncol=ncol(private$Zlist[[d]]))
+                          #   if(update){
+                          #      pars <-rev(self$parameters[[d]])[1:ngroup]
+                          #   } else {
+                          #     pars <- rev(new_pars[[d]])
+                          #   }
+                          #   for(j in 1:ngroup){
+                          #     D.sublist[[d]] <- D.sublist[[d]]*
+                          #       do.call(as.character(private$flistvars[[d]]$funs[[j]]),
+                          #               list(list(data=private$Distlist[[d]][[j]],
+                          #                         pars=pars[[j]])))
+                          #   }
+                          #   #remove AsIs class
+                          #   class(D.sublist[[d]]) <- "matrix"
+                          # 
+                          #   if(length(private$flistvars[[d]]$lhs)>0){
+                          #     #fix cov parameter here
+                          #     Dmatlist <- list(D.sublist[[d]])
+                          #     for(j in 2:length(private$flistvars[[d]]$lhs)){
+                          #       Dmatlist[[j]] <- diag(zdim2)*self$parameters[[d]][[ngroup-1+j]]
+                          #     }
+                          #     D.sublist[[d]] <- do.call("blockmat",Dmatlist)
+                          #   }
+                          # }
+                          # 
+                          # #finally bdiag to combine them all
+                          # D <- do.call(Matrix::bdiag,D.sublist)
 
                           #add warning if number of re > n
-                          if(nrow(self$Z) < ncol(self$Z))warning("More random effects than observations")
+                          
 
                           if(update){
-                            self$D <- D
+                            self$D <- Matrix::Matrix(D)
                             private$hash <- private$hash_do()
                           } else {
                             return(D)

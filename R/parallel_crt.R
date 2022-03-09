@@ -65,7 +65,7 @@ parallel_crt <-  function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = c(rep(0,t+1))
+      parameters = beta
       
     ),
     var_par = sigma

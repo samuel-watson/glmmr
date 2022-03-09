@@ -39,6 +39,11 @@ stepped_wedge <- function(J,
     int <- c(int,rep(c(rep(0,t-(i)),rep(1,i)),1))
   }
   df$int <- rep(int,each=M)
+  if(nper > 1){
+    n1 <- nrow(df)
+    df <- df[rep(1:n1,nper),]
+    df$J <- df$J + rep(1:nper,each=n1)*J
+  }
   
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){
@@ -68,7 +73,7 @@ stepped_wedge <- function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = c(rep(0,t+1))
+      parameters = beta
       
     ),
     var_par = sigma

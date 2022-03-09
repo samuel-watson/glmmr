@@ -81,12 +81,17 @@ Design <- R6::R6Class("Design",
                                         iter,
                                         par,
                                         alpha = 0.05,
+                                        sim_design,
                                         parallel,
                                         verbose = TRUE,
                                         digits = 2,
                                         ...){
                       
-                      
+                      if(!missing(sim_design)){
+                        f1 <- sim_design$sim_data
+                      } else {
+                        f1 <- self$sim_data
+                      }
                       if(type=="sim_data"&is.null(private$saved_sim_data))stop("no simulation data saved in object")
                       if(type=="sim"){
                         if(parallel){
@@ -98,12 +103,18 @@ Design <- R6::R6Class("Design",
                           #                            1:10,
                           #                            function(i)self$gen_sim_data(m=m))
                           out <- pbapply::pblapply(1:iter,
-                                                   function(i)private$gen_sim_data(par=par,...),
+                                                   function(i){
+                                                     ysim <- f1()
+                                                     private$gen_sim_data(par=par,
+                                                                          ysim = ysim,...)},
                                                    cl=cl)
                           parallel::stopCluster(cl)
                         } else {
                           out <- pbapply::pblapply(1:iter,
-                                                   function(i)private$gen_sim_data(par=par,...))
+                                                   function(i){
+                                                     ysim <- f1()
+                                                     private$gen_sim_data(par=par,
+                                                                          ysim = ysim,...)})
                         }
                         
                         res <- list(
@@ -140,12 +151,18 @@ Design <- R6::R6Class("Design",
                           #                            1:10,
                           #                            function(i)self$gen_sim_data(m=m))
                           out <- pbapply::pblapply(1:iter,
-                                                   function(i)private$gen_sim_data_approx(par=par),
+                                                   function(i){
+                                                     ysim <- f1()
+                                                     private$gen_sim_data_approx(par=par,
+                                                                                 ysim=ysim)},
                                                    cl=cl)
                           parallel::stopCluster(cl)
                         } else {
                           out <- pbapply::pblapply(1:iter,
-                                                   function(i)private$gen_sim_data_approx(par=par))
+                                                   function(i){
+                                                     ysim <- f1()
+                                                     private$gen_sim_data_approx(par=par,
+                                                                                 ysim=ysim)})
                         }
                         
                         res <- list(
@@ -782,12 +799,15 @@ Design <- R6::R6Class("Design",
                     },
                     saved_sim_data = NULL,
                     gen_sim_data = function(par,
+                                            ysim,
                                             ...){
                       
-                      ysim <- self$sim_data()
+                      #ysim <- self$sim_data()
                       # choose mcem for glmm and mcnr for lmm
-                      res <- do.call(self$MCML,list(y=ysim,verbose=TRUE,options= list(method="mcem",
-                                                                                      no_warnings=TRUE),...))
+                      res <- do.call(self$MCML,list(y=ysim,
+                                                    verbose=TRUE,
+                                                    options= list(method="mcem",
+                                                                  no_warnings=TRUE),...))
                       dfb <- self$dfbeta(y=ysim,
                                          par = par,
                                          b_hat = res$coefficients[grepl("b",res$coefficients$par),'est'])
@@ -795,9 +815,10 @@ Design <- R6::R6Class("Design",
                       return(list(res,dfb))
                     },
                     gen_sim_data_approx = function(par,
+                                                   ysim,
                                             ...){
                       
-                      ysim <- self$sim_data()
+                      #ysim <- self$sim_data()
                       # choose mcem for glmm and mcnr for lmm
                       invM <- Matrix::solve(private$information_matrix())
                       b <- Matrix::drop(invM %*% Matrix::crossprod(self$mean_function$X,Matrix::solve(self$Sigma))%*%ysim)

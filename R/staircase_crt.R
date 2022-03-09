@@ -76,7 +76,7 @@ staircase_crt <-  function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = c(rep(0,J))
+      parameters = beta
       
     ),
     var_par = sigma
