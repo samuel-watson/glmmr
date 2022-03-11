@@ -1,5 +1,6 @@
 import(Rcpp)
 import(methods)
+import(roptim)
 importFrom(rstan, sampling)
 useDynLib(glmmr, .registration=TRUE)
 importFrom(Rcpp, evalCpp)

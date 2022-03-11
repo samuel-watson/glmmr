@@ -1,7 +1,7 @@
 Package: glmmr
 Type: Package
 Title: Design tools for generalised linear mixed models in R
-Version: 0.1.0
+Version: 0.1.1
 Date: 2021-12-16
 Author@R: c(person("Sam", "Watson", email = "S.I.Watson@bham.ac.uk",
                   role = c("aut", "cre")),
@@ -15,7 +15,8 @@ Imports:
     Rcpp (>= 1.0.7),
     RcppParallel (>= 5.0.1),
     rstan (>= 2.18.1),
-    rstantools (>= 2.1.1)
+    rstantools (>= 2.1.1),
+    roptim
 LinkingTo: 
     BH (>= 1.66.0),
     Rcpp (>= 0.12.0),
@@ -23,13 +24,14 @@ LinkingTo:
     RcppEigen (>= 0.3.3.3.0),
     RcppParallel (>= 5.0.1),
     rstan (>= 2.18.1),
+    roptim,
     StanHeaders (>= 2.18.0)
 RoxygenNote: 6.0.1
 NeedsCompilation: yes
 Author: Sam Watson [aut, cre],
         Yi Pan [aut]
-URL: https://github.com/ypan1988/jmcm/
-BugReports: https://github.com/ypan1988/jmcm/issues
+URL: https://github.com/samuel-watson/glmmr
+BugReports: https://github.com/samuel-watson/glmmr/issues
 Suggests: 
     testthat
 Biarch: true

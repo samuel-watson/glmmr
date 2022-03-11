@@ -78,7 +78,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        for(i in 1:self$n()){
                          private$designs[[i]]$subset_rows(idx_out)
                          ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
-                         private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
+                         if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
                        }
                      }
                    },

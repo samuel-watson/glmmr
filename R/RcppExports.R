@@ -61,3 +61,51 @@ GradRobustAlg1 <- function(idx_in, C_list, X_list, sig_list, weights, nfix = 0L,
     .Call(`_glmmr_GradRobustAlg1`, idx_in, C_list, X_list, sig_list, weights, nfix, rd_mode)
 }
 
+findFunc <- function(funcdetail, data1, data2, pars) {
+    .Call(`_glmmr_findFunc`, funcdetail, data1, data2, pars)
+}
+
+genSubD <- function(func, data, pars) {
+    .Call(`_glmmr_genSubD`, func, data, pars)
+}
+
+blockMat <- function(mat1, mat2) {
+    .Call(`_glmmr_blockMat`, mat1, mat2)
+}
+
+genD <- function(func, data, pars) {
+    .Call(`_glmmr_genD`, func, data, pars)
+}
+
+log_factorial_approx <- function(n) {
+    .Call(`_glmmr_log_factorial_approx`, n)
+}
+
+d_lik_optim <- function(func, data, u, start) {
+    .Call(`_glmmr_d_lik_optim`, func, data, u, start)
+}
+
+log_likelihood <- function(y, mu, var_par, family, link) {
+    .Call(`_glmmr_log_likelihood`, y, mu, var_par, family, link)
+}
+
+l_lik_optim <- function(Z, X, y, u, family, link, start) {
+    .Call(`_glmmr_l_lik_optim`, Z, X, y, u, family, link, start)
+}
+
+f_lik_optim <- function(func, data, Z, X, y, u, cov_par_fix, family, link, start, lower, importance) {
+    .Call(`_glmmr_f_lik_optim`, func, data, Z, X, y, u, cov_par_fix, family, link, start, lower, importance)
+}
+
+inv_func <- function(mu, link) {
+    .Call(`_glmmr_inv_func`, mu, link)
+}
+
+mod_inv_func <- function(mu, link) {
+    .Call(`_glmmr_mod_inv_func`, mu, link)
+}
+
+mcnr_step <- function(y, X, Z, beta, u, link) {
+    .Call(`_glmmr_mcnr_step`, y, X, Z, beta, u, link)
+}
+

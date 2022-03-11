@@ -73,7 +73,6 @@ stepped_wedge <- function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      parameters = beta
       
     ),
     var_par = sigma
