@@ -1,4 +1,22 @@
-
+#' Prints an mcml fit output
+#' 
+#' Print method for class "`mcml`"
+#' 
+#' @param x an object of class "`mcml`" as a result of a call to MCML, see \link[glmmr]{Design}
+#' @param digits Number of digits to print
+#' @param ... Further arguments passed from other methods
+#' @details 
+#' `print.mcml` tries to replicate the output of other regression functions, such
+#' as `lm` and `lmer` reporting parameters, standard errors, and z- and p- statistics.
+#' The z- and p- statistics should be interpreted cautiously however, as generalised
+#' linear mixed models can suffer from severe small sample biases where the effective
+#' sample size relates more to the higher levels of clustering than individual observations.
+#' 
+#' Parameters `b` are the mean function beta parameters, parameters `cov` are the
+#' covariance function parameters in the same order as `$covariance$parameters`, and
+#' parameters `d` are the estimated random effects.
+#' @return TBC
+#' @export
 print.mcml <- function(x, digits =2, ...){
   cat("Markov chain Monte Carlo Maximum Likelihood Estimation\nAlgorithm: ",
       ifelse(x$method=="mcem","Markov Chain Expectation Maximisation",
@@ -15,6 +33,19 @@ print.mcml <- function(x, digits =2, ...){
   print(apply(pars,2,round,digits = digits))
 }
 
+#' Prints a glmmr simuation output
+#' 
+#' Print method for class "`glmmr.sim`"
+#' 
+#' @param x an object of class "`mcml`" as a result of a call to MCML, see \link[glmmr]{Design}
+#' @param digits Number of digits to print
+#' @param ... Further arguments passed from other methods
+#' @details 
+#' `print.glmmr.sim` calculates multiple statistics summarising the design analysis.
+#' 
+#'  Simulation diagnostics. TBC
+#' @return TBC
+#' @export
 print.glmmr.sim <- function(x, digits = 2,...){
   ## sim summary
   cat("glmmr simulation-based analysis\n",paste0(rep("-",31),collapse = ""),"\n")
@@ -72,6 +103,17 @@ print.glmmr.sim <- function(x, digits = 2,...){
   print(dfbdf)
 }
 
+#' Method to summarise errors 
+#' 
+#' Method to summarise errors from the simulation output of `$analysis()` from the Design class.
+#' Not generally required by the user.
+#' 
+#' @param out list of mcml model outputs
+#' @param par the index of the parameter to summarise
+#' @param true true value of the parameter to summarise
+#' @param alpha the type I error value
+#' @return A vector with errors of type 2, M, S1, and S2
+#' @importFrom stats qnorm setNames
 summarize.errors <- function(out,
                               par,
                               true,
@@ -112,14 +154,19 @@ summarize.errors <- function(out,
 
 }
 
-# prnt.errors <- function(errors,digits=2){
-#   cat("Errors\n----------------------------------\n")
-# 
-#   errdf <- data.frame(Value = round(errors,digits))
-#   rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
-#   print(errdf)
-# }
 
+#' Method to summarise statistics 
+#' 
+#' Method to summarise statistics from the simulation output of `$analysis()` from the Design class.
+#' Not generally required by the user.
+#' 
+#' @param out list of mcml model outputs
+#' @param par the index of the parameter to summarise
+#' @param alpha the type I error value
+#' @return A list containing two names data frames (`ptot` and `citot`) summarising 
+#' the values of p-statistics from the model fits, and the quantiles of 1-alpha% confidence
+#' interval half-widths, respectively.
+#' @importFrom stats pnorm qnorm setNames
 summarize.stats <- function(out,
                              par,
                             alpha=0.05){
@@ -142,18 +189,16 @@ summarize.stats <- function(out,
   return(list(ptot = ptot,citot = citot))
 }
 
-# prnt.stats <- function(x,digits=2){
-#   cat("P-value distribution \n-----------------------\n")
-#   pvdf <- data.frame(Proportion = round(x$ptot,digits))
-#   rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
-#   print(pvdf)
-# 
-#   cat("\n\nCI width quantiles \n---------------------\n")
-#   cidf <- data.frame(Quantile = round(unname(x$citot),digits))
-#   rownames(cidf ) <- names(x$citot)
-#   print(cidf)
-# }
 
+#' Method to summarise DFBETA output
+#' 
+#' Method to summarise statistics from the simulation output of `$dfbeta()` from the Design class.
+#' Not generally required by the user.
+#' 
+#' @param out list of mcml model outputs
+#' @param n Total number of observations in the model
+#' @return A list containing the number of observations and proportion of observations
+#' required to change significance, sign, and significant sign from the models.
 summarize.dfbeta <- function(out,
                              n){
   
@@ -171,14 +216,4 @@ summarize.dfbeta <- function(out,
   
   return(list(n.sig, p.sig, n.sign, p.sign, n.sigsign, p.sigsign))
 }
-
-# prnt.dfbeta <- function(x, digits = 2){
-#   cat("Robustness \n-----------------------\n")
-#   cat("Mean minimum number of observations required to: \n\n")
-#   dfb <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
-#                     Number = round(c(mean(x[[1]]),mean(x[[3]]),mean(x[[5]])),digits = digits),
-#                     Proportion = round(c(mean(x[[2]]),mean(x[[4]]),mean(x[[6]])),digits = digits))
-#   print(dfb)
-#   
-# }
 
