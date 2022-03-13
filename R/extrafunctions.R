@@ -120,6 +120,7 @@ blockmat <- function(...){
 #' @param logdet log determinant of the covariance matrix
 #' @param invD inverse of the covariance matrix
 #' @return Matrix
+#' @export
 log_mvnd <- function(s,logdet,invD){
   Matrix::drop(-(length(s)/2)*log(2*pi)-0.5*logdet-0.5*Matrix::t(s)%*%invD%*%s)
 }

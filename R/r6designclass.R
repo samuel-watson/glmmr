@@ -1,11 +1,33 @@
-# DESIGN CLASS
+#' R6 Class representing a GLMM Design
+#' 
+#' For the generalised linear mixed model 
+#' 
+#' \deqn{Y \sim F(\mu,\sigma)}
+#' \deqn{\mu = h^-1(X\beta + Z\gamma)}
+#' \deqn{\gamma \sim MVN(0,D)}
+#' 
+#' where h is the link function. A Design in comprised of a \link[glmmr]{MeanFunction} object, which defines the family F, 
+#' link function h, and fixed effects design matrix X, and a \link[glmmr]{Covariance} object, which defines Z and D. The class provides
+#' methods for analysis and simulation with these models.
+#' @export 
 Design <- R6::R6Class("Design",
                   public = list(
+                    #' @field covariance A \link[glmmr]{Covariance} object defining the random effects covariance.
                     covariance = NULL,
+                    #' @field mean_function A \link[glmmr]{MeanFunction} object, defining the mean function for the model, including the data and covariate design matrix X.
                     mean_function = NULL,
-                    exp_cond = NULL,
+                    #' @field exp_condition A vector indicting the unique experimental conditions for each observation, see Details.
+                    exp_condition = NULL,
+                    #' @field Sigma The overall covariance matrix for the observations. Calculated and updated automatically as \eqn{W^{-1} + ZDZ^T} where W is an n x n 
+                    #' diagonal matrix with elements on the diagonal equal to the GLM iterated weights. See Details.
                     Sigma = NULL,
+                    #' @field var_par Scale parameter required for some distributions (Gaussian, Gamma, Beta).
                     var_par = NULL,
+                    #' @description 
+                    #' Return predicted values based on the currently stored parameter values in `mean_function`
+                    #' @param type One of either "`link`" for values on the scale of the link function, or "`response`" 
+                    #' for values on the scale of the response
+                    #' @return A \link[Matrix]{Matrix} class object containing the predicted values
                     fitted = function(type="link"){
                       Xb <- Matrix::drop(self$mean_function$X %*% self$mean_function$parameters)
                       if(type=="response"){
@@ -13,6 +35,15 @@ Design <- R6::R6Class("Design",
                       }
                       return(Xb)
                     },
+                    #' @description 
+                    #' Create a new Design object
+                    #' @param covariance Either a \link[glmmr]{Covariance} object, or an equivalent list of arguments
+                    #' that can be passed to `Covariance` to create a new object.
+                    #' @param mean.function Either a \link[glmmr]{MeanFunction} object, or an equivalent list of arguments
+                    #' that can be passed to `MeanFunction` to create a new object.
+                    #' @param var_par Scale parameter required for some distributions, including Gaussian. Default is NULL.
+                    #' @param verbose Logical indicating whether to provide detailed output
+                    #' @return A new Design class object
                     initialize = function(covariance,
                                           mean.function,
                                           var_par = NULL,
@@ -57,6 +88,11 @@ Design <- R6::R6Class("Design",
                       self$generate()
                       private$hash <- private$hash_do()
                     },
+                    #' @description 
+                    #' Print method for `Design` class
+                    #' @details 
+                    #' Calls the respective print methods of the linked covariance and mean function objects.
+                    #' @param ... ignored
                     print = function(){
                       cat("\n----------------------------------------\n")
                       print(self$mean_function)
@@ -64,6 +100,11 @@ Design <- R6::R6Class("Design",
                       print(self$covariance)
                       cat("\n----------------------------------------\n")
                     },
+                    #' @description 
+                    #' Returns the number of observations in the model
+                    #' @details 
+                    #' The matrices X and Z both have n rows, where n is the number of observations in the model/design.
+                    #' @param ... ignored
                     n = function(){
                       self$mean_function$n()
                     },
