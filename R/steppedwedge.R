@@ -111,18 +111,18 @@ stepped_wedge <- function(J,
   if(is.null(cac[1]) || is.na(cac[1])){
     if(is.null(iac[1]) || is.na(iac[1])){
       f1 <- "~(1|gr(J))"
-      pars <- list(list(sqrt(bp_var)))
+      pars <- c(sqrt(bp_var))
     } else {
       f1 <- "~(1|gr(J)) + (1|gr(ind))"
-      pars <- list(list(sqrt(bp_var)),list(sqrt(ind_var)))
+      pars <- c(sqrt(bp_var),sqrt(ind_var))
     }
   } else {
     if(is.null(iac[1]) || is.na(iac[1])){
       f1 <- "~ (1|gr(J)) + (1|gr(J*t))"
-      pars <- list(list(sqrt(bp_var)),list(sqrt(wp_var)))
+      pars <- c(sqrt(bp_var),sqrt(wp_var))
     } else {
       f1 <- "~ (1|gr(J)) + (1|gr(J*t)) + (1|gr(ind))"
-      pars <- list(list(sqrt(bp_var)),list(sqrt(wp_var)),list(sqrt(ind_var)))
+      pars <- c(sqrt(bp_var),sqrt(wp_var),sqrt(ind_var))
     }
   }
   
@@ -136,7 +136,7 @@ stepped_wedge <- function(J,
       formula = "~ factor(t) + int - 1",
       data = df,
       family = family,
-      
+      parameters = beta
     ),
     var_par = sigma
   )
@@ -172,18 +172,18 @@ stepped_wedge <- function(J,
       if(is.null(dsvalues$cac[i+1]) || is.na(dsvalues$cac[i+1])){
         if(is.null(dsvalues$iac[i+1]) || is.na(dsvalues$iac[i+1])){
           f1 <- "~(1|gr(J))"
-          pars <- list(list(bp_var))
+          pars <- c(sqrt(bp_var))
         } else {
           f1 <- "~(1|gr(J)) + (1|gr(ind))"
-          pars <- list(list(bp_var),list(ind_var))
+          pars <- c(sqrt(bp_var),sqrt(ind_var))
         }
       } else {
         if(is.null(dsvalues$iac[i+1]) || is.na(dsvalues$iac[i+1])){
           f1 <- "~ (1|gr(J)) + (1|gr(J*t))"
-          pars <- list(list(bp_var),list(wp_var))
+          pars <- c(sqrt(bp_var),sqrt(wp_var))
         } else {
           f1 <- "~ (1|gr(J)) + (1|gr(J*t)) + (1|gr(ind))"
-          pars <- list(list(bp_var),list(wp_var),list(ind_var))
+          pars <- c(sqrt(bp_var),sqrt(wp_var),sqrt(ind_var))
         }
       }
       
