@@ -62,14 +62,14 @@ Covariance <- R6::R6Class("Covariance",
                         #' covariance function. Each of those lists should have elements that are vectors or scalars 
                         #' providing the values of the parameters for each function in the order they are written. 
                         #' For example,
-                        #' * Formula: `~(1|gr(j))+(1|gr(j)*gr(t))`; parameters: `list(list(0.05),list(1,0.01))`
-                        #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `list(list(0.05,c(1,0.8)))`
+                        #' * Formula: `~(1|gr(j))+(1|gr(j)*gr(t))`; parameters: `c(0.25,0.1)`
+                        #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `c(0.25,0.5)`
                         #' @return A Covariance object
                         #' @seealso \code{gr}, \code{fexp}, \code{pexp}
                         #' @examples 
                         #' df <- nelder(~(cl(5)*t(5)) > ind(5))
                         #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
-                        #'                       parameters = list(list(0.05,0.8)),
+                        #'                       parameters = c(0.25,0.7),
                         #'                       data= df)
                         initialize = function(formula=NULL,
                                               data = NULL,
@@ -286,7 +286,6 @@ Covariance <- R6::R6Class("Covariance",
                           for(i in 1:length(Zlist))Zlist[[i]] <- Matrix::Matrix(Zlist[[i]])
                           private$Zlist <- Zlist
                           private$Funclist <- Funclist
-                          
                           
                           private$genD()
 

@@ -13,16 +13,12 @@ gen_m <- function(X, A) {
     .Call(`_glmmr_gen_m`, X, A)
 }
 
-gen_u <- function(M, X, C) {
-    .Call(`_glmmr_gen_u`, M, X, C)
+remove_one_many_mat <- function(A, i) {
+    .Call(`_glmmr_remove_one_many_mat`, A, i)
 }
 
-remove_one <- function(A, i, u) {
-    .Call(`_glmmr_remove_one`, A, i, u)
-}
-
-remove_one_mat <- function(A, i) {
-    .Call(`_glmmr_remove_one_mat`, A, i)
+remove_one_many <- function(A, i, u) {
+    .Call(`_glmmr_remove_one_many`, A, i, u)
 }
 
 add_one <- function(A, sigma_jj, f, u) {
@@ -33,32 +29,16 @@ add_one_mat <- function(A, sigma_jj, f) {
     .Call(`_glmmr_add_one_mat`, A, sigma_jj, f)
 }
 
-ChooseSwap <- function(idx_in, A, sig, u, out2, out3) {
-    .Call(`_glmmr_ChooseSwap`, idx_in, A, sig, u, out2, out3)
-}
-
-Grad <- function(idx_in, A, sig, u, tol = 1e-9, trace = TRUE) {
-    .Call(`_glmmr_Grad`, idx_in, A, sig, u, tol, trace)
-}
-
-ChooseSwapRobust <- function(nlist, idx_in, A_list, sig_list, u_list, weights, out2, out3) {
-    .Call(`_glmmr_ChooseSwapRobust`, nlist, idx_in, A_list, sig_list, u_list, weights, out2, out3)
-}
-
-GradRobust <- function(nlist, idx_in, A_list, M_list, C_list, X_list, sig_list, u_list, weights, tol = 1e-9, trace = TRUE) {
-    .Call(`_glmmr_GradRobust`, nlist, idx_in, A_list, M_list, C_list, X_list, sig_list, u_list, weights, tol, trace)
-}
-
 uvec_minus <- function(v, rm_idx) {
     .Call(`_glmmr_uvec_minus`, v, rm_idx)
 }
 
-GradRobustStep <- function(idx_in, C_list, X_list, sig_list, weights, nfix = 0L, rd_mode = 1L) {
-    .Call(`_glmmr_GradRobustStep`, idx_in, C_list, X_list, sig_list, weights, nfix, rd_mode)
+GradRobustStep <- function(N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix = 0L, rd_mode = 1L, trace = TRUE) {
+    .Call(`_glmmr_GradRobustStep`, N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix, rd_mode, trace)
 }
 
-GradRobustAlg1 <- function(idx_in, C_list, X_list, sig_list, weights, nfix = 0L, rd_mode = 1L) {
-    .Call(`_glmmr_GradRobustAlg1`, idx_in, C_list, X_list, sig_list, weights, nfix, rd_mode)
+GradRobustAlg1 <- function(N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix = 0L, rd_mode = 1L, trace = TRUE) {
+    .Call(`_glmmr_GradRobustAlg1`, N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix, rd_mode, trace)
 }
 
 findFunc <- function(funcdetail, data1, data2, pars) {

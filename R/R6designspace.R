@@ -77,8 +77,12 @@ DesignSpace <- R6::R6Class("DesignSpace",
                                       C,
                                       rm_cols=NULL,
                                       keep=FALSE,
-                                      verbose=TRUE){
+                                      verbose=TRUE,
+                                      robust_function = "weighted",
+                                      force_hill=FALSE){
                      if(keep&verbose)message("linked design objects will be overwritten with the new design")
+                     
+                     ## add checks
                      
                      # dispatch to correct algorithm
                      # check if the experimental conditions are correlated or not
@@ -94,41 +98,84 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        if(!uncorr)break
                      }
                      
-                     if(verbose&uncorr)message("Experimental conditions uncorrelated, using second-order cone program")
+                     if(!is(C,"list")){
+                       C_list <- list()
+                       for(i in 1:self$n()){
+                         C_list[[i]] <- matrix(C,ncol=1)
+                       }
+                     } else {
+                       C_list <- C
+                     }
+                     
+                     if(verbose&uncorr&!force_hill)message("Experimental conditions uncorrelated, using second-order cone program")
+                     if(verbose&uncorr&force_hill)message("Experimental conditions uncorrelated, but using hill climbing algorithm")
                      if(verbose&!uncorr)message("Experimental conditions correlated, using hill climbing algorithm")
                      
-                     if(uncorr){
+                     if(uncorr&!force_hill){
                        # this returns the experimental designs to keep
-                       idx_out <- private$socp_roptimal(C,m)
+                       idx_out <- private$socp_roptimal(C_list,m)
                        
                      } else {
                        #initialise from random starting index
-                       n <- private$designs[[1]]$mean_function$n()
-                       idx_in <- sort(sample(1:n,m,replace=FALSE))
-                       if(!is(C,"list")){
-                         Clist <- list()
-                         for(i in 1:self$n()){
-                           Clist[[i]] <- matrix(C,ncol=1)
+                       N <- private$designs[[1]]$mean_function$n()
+                       X_list <- private$genXlist()
+                       sig_list <- private$genSlist()
+                       weights <- self$weights
+                       exp_cond <- as.numeric(as.factor(self$experimental_condition))
+                       ncond <- length(unique(exp_cond))
+                       idx_in <- sort(sample(1:ncond,m,replace=FALSE))
+                       rdmode <- ifelse(robust_function=="weighted",1,0)
+                       
+                       if(!is.null(rm_cols))
+                       {
+                         if(!is(rm_cols,"list"))stop("rm_cols should be a list")
+                         idx_original <- list()
+                         zero_idx <- c()
+                         idx_original <- 1:nrow(X_list[[1]])
+                         
+                         # find all the entries with non-zero values of the given columns in each design
+                         for(i in 1:length(rm_cols))
+                         {
+                           if(!is.null(rm_cols[[i]])){
+                             for(j in 1:length(rm_cols[[i]]))
+                             {
+                               zero_idx <- c(zero_idx,which(X_list[[i]][,rm_cols[[i]][j]]!=0))
+                             }
+                           }
+                         }
+                         zero_idx <- sort(unique(zero_idx))
+                         idx_original <- idx_original[-zero_idx]
+                         idx_in <- match(idx_in,idx_original)
+                         
+                         if(verbose)message(paste0("removing ",length(zero_idx)," observations"))
+                         
+                         #update the matrices
+                         for(i in 1:length(rm_cols))
+                         {
+                           X_list[[i]] <- X_list[[i]][-zero_idx,-rm_cols[[i]]]
+                           C_list[[i]] <- matrix(C_list[[i]][-rm_cols[[i]]],ncol=1)
+                           sig_list[[i]] <- sig_list[[i]][-zero_idx,-zero_idx]
                          }
                        }
                        
-                       ## this now expects that idx_out are the experimental conditions to keep and NOT the row numbers
-                       ## see rows_to_keep for the rows to keep
                        
-                       idx_out <- grad_robust2_step(
-                         idx_in,
-                         C_list = Clist,
-                         X_list = private$genXlist(),
-                         sig_list = private$genSlist(),
-                         rm_cols = rm_cols,
-                         trace=verbose
-                       )
-                       
+                       out_list <- GradRobustStep(N = N,
+                                                  idx_in = idx_in, 
+                                                  C_list = C_list, 
+                                                  X_list = X_list, 
+                                                  sig_list = sig_list,
+                                                  exp_cond = exp_cond,
+                                                  nfix = 0,
+                                                  weights = weights, 
+                                                  rd_mode=rdmode,
+                                                  trace=verbose)
+                       idx_out <- drop(out_list[["idx_in"]] )
                      }
                      
                      
                      idx_out <- sort(idx_out)
-                     rows_to_keep <- which(self$experimental_condition %in% idx_out)
+                     idx_out_exp <- unique(self$experimental_condition)[idx_out]
+                     rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
                      
                      
                      if(keep){
@@ -139,7 +186,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        }
                      }
                      
-                     if(verbose)cat("Experimental conditions in the optimal design: ", idx_out)
+                     if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp)
                    },
                    show = function(i){
                      return(private$designs[[i]])
@@ -176,12 +223,12 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      z <- CVXR::Variable(n*n_r)
                      
                      for(i in 1:n_r){
-                       constr[[i]] <- t(X[[i]])%*%Matrix::t(Matrix::chol(Matrix::solve(sig[[i]])))%*%z[c(1:n + n*(i-1))] == C
+                       constr[[i]] <- t(X[[i]])%*%Matrix::t(Matrix::chol(Matrix::solve(sig[[i]])))%*%z[c(1:n + n*(i-1))] == C[[i]]
                      }
                      
                      for(i in n_ex){
                        #build expression
-                       cons_str <- "weights[1]*p_norm(z[which(exp_cond==i)])"
+                       cons_str <- "weights[1]*CVXR::p_norm(z[which(exp_cond==i)])"
                        if(n_r > 1){
                          for(j in 1:(n_r-1)){
                            cons_str <- paste0(cons_str," + weights[",j+1,"]*p_norm(z[(which(exp_cond==i)+",j,"*n)])")
