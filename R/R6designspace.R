@@ -90,13 +90,39 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      if(verbose)message("Checking experimental condition correlations...")
                      if(length(self$experimental_condition)!=private$designs[[1]]$n())stop("experimental condition not the same length as design")
                      uncorr <- TRUE
+                     unique_exp_cond <- unique(self$experimental_condition)
                      for(i in 1:self$n()){
-                       for(j in unique(self$experimental_condition)){
+                       for(j in unique_exp_cond){
                          uncorr <- all(private$designs[[i]]$Sigma[which(self$experimental_condition==j),which(self$experimental_condition!=j)]==0)
                          if(!uncorr)break
                        }
                        if(!uncorr)break
                      }
+                     ## need to detect if the experimental conditions are duplicated
+                     ## can update this but currently only provides a warning to the user
+                     if(uncorr&!force_hill){
+                       datahashes <- c()
+                       for(j in unique_exp_cond){
+                         datalist <- list()
+                         for(k in 1:self$n()){
+                           datalist[[k]] <- list(des$mean_function$X[self$experimental_condition==j,],
+                                                 des$Sigma[self$experimental_condition==j,self$experimental_condition==j])
+                         }
+                         datahashes <- c(datahashes, digest::digest(datalist))
+                       }
+                       
+                       if(any(duplicated(datahashes))){
+                         unique_hash <- unique(datahashes)
+                         n_unique_hash <- length(unique_hash)
+                         datahashes <- match(datahashes,unique_hash)
+                         message(paste0("Duplicated experimental conditions in the design space, ",n_unique_hash," unique 
+experimental conditions, which are uncorrelated. 
+force_hill=FALSE so weights will be calculated for each experimental condition separately. Sum of weights for
+each condition will be reported below."))
+                       }
+                       
+                     }
+                     
                      
                      if(!is(C,"list")){
                        C_list <- list()
@@ -114,7 +140,14 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      if(uncorr&!force_hill){
                        # this returns the experimental designs to keep
                        idx_out <- private$socp_roptimal(C_list,m)
-                       
+                       idx_out <- drop(idx_out)
+                       if(verbose)cat("Weights for each experimental condition in the optimal design: ", idx_out)
+                       if(any(duplicated(datahashes))){
+                         agg_weights <- aggregate(idx_out,list(datahashes),sum)
+                         cat("\nSum of weights for unique experimental conditions: ",agg_weights$x)
+                         idx_out <- list(weights = idx_out, unique_weights = agg_weights$x)
+                       }
+                       return(invisible(idx_out))
                      } else {
                        #initialise from random starting index
                        N <- private$designs[[1]]$mean_function$n()
@@ -158,7 +191,6 @@ DesignSpace <- R6::R6Class("DesignSpace",
                          }
                        }
                        
-                       
                        out_list <- GradRobustStep(N = N,
                                                   idx_in = idx_in, 
                                                   C_list = C_list, 
@@ -169,24 +201,39 @@ DesignSpace <- R6::R6Class("DesignSpace",
                                                   weights = weights, 
                                                   rd_mode=rdmode,
                                                   trace=verbose)
+                       
+                       # old algorithm - it doesn't really work!
+                       #   out_list <- GradRobustAlg1(N = N,
+                       #                              idx_in = idx_in, 
+                       #                              C_list = C_list, 
+                       #                              X_list = X_list, 
+                       #                              sig_list = sig_list,
+                       #                              exp_cond = exp_cond,
+                       #                              nfix = 0,
+                       #                              weights = weights, 
+                       #                              rd_mode=rdmode,
+                       #                              trace=verbose)
+                       
                        idx_out <- drop(out_list[["idx_in"]] )
-                     }
-                     
-                     
-                     idx_out <- sort(idx_out)
-                     idx_out_exp <- unique(self$experimental_condition)[idx_out]
-                     rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
-                     
-                     
-                     if(keep){
-                       for(i in 1:self$n()){
-                         private$designs[[i]]$subset_rows(rows_to_keep)
-                         ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
-                         if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
+                       idx_out <- sort(idx_out)
+                       idx_out_exp <- unique(self$experimental_condition)[idx_out]
+                       rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
+                       
+                       
+                       if(keep){
+                         for(i in 1:self$n()){
+                           private$designs[[i]]$subset_rows(rows_to_keep)
+                           ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
+                           if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
+                         }
                        }
+                       if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp)
                      }
                      
-                     if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp)
+                     
+                     
+                     
+                     
                    },
                    show = function(i){
                      return(private$designs[[i]])
@@ -244,7 +291,8 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      res <- CVXR::solve(prob)
                      weights <- res$getValue(mu)
                      # choose the m biggest to keep
-                     order(weights,decreasing = TRUE)[1:m]
+                     weights/sum(weights)
+                     #order(weights,decreasing = TRUE)[1:m]
                    }
                  )
 )

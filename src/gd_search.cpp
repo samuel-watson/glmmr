@@ -259,13 +259,9 @@ public:
   trace_(trace) {
     init_exp_cond();
     init_idx_out();
-    if(trace_)Rcpp::Rcout << "done init\n";
     Update_A_list();
-    if(trace_)Rcpp::Rcout << "done A list\n";
     Update_M_list(0,true);
-    if(trace_)Rcpp::Rcout << "done M list\n";
     Update_u_list();
-    if(trace_)Rcpp::Rcout << "done u list\n";
     cout << "rd_mode = " << rd_mode_ << endl;
   }
   
@@ -489,6 +485,7 @@ public:
   }
   
   //OLD ALGORITHIM
+  // UNTESTED AND DOESN'T REALLY WORK!
   void grad_robust_alg1() {
     new_val_ = comp_c_obj_fun();
     
@@ -497,6 +494,10 @@ public:
     // we now need diff to be negative
     while (diff < 0) {
       ++i;
+      if(trace_){
+        arma::uword n_rep = n_ < 10 ? n_ : 10;
+        idx_in_.head(n_rep).t().print("Exp. cond.: ");
+      }
       val_ = new_val_;
       reorder_obs();
       arma::uword rm_idx = idx_to_rm();
@@ -506,7 +507,6 @@ public:
       new_val_ = comp_c_obj_fun();
       diff = new_val_ - val_;
       if (diff < 0) UpdateResult(rm_idx,0); 
-      
       if (trace_) Rcpp::Rcout << "\rIter " << i << ": " << diff << " Var: " << new_val_ << std::endl;
     }
   }

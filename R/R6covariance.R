@@ -275,7 +275,7 @@ Covariance <- R6::R6Class("Covariance",
                             Funclist[[i]] <- f1
                           }
                           
-                          Z <- Reduce(cbind,Zlist)
+                          Z <- Reduce(cbind,rev(Zlist))
                           Z <- Matrix::Matrix(Z)
                           #if(ncol(Z)>nrow(Z))warning("Model underidentified")
                           if(nrow(Z) < ncol(Z))warning("More random effects than observations")
