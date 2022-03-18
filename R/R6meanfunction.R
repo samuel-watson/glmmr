@@ -24,7 +24,7 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           parameters = NULL,
                           #' @field randomiser A function that generates a new set of values representing the treatment allocation in an 
                           #' experimental study
-                          randomiser = NULL,
+                          randomise = NULL,
                           #' @field treat_var A string naming the column in data that represents the treatment variable in data. Used
                           #' to identify where to replace allocation when randomiser is used.
                           treat_var = NULL,
@@ -112,7 +112,7 @@ MeanFunction <- R6::R6Class("MeanFunction",
                                                 parameters ,
                                                 verbose = FALSE,
                                                 random_function=NULL,
-                                                treat_par = NULL
+                                                treat_var = NULL
                           ){
                             if(any(missing(formula),missing(family),missing(parameters))){
                               cat("not all inputs set. call generate() when set")
@@ -124,15 +124,20 @@ MeanFunction <- R6::R6Class("MeanFunction",
                               if(!is(data,"data.frame"))stop("data must be data frame")
                               # self$n <- nrow(data)
                               if(!is.null(random_function)){
-                                if(is.null(treat_var)){
-                                  stop("provide name of treatment variable treat_var")
-                                }
+                                if(is.null(treat_var))stop("provide name of treatment variable treat_var")
+                                
                                 #test random function
+                                test <- random_function()
+                                if(!is(test,"numeric") || length(test)!=nrow(data))stop("random_function does not produce a vector")
+                                if(verbose)message(paste0("randomise function provided, treatment variable '",treat_var,"' will be the last column of X,
+and the parameters should also be in this order"))
                                 # check it produces a varia
                                 self$randomise <- random_function
+                                self$treat_var <- treat_var
                               }
                               self$data <- data
                               private$generate(verbose=verbose)
+                              if(verbose)self$print()
                             }},
                           #' @description 
                           #' Prints details about the object
@@ -143,6 +148,12 @@ MeanFunction <- R6::R6Class("MeanFunction",
                             print(self$family)
                             cat("Formula:")
                             print(self$formula)
+                            if(!is.null(self$randomise)){
+                              cat(paste0("Treatment variable: ",self$treat_var))
+                              cat(paste0("\nRandom allocation function provided, e.g.: ",paste0(head(self$randomise()),collapse = "")))
+                            }
+                            cat("\n X matrix: \n")
+                            print(head(self$X))
                             # cat("Data:\n")
                             # print(head(self$data))
                           },
@@ -211,6 +222,16 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           #' mf1$subset_cols(1:2) 
                           subset_cols = function(index){
                             self$X <- self$X[,index]
+                          },
+                          rerandomise = function(){
+                            new_draw <- self$randomise()
+                            if(!self$treat_var %in% colnames(self$X)){
+                              self$X <- cbind(self$X,new_draw)
+                              colnames(self$X)[ncol(self$X)] <- self$treat_var
+                            } else {
+                              self$X[,self$treat_var] <- new_draw
+                            }
+                            private$Xb <- Matrix::drop(self$X %*% matrix(unlist(self$parameters[1:ncol(self$X)]),ncol=1))
                           }
                         ),
                         private = list(
@@ -220,6 +241,7 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           funs = NULL,
                           vars = NULL,
                           hash = NULL,
+                          treat_par = NULL,
                           hash_do = function(){
                             digest::digest(c(self$formula,self$data,self$family,
                                              self$parameters,
@@ -275,20 +297,34 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           genX = function(){
                             # generate model matrix X, including linearisation of non-linear terms,
                             X <- matrix(1,nrow=self$n(),ncol=1)
+                            colnames(X) <- "(Intercept)"
                             for(i in 1:length(private$funs)){
                               if(private$funs[[i]]=="RMINT")next
-                              X <- cbind(X,
-                                         do.call(paste0("d",private$funs[[i]]),list(list(
-                                           data = as.matrix(self$data[,private$vars[[i]]]),
-                                           pars = self$parameters[[i]]
-                                         ))))
+                              Xadd <- do.call(paste0("d",private$funs[[i]]),list(list(
+                                data = as.matrix(self$data[,private$vars[[i]]]),
+                                pars = self$parameters[[i]]
+                              )))
+                              #add colnames depending on the function
+                              if(private$funs[[i]] == "factor"){
+                                colnames(Xadd) <- paste0(private$vars[[i]],levels(factor(self$data[,private$vars[[i]]])))
+                              } else if(private$funs[[i]] == "identity"){
+                                colnames(Xadd) <- private$vars[[i]]
+                              } else {
+                                colnames(Xadd) <- paste0(private$vars[[i]],ncol(Xadd))
+                              }
+                              
+                              X <- cbind(X,Xadd)
                             }
                             if(any(private$funs=="RMINT"))X <- X[,-1]
-                            if(ncol(X)!=length(unlist(self$parameters)))stop("variables != parameters")
-                            private$Xb <- X %*% matrix(unlist(self$parameters),ncol=1)
+                            if((ncol(X)!=length(unlist(self$parameters))&is.null(self$randomise)) || 
+                              (( ncol(X) + 1)!=length(unlist(self$parameters))&!is.null(self$randomise)))warning("more parameters provided than variables in X")
+                            private$Xb <- X %*% matrix(unlist(self$parameters[1:ncol(X)]),ncol=1)
                             self$X <- Matrix::Matrix(X)
-
+                            
+                            #add random function data
+                            if(!is.null(self$randomise))self$rerandomise()
                           }
+                          
                         ))
 
 

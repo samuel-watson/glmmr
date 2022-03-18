@@ -9,6 +9,7 @@
 #' where h is the link function. A Design in comprised of a \link[glmmr]{MeanFunction} object, which defines the family F, 
 #' link function h, and fixed effects design matrix X, and a \link[glmmr]{Covariance} object, which defines Z and D. The class provides
 #' methods for analysis and simulation with these models.
+#' @importFrom Matrix Matrix
 #' @export 
 Design <- R6::R6Class("Design",
                   public = list(
@@ -265,20 +266,20 @@ Design <- R6::R6Class("Design",
                                     z=NULL,
                                     treat){
                       if(is.null(z)){
-                        ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
-                          geom_count(aes(color=self$mean_function$data[,treat]))+
-                          theme_bw()+
-                          theme(panel.grid=element_blank())+
-                          scale_color_viridis_c(name=treat)+
-                          scale_size_area()
+                        ggplot2::ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
+                          ggplot2::geom_count(aes(color=self$mean_function$data[,treat]))+
+                          ggplot2::theme_bw()+
+                          ggplot2::theme(panel.grid=ggplot2::element_blank())+
+                          ggplot2::scale_color_viridis_c(name=treat)+
+                          ggplot2::scale_size_area()
                       } else {
-                        ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
-                          geom_count(aes(color=self$mean_function$data[,treat]))+
-                          facet_wrap(~.data[[z]])+
-                          theme_bw()+
-                          theme(panel.grid=element_blank())+
-                          scale_color_viridis_c(name=treat)+
-                          scale_size_area()
+                        ggplot2::ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
+                          ggplot2::geom_count(aes(color=self$mean_function$data[,treat]))+
+                          ggplot2::facet_wrap(~.data[[z]])+
+                          ggplot2::theme_bw()+
+                          ggplot2::theme(panel.grid=ggplot2::element_blank())+
+                          ggplot2::scale_color_viridis_c(name=treat)+
+                          ggplot2::scale_size_area()
                       }},
                     sim_data = function(type = "y"){
                       re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
@@ -351,21 +352,35 @@ Design <- R6::R6Class("Design",
                     },
                     MCML = function(y,
                                     start,
+                                    se.method = "lik",
+                                    permutation.par,
                                     verbose=TRUE,
                                     tol = 1e-2,
                                     m=100,
                                     max.iter = 30,
                                     options = list()){
                      
+                      # checks
+                      if(!se.method%in%c("perm","lik"))stop("se.method should be 'perm' or 'lik'")
+                      if(se.method=="perm" & missing(permutation.par))stop("if using permutational based
+inference, set permuation.par")
+                      if(se.method=="perm" & is.null(self$mean_function$randomise))stop("random allocations
+are created using the function in self$mean_function$randomise, but this has not been set. Please see help(MeanFunction)
+for more details")
                       #set options
                       if(!is(options,"list"))stop("options should be a list")
                       b_se_only <- ifelse("b_se_only"%in%names(options),options$b_se_only,FALSE)
                       use_cmdstanr <- ifelse("use_cmdstanr"%in%names(options),options$use_cmdstanr,FALSE)
                       skip_cov_optim <- ifelse("skip_cov_optim"%in%names(options),options$skip_cov_optim,FALSE)
-                      skip_se <- ifelse("skip_se"%in%names(options),options$skip_se,FALSE)
+                      #skip_se <- ifelse("skip_se"%in%names(options),options$skip_se,FALSE)
                       method <- ifelse("method"%in%names(options),options$method,"mcnr")
                       sim_lik_step <- ifelse("sim_lik_step"%in%names(options),options$sim_lik_step,FALSE)
                       no_warnings <- ifelse("no_warnings"%in%names(options),options$no_warnings,FALSE)
+                      perm_type <- ifelse("perm_type"%in%names(options),options$perm_type,"cov")
+                      perm_iter <- ifelse("perm_iter"%in%names(options),options$perm_iter,100)
+                      perm_parallel <- ifelse("perm_iter"%in%names(options),options$perm_iter,TRUE)
+                      warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
+                      perm_ci_steps <- ifelse("warmup_iter"%in%names(options),options$perm_ci_steps,1000)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -457,7 +472,7 @@ Design <- R6::R6Class("Design",
                         if(use_cmdstanr){
                           capture.output(fit <- mod$sample(data = data,
                                                            chains = 1,
-                                                           iter_warmup = 500,
+                                                           iter_warmup = warmup_iter,
                                                            iter_sampling = m,
                                                            refresh = 0),
                                          file=tempfile())
@@ -467,15 +482,13 @@ Design <- R6::R6Class("Design",
                           capture.output(suppressWarnings(fit <- rstan::sampling(stanmodels[[gsub(".stan","",file_type$file)]],
                                                                 data = data,
                                                                 chains = 1,
-                                                                warmup = 500,
-                                                                iter = 500+m)))
+                                                                warmup = warmup_iter,
+                                                                iter = warmup_iter+m)))
                           dsamps <- rstan::extract(fit,"gamma",permuted=FALSE)
                           dsamps <- matrix(dsamps[,1,],ncol=Q)
                         }
                         
                        
-                        dsamps <<- dsamps
-                        theta <<- theta
                         # BETA PARAMETERS STEP
                         if(method == "mcnr"){
                           beta_step <- mcnr_step(y,
@@ -536,19 +549,20 @@ Design <- R6::R6Class("Design",
                         
                       }
                       
-                      if(verbose)cat("\n\nCalculating standard errors...\n")
+                      if(verbose)cat("\n\nCalculating standard errors...")
                       
                       if(family%in%c("gaussian")){
                         mf_pars <- theta[c(parInds$b,parInds$sig)]
-                        mf_pars_names <- c(paste0("b",1:P),"sigma")
+                        mf_pars_names <- c(colnames(self$mean_function$X),"sigma")
                       } else {
                         mf_pars <- theta[c(parInds$b)]
-                        mf_pars_names <- c(paste0("b",1:P))
+                        mf_pars_names <- colnames(self$mean_function$X)
                       }
                       
                       cov_pars_names <- paste0("cov",1:R)
-                      
-                      if(!skip_se){
+                      permutation = FALSE
+                      if(se.method=="lik"){
+                        if(verbose)cat("using Hessian method\n")
                           hess <- tryCatch(f_lik_optim(self$covariance$.__enclos_env__$private$Funclist,
                                                        self$covariance$.__enclos_env__$private$Distlist,
                                                        as.matrix(self$covariance$Z),
@@ -580,16 +594,98 @@ Design <- R6::R6Class("Design",
                           res$SE[1:P] <- sqrt(Matrix::diag(Matrix::solve(private$information_matrix())))
                         }
                           
+                        res$lower <- res$est - qnorm(1-0.05/2)*res$SE
+                        res$upper <- res$est + qnorm(1-0.05/2)*res$SE
+                          
+                      } else if(se.method=="perm") {
+                        if(verbose)cat("using permutational method\n")
+                        permutation = TRUE
+                        #get null model
+                        # use parameters from fit above rather than null marginal model
+                        Xnull <- as.matrix(self$mean_function$X)
+                        Xnull <- Xnull[,-permutation.par]
+                        null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family)
+                        xb <- null_fit$linear.predictors
+                        
+                        tr <- self$mean_function$X[,permutation.par]
+                        if(any(!tr%in%c(0,1)))stop("permuational inference only available for dichotomous treatments")
+                        tr[tr==0] <- -1
+                        
+                        if(verbose&perm_type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
+                        if(verbose&perm_type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
+                        w.opt <- perm_type=="cov"
+                        invS <- Matrix::solve(self$Sigma)
+                        qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
+                        
+                        if(verbose)cat("Starting permutations\n")
+                        if(perm_parallel){
+                          cl <- parallel::makeCluster(parallel::detectCores()-1)
+                          parallel::clusterEvalQ(cl,library(Matrix))
+                          #change when package built!
+                          parallel::clusterEvalQ(cl,devtools::load_all())
+                          qtest <- pbapply::pbsapply(1:perm_iter,function(i){
+                            new_tr <- self$mean_function$randomise()
+                            new_tr[new_tr==0] <- -1
+                            private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
+                          }, cl = cl)
+                          parallel::stopCluster(cl)
+                        } else {
+                          qtest <- pbapply::pbsapply(1:perm_iter,function(i){
+                            new_tr <- self$mean_function$randomise()
+                            new_tr[new_tr==0] <- -1
+                            private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
+                          })
+                        }
+                        
+                        #permutation confidence intervals
+                        if(verbose)cat("Starting permutational confidence intervals\n")
+                        pval <- length(qtest[qtest>qstat])/perm_iter
+                        if(pval==0)pval <- 0.5/perm_iter
+                        tval <- qnorm(1-pval/2)
+                        par <- theta[parInds$b][permutation.par]
+                        se <- abs(par/tval)
+                        if(verbose)cat("Lower\n")
+                        lower <- private$confint_search(y,
+                                                        permutation.par,
+                                                        start = par - 2*se,
+                                                        b = par,
+                                                        w.opt = w.opt,
+                                                        nsteps = perm_ci_steps)
+                        if(verbose)cat("\nUpper\n")
+                        upper <- private$confint_search(y,
+                                                        permutation.par,
+                                                        start = par + 2*se,
+                                                        b = par,
+                                                        w.opt = w.opt,
+                                                        nsteps = perm_ci_steps)
+                        
+                        se1 <- rep(NA,length(mf_pars))
+                        se1[permutation.par] <- se
+                        se2 <- rep(NA,length(parInds$cov))
+                        ci1l <- ci1u <- rep(NA,length(mf_pars))
+                        ci2l <- ci2u <- rep(NA,length(parInds$cov))
+                        ci1l[permutation.par] <- lower
+                        ci1u[permutation.par] <- upper
+                        
+                        res <- data.frame(par = c(mf_pars_names,cov_pars_names),
+                                          est = c(mf_pars,theta[parInds$cov]),
+                                          SE=c(se1,se2),
+                                          lower=c(ci1l,ci2l),
+                                          upper=c(ci1u,ci2u))
+                      hessused <- FALSE
                       } else {
                         res <- data.frame(par = c(mf_pars_names,cov_pars_names),
                                           est = c(mf_pars,theta[parInds$cov]),
-                                          SE=NA)
+                                          SE=NA,
+                                          lower = NA,
+                                          upper =NA)
                       }
                       
                      out <- list(coefficients = res,
                                  converged = !not_conv,
                                  method = method,
                                  hessian = hessused,
+                                 permutation = permutation,
                                  m = m,
                                  tol = tol,
                                  sim_lik = sim_lik_step)
@@ -798,6 +894,83 @@ Design <- R6::R6Class("Design",
                     },
                     information_matrix = function(){
                       Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X
+                    },
+                    qscore = function(y,
+                                      tr,
+                                      xb,
+                                      permutation.par,
+                                      invS,
+                                      weight=TRUE){
+                      
+                      #xb <- self$mean_function$X[,-permutation.par] %*% b + offset
+                      ypred <- self$mean_function$family$linkinv(Matrix::drop(xb))
+                      resids <- Matrix::Matrix(y-ypred)
+                      
+                      if(weight){
+                        tr_mat <- Matrix::diag(tr)
+                        g <- Matrix::t(private$get_G(xb))
+                        q <- (g%*%invS)%*%(tr_mat%*%resids)
+                      } else {
+                        tr_mat <- Matrix::Matrix(tr,nrow=1)
+                        q <- (tr_mat%*%resids)
+                      }
+                      return(abs(Matrix::drop(q)))
+                    },
+                    get_G = function(x){
+                      family = self$mean_function$family
+                      
+                      if(family[[2]] == "identity"){
+                        dx <- rep(1,length(x))
+                      } else if(family[[2]] == "log"){
+                        dx <- exp(x)
+                      } else if(family[[2]] == "logit"){
+                        dx <- (exp(x)/(1+exp(x)))*(1-exp(x)/(1+exp(x)))
+                      } else if(family[[2]] == "probit"){
+                        dx <- -1/dnorm(x)
+                      }
+                      return(dx)
+                    },
+                    confint_search = function(y,
+                                              permutation.par,
+                                              start,
+                                              b,
+                                              nsteps = 1000,
+                                              w.opt = TRUE,
+                                              alpha=0.05,
+                                              verbose=TRUE){
+                      bound <- start
+                      Xnull <- as.matrix(self$mean_function$X)
+                      Xnull <- Xnull[,-permutation.par]
+                      tr <- as.matrix(self$mean_function$X)[,permutation.par]
+                      dtr <- tr
+                      dtr[dtr==0] <- -1
+                      k <- 2/(pnorm(1-alpha)*((2*pi)^-0.5)*exp((-pnorm(1-alpha)^2)/2))
+                      invS <- Matrix::solve(self$Sigma)
+                      
+                      for(i in 1:nsteps){
+                        null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family,offset = tr*bound)
+                        #pars <- null_fit$coefficients
+                        xb <- null_fit$linear.predictors
+                        qstat <- private$qscore(y,dtr,xb,permutation.par,invS,w.opt)
+                        
+                        new_tr <- self$mean_function$randomise()
+                        new_tr[new_tr==0] <- -1
+                        qtest <- private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
+                        rjct <- qstat > qtest
+                        #cat("\r bound: ",bound," qscore: ",qstat," qtest: ",qtest," iter: ",i)
+                        
+                        step <- k*(b - bound)
+                        if(rjct){
+                          bound <- bound + step*alpha/i
+                        } else {
+                          bound <- bound - step*(1-alpha)/i
+                        }
+                        
+                        if(verbose)cat("\r",progress_bar(i,nsteps))
+                      }
+                      
+                      return(bound)
+                      
                     }
                   ))
 

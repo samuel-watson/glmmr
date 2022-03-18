@@ -22,15 +22,22 @@ print.mcml <- function(x, digits =2, ...){
       ifelse(x$method=="mcem","Markov Chain Expectation Maximisation",
              "Markov Chain Newton-Raphson"),
       ifelse(x$sim_step," with simulated likelihood step\n","\n"))
-  if(!x$hessian)warning("Hessian was not positive definite, standard errors are approximate")
-  if(!x$converged)warning("Algorithm did not converge")
+  
   cat("\nNumber of Monte Carlo simulations per iteration: ",x$m," with tolerance ",x$tol,"\n")
-  pars <- x$coefficients[!grepl("d",x$coefficients$par),c('est','SE')]
+  semethod <- ifelse(x$permutation,"permutation test",ifelse(x$hessian,"hessian","approx"))
+  cat("P-value and confidence interval method: ",semethod,"\n")
+  pars <- x$coefficients[!grepl("d",x$coefficients$par),c('est','SE','lower','upper')]
   z <- pars$est/pars$SE
-  pars <- cbind(pars,z=z,p=2*(1-pnorm(abs(z))))
-  colnames(pars) <- c("Estimate","Std. Err.","Z value","P value")
+  pars <- cbind(pars[,1:2],z=z,p=2*(1-pnorm(abs(z))),pars[,3:4])
+  colnames(pars) <- c("Estimate","Std. Err.","z value","p value","2.5% CI","97.5% CI")
   rownames(pars) <- x$coefficients$par[!grepl("d",x$coefficients$par)]
   print(apply(pars,2,round,digits = digits))
+  
+  #messages
+  if(x$permutation)message("Permutation test used for one parameter, other SEs are not reported. SEs and Z values
+are approximate based on the p-value, and assume normality.")
+  if(!x$hessian&!x$permutation)warning("Hessian was not positive definite, standard errors are approximate")
+  if(!x$converged)warning("Algorithm did not converge")
 }
 
 #' Prints a glmmr simuation output
@@ -59,9 +66,11 @@ print.glmmr.sim <- function(x, digits = 2,...){
   conv <- mean(x$convergence)
   ## get coverage
   thresh <- qnorm(1-x$alpha/2)
+  nbeta <- length(x$b_parameters)
+  rows_to_include <- 1:nbeta
   cover <- Reduce(rbind,lapply(x$coefficients,function(i){
-    (i$est[grepl("b",i$par)] - thresh*i$SE[grepl("b",i$par)]) <= x$b_parameters & 
-      (i$est[grepl("b",i$par)] + thresh*i$SE[grepl("b",i$par)]) >= x$b_parameters
+    (i$est[rows_to_include] - thresh*i$SE[rows_to_include]) <= x$b_parameters & 
+      (i$est[rows_to_include] + thresh*i$SE[rows_to_include]) >= x$b_parameters
   }))
   cover <- colMeans(cover)
   cat("MCML algorithm convergence: ",round(conv*100,1),"%\nalpha: ",paste0(x$alpha*100,"%"),
@@ -69,7 +78,7 @@ print.glmmr.sim <- function(x, digits = 2,...){
   
   ## errors 
   cat("\n\n Errors\n",paste0(rep("-",31),collapse = ""),"\n")
-  nbeta <- sum(grepl("b",x$coefficients[[1]]$par))
+  
   errdf <- sapply(1:nbeta,function(i)summarize.errors(x$coefficients,
                                   par = i,
                                   true = x$b_parameters[i],
@@ -93,7 +102,7 @@ print.glmmr.sim <- function(x, digits = 2,...){
   print(apply(cidf,2,round,digits = digits))
   
   ##robustness
-  cat("\n\n Robustness (DFBETA) for parameter: ",paste0("b",x$par),"\n",paste0(rep("-",41),collapse = ""),"\n")
+  cat("\n\n Robustness (DFBETA) for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
   
   dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
   cat("Mean minimum number of observations required to: \n\n")

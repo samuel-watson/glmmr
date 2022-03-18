@@ -172,3 +172,22 @@ relist <- function(lst,value,p=0){
   }
   return(list(lst,p))
 }
+
+#' Generates a progress bar
+#'
+#' Prints a progress bar
+#'
+#' @param i integer. The current iteration.
+#' @param n integer. The total number of interations
+#' @param len integer. Length of the progress a number of characters
+#' @return A character string
+#' @examples
+#' progress_bar(10,100)
+#' @export
+progress_bar <- function(i,n,len=30){
+  prop <- floor((i*100/n) / (100/len))
+  pt1 <- paste0(rep("=",prop), collapse="")
+  pt2 <- paste0(rep(" ",len-prop), collapse = "")
+  msg <- paste0("|",pt1,pt2,"| ",round((i*100/n),0),"%")
+  return(msg)
+}
