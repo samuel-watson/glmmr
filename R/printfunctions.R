@@ -31,13 +31,48 @@ print.mcml <- function(x, digits =2, ...){
   pars <- cbind(pars[,1:2],z=z,p=2*(1-pnorm(abs(z))),pars[,3:4])
   colnames(pars) <- c("Estimate","Std. Err.","z value","p value","2.5% CI","97.5% CI")
   rownames(pars) <- x$coefficients$par[!grepl("d",x$coefficients$par)]
-  print(apply(pars,2,round,digits = digits))
+  pars <- apply(pars,2,round,digits = digits)
+  print(pars)
   
   #messages
   if(x$permutation)message("Permutation test used for one parameter, other SEs are not reported. SEs and Z values
 are approximate based on the p-value, and assume normality.")
   if(!x$hessian&!x$permutation)warning("Hessian was not positive definite, standard errors are approximate")
   if(!x$converged)warning("Algorithm did not converge")
+  return(invisible(pars))
+}
+
+#' Summarises an mcml fit output
+#' 
+#' Summary method for class "`mcml`"
+#' 
+#' @param x an object of class "`mcml`" as a result of a call to MCML, see \link[glmmr]{Design}
+#' @param digits Number of digits to print
+#' @param ... Further arguments passed from other methods
+#' @details 
+#' `print.mcml` tries to replicate the output of other regression functions, such
+#' as `lm` and `lmer` reporting parameters, standard errors, and z- and p- statistics.
+#' The z- and p- statistics should be interpreted cautiously however, as generalised
+#' linear mixed models can suffer from severe small sample biases where the effective
+#' sample size relates more to the higher levels of clustering than individual observations.
+#' TBC!!
+#' 
+#' Parameters `b` are the mean function beta parameters, parameters `cov` are the
+#' covariance function parameters in the same order as `$covariance$parameters`, and
+#' parameters `d` are the estimated random effects.
+#' @return TBC
+#' @export
+summary.mcml <- function(x,digits=2,...){
+  pars <- print(x)
+  ## summarise random effects
+  dfre <- data.frame(Mean = round(apply(x$re.samps,2,mean),digits = digits), 
+                     lower = round(apply(x$re.samps,2,function(i)quantile(i,0.025)),digits = digits),
+                     upper = round(apply(x$re.samps,2,function(i)quantile(i,0.975)),digits = digits))
+  colnames(dfre) <- c("Estimate","2.5% CI","97.5% CI")
+  cat("Random effects estimates\n")
+  print(dfre)
+  ## add in model fit statistics
+  return(invisible(list(coefficients = pars,re.terms = dfre)))
 }
 
 #' Prints a glmmr simuation output

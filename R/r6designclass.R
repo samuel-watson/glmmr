@@ -681,6 +681,7 @@ for more details")
                                           upper =NA)
                       }
                       
+                     colnames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
                      out <- list(coefficients = res,
                                  converged = !not_conv,
                                  method = method,
@@ -688,7 +689,8 @@ for more details")
                                  permutation = permutation,
                                  m = m,
                                  tol = tol,
-                                 sim_lik = sim_lik_step)
+                                 sim_lik = sim_lik_step,
+                                 re.samps = dsamps)
                      
                      class(out) <- "mcml"
                       

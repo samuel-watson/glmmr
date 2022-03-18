@@ -162,6 +162,8 @@ Covariance <- R6::R6Class("Covariance",
                         Distlist = NULL,
                         flist = NULL,
                         flistvars = NULL,
+                        flistcount = NULL,
+                        flistlabs = NULL,
                         Funclist = NULL,
                         Zlist = NULL,
                         cov_functions = function(arg,x,pars){
@@ -226,12 +228,18 @@ Covariance <- R6::R6Class("Covariance",
                           Zlist <- list()
                           Distlist <- list()
                           Funclist <- list()
+                          flistcount <- list()
+                          flistlabs <- list()
                           for(i in 1:length(flist)){
                             data_nodup <- self$data[!duplicated(self$data[,flistvars[[i]]$rhs]),flistvars[[i]]$rhs]
                             if(!is(data_nodup,"data.frame")){
                               data_nodup <- data.frame(data_nodup)
                               colnames(data_nodup) <- flistvars[[i]]$rhs
                             }
+                            flistcount[[i]] <- nrow(data_nodup)
+                            data_nodup_lab <- data_nodup
+                            for(k in 1:ncol(data_nodup_lab))data_nodup_lab[,k] <- paste0(colnames(data_nodup_lab)[k],data_nodup_lab[,k])
+                            flistlabs[[i]] <- apply(data_nodup_lab,1,paste0,collapse="")
                             Distlist[[i]] <- as.matrix(data_nodup)
                             zdim2 <- nrow(data_nodup)
                             Zlist[[i]] <- match_rows(self$data,data_nodup,by=flistvars[[i]]$rhs)
@@ -286,7 +294,8 @@ Covariance <- R6::R6Class("Covariance",
                           for(i in 1:length(Zlist))Zlist[[i]] <- Matrix::Matrix(Zlist[[i]])
                           private$Zlist <- Zlist
                           private$Funclist <- Funclist
-                          
+                          private$flistcount <- flistcount
+                          private$flistlabs <- flistlabs
                           private$genD()
 
                         },
