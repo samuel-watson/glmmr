@@ -1,6 +1,8 @@
 #include <cmath>  // std::pow
 #include <RcppArmadillo.h>
 #include <roptim.h>
+#include "rbobyqa.h"
+using namespace rminqa;
 using namespace Rcpp;
 using namespace arma;
 using namespace roptim;
@@ -125,7 +127,7 @@ double log_factorial_approx(int n){
   return ans;
 }
 
-class D_likelihood : public Functor {
+class D_likelihood : public ObjFun {
   Rcpp::List func_;
   Rcpp::List data_;
   arma::mat u_;
@@ -147,6 +149,7 @@ public:
       dmv += -0.5*Q*log(2*arma::datum::pi)-
         0.5*logdetD - 0.5*arma::as_scalar(u_.row(j)*D*u_.row(j).t());
     }
+    // Rcpp::Rcout << "\n" << dmv;
     //double check that the matrix u is orientated
     // as draws * random effects (cols)
     return -1 * dmv/nrow;
@@ -155,20 +158,23 @@ public:
 
 
 // [[Rcpp::export]]
-arma::vec d_lik_optim(Rcpp::List &func,
-                 Rcpp::List &data,
-                 arma::mat &u,
-                 arma::vec start){
+arma::vec d_lik_optim(const Rcpp::List &func,
+                 const Rcpp::List &data,
+                 const arma::mat &u,
+                 arma::vec start,
+                 const arma::vec &lower,
+                 const arma::vec &upper,
+                 int trace = 0){
   D_likelihood dl(func, data, u);
-  // dl.func = func;
-  // dl.data = data;
-  // dl.u = u;
   
-  Roptim<D_likelihood> opt("Nelder-Mead");
-  opt.control.trace = 0;
+  //Roptim<D_likelihood> opt("Nelder-Mead");
+  Rbobyqa<D_likelihood> opt;
+  opt.set_upper(upper);
+  opt.set_lower(lower);
+  opt.control.iprint = trace;
   //opt.set_hessian(true);
   opt.minimize(dl, start);
-  
+  //opt.par().print("par = ");
   return opt.par();
 }
 
@@ -225,7 +231,7 @@ double log_likelihood(arma::vec y,
 }
 
 
-class L_likelihood : public Functor {
+class L_likelihood : public ObjFun {
   arma::mat Z_;
   arma::mat X_;
   arma::vec y_;
@@ -271,17 +277,25 @@ public:
 };
 
 // [[Rcpp::export]]
-arma::vec l_lik_optim(arma::mat &Z, 
-                      arma::mat &X,
-                      arma::vec &y, 
-                      arma::mat &u, 
+arma::vec l_lik_optim(const arma::mat &Z, 
+                      const arma::mat &X,
+                      const arma::vec &y, 
+                      const arma::mat &u, 
                       std::string family, 
                       std::string link,
-                      arma::vec start){
+                      arma::vec start,
+                      const arma::vec &lower,
+                      const arma::vec &upper,
+                      int trace){
   L_likelihood dl(Z,X,y,u,family,link);
   
-  Roptim<L_likelihood> opt("Nelder-Mead");
-  opt.control.trace = 0;
+  Rbobyqa<L_likelihood> opt;
+  opt.set_upper(upper);
+  opt.set_lower(lower);
+  opt.control.iprint = trace;
+  
+  // Roptim<L_likelihood> opt("Nelder-Mead");
+  // opt.control.trace = 0;
   //opt.set_hessian(true);
   opt.minimize(dl, start);
   

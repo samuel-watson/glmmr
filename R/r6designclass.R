@@ -382,7 +382,7 @@ for more details")
                       perm_parallel <- ifelse("perm_iter"%in%names(options),options$perm_iter,TRUE)
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("warmup_iter"%in%names(options),options$perm_ci_steps,1000)
-                      theta_in <- ifelse("theta_in"%in%names(options),options$theta_in,NULL)
+                      #theta_in <- ifelse("theta_in"%in%names(options),options$theta_in,NULL)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -490,7 +490,7 @@ for more details")
                           dsamps <- matrix(dsamps[,1,],ncol=Q)
                         }
                         
-                       
+                        dsamps <<- dsamps
                         # BETA PARAMETERS STEP
                         if(method == "mcnr"){
                           beta_step <- mcnr_step(y,
@@ -511,7 +511,10 @@ for more details")
                                                           dsamps,
                                                           family=self$mean_function$family[[1]],
                                                           link=self$mean_function$family[[2]],
-                                                          start = theta[mf_parInd]))
+                                                          start = theta[mf_parInd],
+                                                          lower = rep(-Inf,length(mf_parInd)),
+                                                          upper = rep(Inf,length(mf_parInd)),
+                                                          trace= 0))
                           
                         }
                         
@@ -521,7 +524,10 @@ for more details")
                           theta[parInds$cov] <- drop(d_lik_optim(self$covariance$.__enclos_env__$private$Funclist,
                                                       self$covariance$.__enclos_env__$private$Distlist,
                                                       dsamps,
-                                                      start = c(theta[parInds$cov])))
+                                                      start = c(theta[parInds$cov]),
+                                                      lower= rep(0,length(parInds$cov)),
+                                                      upper= rep(Inf,length(parInds$cov)),
+                                                      trace=0))
                           
                           
                         }
