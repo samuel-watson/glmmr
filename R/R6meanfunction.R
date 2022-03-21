@@ -228,9 +228,10 @@ and the parameters should also be in this order"))
                             if(!self$treat_var %in% colnames(self$X)){
                               self$X <- cbind(self$X,new_draw)
                               colnames(self$X)[ncol(self$X)] <- self$treat_var
-                            } else {
-                              self$X[,self$treat_var] <- new_draw
                             }
+                            # } else {
+                            #   self$X[,self$treat_var] <- new_draw
+                            # }
                             private$Xb <- Matrix::drop(self$X %*% matrix(unlist(self$parameters[1:ncol(self$X)]),ncol=1))
                           }
                         ),

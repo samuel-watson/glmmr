@@ -48,7 +48,8 @@ Design <- R6::R6Class("Design",
                     initialize = function(covariance,
                                           mean.function,
                                           var_par = NULL,
-                                          verbose=TRUE){
+                                          verbose=TRUE,
+                                          skip.sigma = FALSE){
                       if(is(covariance,"R6")){
                         if(is(covariance,"Covariance")){
                           self$covariance <- covariance
@@ -86,7 +87,7 @@ Design <- R6::R6Class("Design",
 
                       self$var_par <- var_par
 
-                      self$generate()
+                      if(!skip.sigma)self$generate()
                       private$hash <- private$hash_do()
                     },
                     #' @description 
@@ -161,7 +162,7 @@ Design <- R6::R6Class("Design",
                         
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]$coefficients),
-                          dfbeta = lapply(out,function(i)i[[2]]),
+                          #dfbeta = lapply(out,function(i)i[[2]]),
                           sim_method = "full.sim",
                           mcml_method = out[[1]][[1]]$method,
                           convergence = unlist(lapply(out,function(i)i[[1]]$converged)),
@@ -209,7 +210,7 @@ Design <- R6::R6Class("Design",
                         
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]),
-                          dfbeta = lapply(out,function(i)i[[2]]),
+                          #dfbeta = lapply(out,function(i)i[[2]]),
                           sim_method = "approx.sim",
                           mcml_method = NA,
                           convergence = NA,
@@ -381,6 +382,7 @@ for more details")
                       perm_parallel <- ifelse("perm_iter"%in%names(options),options$perm_iter,TRUE)
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("warmup_iter"%in%names(options),options$perm_ci_steps,1000)
+                      theta_in <- ifelse("theta_in"%in%names(options),options$theta_in,NULL)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -602,70 +604,21 @@ for more details")
                         permutation = TRUE
                         #get null model
                         # use parameters from fit above rather than null marginal model
-                        Xnull <- as.matrix(self$mean_function$X)
-                        Xnull <- Xnull[,-permutation.par]
-                        null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family)
-                        xb <- null_fit$linear.predictors
-                        
-                        tr <- self$mean_function$X[,permutation.par]
-                        if(any(!tr%in%c(0,1)))stop("permuational inference only available for dichotomous treatments")
-                        tr[tr==0] <- -1
-                        
-                        if(verbose&perm_type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
-                        if(verbose&perm_type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
-                        w.opt <- perm_type=="cov"
-                        invS <- Matrix::solve(self$Sigma)
-                        qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
-                        
-                        if(verbose)cat("Starting permutations\n")
-                        if(perm_parallel){
-                          cl <- parallel::makeCluster(parallel::detectCores()-1)
-                          parallel::clusterEvalQ(cl,library(Matrix))
-                          #change when package built!
-                          parallel::clusterEvalQ(cl,devtools::load_all())
-                          qtest <- pbapply::pbsapply(1:perm_iter,function(i){
-                            new_tr <- self$mean_function$randomise()
-                            new_tr[new_tr==0] <- -1
-                            private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
-                          }, cl = cl)
-                          parallel::stopCluster(cl)
-                        } else {
-                          qtest <- pbapply::pbsapply(1:perm_iter,function(i){
-                            new_tr <- self$mean_function$randomise()
-                            new_tr[new_tr==0] <- -1
-                            private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
-                          })
-                        }
-                        
-                        #permutation confidence intervals
-                        if(verbose)cat("Starting permutational confidence intervals\n")
-                        pval <- length(qtest[qtest>qstat])/perm_iter
-                        if(pval==0)pval <- 0.5/perm_iter
-                        tval <- qnorm(1-pval/2)
+                        perm_out <- self$perumtation_test(permutation.par,
+                                                          start = theta[parInds$b][permutation.par],
+                                                          nsteps = perm_ci_steps,
+                                                          type = perm_type,
+                                                          verbose= verbose)
+                        tval <- qnorm(1-perm_out$p/2)
                         par <- theta[parInds$b][permutation.par]
                         se <- abs(par/tval)
-                        if(verbose)cat("Lower\n")
-                        lower <- private$confint_search(y,
-                                                        permutation.par,
-                                                        start = par - 2*se,
-                                                        b = par,
-                                                        w.opt = w.opt,
-                                                        nsteps = perm_ci_steps)
-                        if(verbose)cat("\nUpper\n")
-                        upper <- private$confint_search(y,
-                                                        permutation.par,
-                                                        start = par + 2*se,
-                                                        b = par,
-                                                        w.opt = w.opt,
-                                                        nsteps = perm_ci_steps)
-                        
                         se1 <- rep(NA,length(mf_pars))
                         se1[permutation.par] <- se
                         se2 <- rep(NA,length(parInds$cov))
                         ci1l <- ci1u <- rep(NA,length(mf_pars))
                         ci2l <- ci2u <- rep(NA,length(parInds$cov))
-                        ci1l[permutation.par] <- lower
-                        ci1u[permutation.par] <- upper
+                        ci1l[permutation.par] <- perm_out$lower
+                        ci1u[permutation.par] <- perm_out$upper
                         
                         res <- data.frame(par = c(mf_pars_names,cov_pars_names),
                                           est = c(mf_pars,theta[parInds$cov]),
@@ -696,84 +649,84 @@ for more details")
                       
                       self$mean_function$parameters <- orig_par_b 
                       self$covariance$parameters <- orig_par_cov
-                      self$check(verbose=FALSE)
+                      #self$check(verbose=FALSE)
                       
                       return(out)
                     },
-                    dfbeta = function(y,
-                                      par,
-                                      alpha=0.05,
-                                      b_hat ,
-                                      verbose = TRUE){
-                      
-                      orig_par_b <- self$mean_function$parameters
-                      orig_par_cov <- self$covariance$parameters
-                      
-                      iter <- 0
-                      sig <- NULL
-                      sign <- NULL
-                      sigsign <- NULL
-                      if(!missing(b_hat)){
-                        ests <- b_hat
-                        self$mean_function$parameters <- b_hat
-                      } else {
-                        if(verbose)message("parameter estimates not provided, using values stored in mean function")
-                        ests <- self$mean_function$parameters
-                      }
-                      self$check(verbose = verbose)
-                      newest <- ests[par]
-                      n <- self$n()
-                      nid <- 1:n
-                      
-                      
-                      #fix the indexes to remove
-                      
-                      while(is.null(sig)|is.null(sign)|is.null(sigsign)){
-                        invS <- Matrix::solve(self$Sigma[nid,nid])
-                        invSX <- invS %*% self$mean_function$X[nid,]
-                        invM <- Matrix::solve(Matrix::crossprod(self$mean_function$X[nid,],invSX))
-                        B <-  invM %*% Matrix::t(invSX)
-                        Q <- invS - invSX %*% B
-                        dQ <- 1/Matrix::diag(Q)
-                        e <- dQ*Matrix::t(Q)%*%y[nid]
-                        Be <- B%*%Matrix::diag(Matrix::drop(e))
-                        SE <- sqrt(Matrix::diag(invM))
-                        tstat <- newest/SE
-                        pval <- 2*(1-pnorm(abs(tstat)))
-                        maxid <- order(Be[par,],decreasing = sign(ests[par])==1)[1]
-                        newest <- newest - Be[par,maxid]
-                        self$mean_function$parameters <- self$mean_function$parameters - Be[,maxid]
-                        self$check(verbose = FALSE)
-                        
-                        nid <- nid[-maxid]
-                        iter <- iter+1
-                        # check significance
-                        if(pval[par] >= alpha & is.null(sig)){
-                          sig <- iter
-                          attr(sig,"id") <- which(!c(1:n)%in%nid)
-                        }
-                        if(sign(ests[par]) != sign( newest ) & is.null(sign)){
-                          sign <- iter
-                          attr(sign,"id") <- which(!c(1:n)%in%nid)
-                        }
-                        if(sign(ests[par]) != sign( newest ) & pval[par] < alpha &  is.null(sigsign)){
-                          sigsign <- iter
-                          attr(sigsign,"id") <- which(!c(1:n)%in%nid)
-                        }
-                        
-                        
-                        if(verbose)cat("\rIteration: ",iter)
-                        
-                      }
-                      
-                      self$mean_function$parameters <- orig_par_b 
-                      self$covariance$parameters <- orig_par_cov
-                      self$check(verbose=FALSE)
-                      
-                      
-                      
-                      return(list(sig,sign,sigsign))
-                    },
+                    # dfbeta = function(y,
+                    #                   par,
+                    #                   alpha=0.05,
+                    #                   b_hat ,
+                    #                   verbose = TRUE){
+                    #   
+                    #   orig_par_b <- self$mean_function$parameters
+                    #   orig_par_cov <- self$covariance$parameters
+                    #   
+                    #   iter <- 0
+                    #   sig <- NULL
+                    #   sign <- NULL
+                    #   sigsign <- NULL
+                    #   if(!missing(b_hat)){
+                    #     ests <- b_hat
+                    #     self$mean_function$parameters <- b_hat
+                    #   } else {
+                    #     if(verbose)message("parameter estimates not provided, using values stored in mean function")
+                    #     ests <- self$mean_function$parameters
+                    #   }
+                    #   self$check(verbose = verbose)
+                    #   newest <- ests[par]
+                    #   n <- self$n()
+                    #   nid <- 1:n
+                    #   
+                    #   
+                    #   #fix the indexes to remove
+                    #   
+                    #   while(is.null(sig)|is.null(sign)|is.null(sigsign)){
+                    #     invS <- Matrix::solve(self$Sigma[nid,nid])
+                    #     invSX <- invS %*% self$mean_function$X[nid,]
+                    #     invM <- Matrix::solve(Matrix::crossprod(self$mean_function$X[nid,],invSX))
+                    #     B <-  invM %*% Matrix::t(invSX)
+                    #     Q <- invS - invSX %*% B
+                    #     dQ <- 1/Matrix::diag(Q)
+                    #     e <- dQ*Matrix::t(Q)%*%y[nid]
+                    #     Be <- B%*%Matrix::diag(Matrix::drop(e))
+                    #     SE <- sqrt(Matrix::diag(invM))
+                    #     tstat <- newest/SE
+                    #     pval <- 2*(1-pnorm(abs(tstat)))
+                    #     maxid <- order(Be[par,],decreasing = sign(ests[par])==1)[1]
+                    #     newest <- newest - Be[par,maxid]
+                    #     self$mean_function$parameters <- self$mean_function$parameters - Be[,maxid]
+                    #     self$check(verbose = FALSE)
+                    #     
+                    #     nid <- nid[-maxid]
+                    #     iter <- iter+1
+                    #     # check significance
+                    #     if(pval[par] >= alpha & is.null(sig)){
+                    #       sig <- iter
+                    #       attr(sig,"id") <- which(!c(1:n)%in%nid)
+                    #     }
+                    #     if(sign(ests[par]) != sign( newest ) & is.null(sign)){
+                    #       sign <- iter
+                    #       attr(sign,"id") <- which(!c(1:n)%in%nid)
+                    #     }
+                    #     if(sign(ests[par]) != sign( newest ) & pval[par] < alpha &  is.null(sigsign)){
+                    #       sigsign <- iter
+                    #       attr(sigsign,"id") <- which(!c(1:n)%in%nid)
+                    #     }
+                    #     
+                    #     
+                    #     if(verbose)cat("\rIteration: ",iter)
+                    #     
+                    #   }
+                    #   
+                    #   self$mean_function$parameters <- orig_par_b 
+                    #   self$covariance$parameters <- orig_par_cov
+                    #   self$check(verbose=FALSE)
+                    #   
+                    #   
+                    #   
+                    #   return(list(sig,sign,sigsign))
+                    # },
                     posterior = function(prior,
                                          var,
                                          parameters){
@@ -784,6 +737,76 @@ for more details")
                       M <- R + Matrix::crossprod(self$mean_function$X,solve(S))%*%self$mean_function$X
                       M <- solve(M)
                       M[var,var]
+                    },
+                    permutation_test = function(y,
+                                                permutation.par,
+                                           start,
+                                           iter = 1000,
+                                           nsteps=1000,
+                                           type="cov",
+                                           parallel = TRUE,
+                                           verbose=TRUE){
+                      if(is.null(self$mean_function$randomise))stop("random allocations
+are created using the function in self$mean_function$randomise, but this has not been set. Please see help(MeanFunction)
+for more details")
+                      Xnull <- as.matrix(self$mean_function$X)
+                      Xnull <- Xnull[,-permutation.par]
+                      null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family)
+                      xb <- null_fit$linear.predictors
+                      
+                      tr <- self$mean_function$X[,permutation.par]
+                      if(any(!tr%in%c(0,1)))stop("permuational inference only available for dichotomous treatments")
+                      tr[tr==0] <- -1
+                      
+                      if(verbose&type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
+                      if(verbose&type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
+                      w.opt <- type=="cov"
+                      invS <- ifelse(w.opt,Matrix::solve(self$Sigma),1)
+                      qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
+                      
+                      if(verbose)cat("Starting permutations\n")
+                      if(parallel){
+                        cl <- parallel::makeCluster(parallel::detectCores()-1)
+                        parallel::clusterEvalQ(cl,library(Matrix))
+                        #change when package built!
+                        parallel::clusterEvalQ(cl,devtools::load_all())
+                        qtest <- pbapply::pbsapply(1:iter,function(i){
+                          new_tr <- self$mean_function$randomise()
+                          new_tr[new_tr==0] <- -1
+                          private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
+                        }, cl = cl)
+                        parallel::stopCluster(cl)
+                      } else {
+                        qtest <- pbapply::pbsapply(1:iter,function(i){
+                          new_tr <- self$mean_function$randomise()
+                          new_tr[new_tr==0] <- -1
+                          private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
+                        })
+                      }
+                      
+                      #permutation confidence intervals
+                      if(verbose)cat("Starting permutational confidence intervals\n")
+                      pval <- length(qtest[qtest>qstat])/iter
+                      #print(pval)
+                      if(pval==0)pval <- 0.5/iter
+                      tval <- qnorm(1-pval/2)
+                      par <- start#theta[parInds$b][permutation.par]
+                      se <- abs(par/tval)
+                      if(verbose)cat("Lower\n")
+                      lower <- private$confint_search(y,
+                                                      permutation.par,
+                                                      start = par - 2*se,
+                                                      b = start,
+                                                      w.opt = w.opt,
+                                                      nsteps = nsteps)
+                      if(verbose)cat("\nUpper\n")
+                      upper <- private$confint_search(y,
+                                                      permutation.par,
+                                                      start = par + 2*se,
+                                                      b = start,
+                                                      w.opt = w.opt,
+                                                      nsteps = nsteps)
+                      return(list(p=pval,lower=lower,upper=upper))
                     }
                   ),
                   private = list(
@@ -868,9 +891,9 @@ for more details")
                                                     verbose=TRUE,
                                                     options= list(method="mcem",
                                                                   no_warnings=TRUE),...))
-                      dfb <- self$dfbeta(y=ysim,
-                                         par = par,
-                                         b_hat = res$coefficients[grepl("b",res$coefficients$par),'est'])
+                      dfb <- NULL#self$dfbeta(y=ysim,
+                                  #       par = par,
+                                   #      b_hat = res$coefficients[grepl("b",res$coefficients$par),'est'])
                       
                       return(list(res,dfb))
                     },
@@ -883,9 +906,9 @@ for more details")
                       invM <- Matrix::solve(private$information_matrix())
                       b <- Matrix::drop(invM %*% Matrix::crossprod(self$mean_function$X,Matrix::solve(self$Sigma))%*%ysim)
                       res <- data.frame(par = paste0("b",1:length(b)),est=b,SE= sqrt(Matrix::drop(Matrix::diag(invM))))
-                      dfb <- self$dfbeta(y=ysim,
-                                         par = par,
-                                         b_hat = res[grepl("b",res$par),'est'])
+                      dfb <- NULL#self$dfbeta(y=ysim,
+                                #         par = par,
+                                 #        b_hat = res[grepl("b",res$par),'est'])
                       
                       return(list(res,dfb))
                     },
@@ -947,7 +970,7 @@ for more details")
                       dtr <- tr
                       dtr[dtr==0] <- -1
                       k <- 2/(pnorm(1-alpha)*((2*pi)^-0.5)*exp((-pnorm(1-alpha)^2)/2))
-                      invS <- Matrix::solve(self$Sigma)
+                      invS <- ifelse(w.opt,Matrix::solve(self$Sigma),1)
                       
                       for(i in 1:nsteps){
                         null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family,offset = tr*bound)
