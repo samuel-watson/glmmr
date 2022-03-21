@@ -137,14 +137,15 @@ print.glmmr.sim <- function(x, digits = 2,...){
   print(apply(cidf,2,round,digits = digits))
   
   ##robustness
-  cat("\n\n Robustness (DFBETA) for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
-  
-  dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
-  cat("Mean minimum number of observations required to: \n\n")
-  dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
-                    Number = round(c(mean(dfb[[1]]),mean(dfb[[3]]),mean(dfb[[5]])),digits = digits),
-                    Proportion = round(c(mean(dfb[[2]]),mean(dfb[[4]]),mean(dfb[[6]])),digits = digits))
-  print(dfbdf)
+  # cat("\n\n Robustness (DFBETA) for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
+  # 
+  # dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
+  # cat("Mean minimum number of observations required to: \n\n")
+  # dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
+  #                   Number = round(c(mean(
+  # dfb[[1]]),mean(dfb[[3]]),mean(dfb[[5]])),digits = digits),
+  #                   Proportion = round(c(mean(dfb[[2]]),mean(dfb[[4]]),mean(dfb[[6]])),digits = digits))
+  # print(dfbdf)
 }
 
 #' Method to summarise errors 

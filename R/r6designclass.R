@@ -490,7 +490,7 @@ for more details")
                           dsamps <- matrix(dsamps[,1,],ncol=Q)
                         }
                         
-                        dsamps <<- dsamps
+                        
                         # BETA PARAMETERS STEP
                         if(method == "mcnr"){
                           beta_step <- mcnr_step(y,
@@ -659,80 +659,14 @@ for more details")
                       
                       return(out)
                     },
-                    # dfbeta = function(y,
-                    #                   par,
-                    #                   alpha=0.05,
-                    #                   b_hat ,
-                    #                   verbose = TRUE){
-                    #   
-                    #   orig_par_b <- self$mean_function$parameters
-                    #   orig_par_cov <- self$covariance$parameters
-                    #   
-                    #   iter <- 0
-                    #   sig <- NULL
-                    #   sign <- NULL
-                    #   sigsign <- NULL
-                    #   if(!missing(b_hat)){
-                    #     ests <- b_hat
-                    #     self$mean_function$parameters <- b_hat
-                    #   } else {
-                    #     if(verbose)message("parameter estimates not provided, using values stored in mean function")
-                    #     ests <- self$mean_function$parameters
-                    #   }
-                    #   self$check(verbose = verbose)
-                    #   newest <- ests[par]
-                    #   n <- self$n()
-                    #   nid <- 1:n
-                    #   
-                    #   
-                    #   #fix the indexes to remove
-                    #   
-                    #   while(is.null(sig)|is.null(sign)|is.null(sigsign)){
-                    #     invS <- Matrix::solve(self$Sigma[nid,nid])
-                    #     invSX <- invS %*% self$mean_function$X[nid,]
-                    #     invM <- Matrix::solve(Matrix::crossprod(self$mean_function$X[nid,],invSX))
-                    #     B <-  invM %*% Matrix::t(invSX)
-                    #     Q <- invS - invSX %*% B
-                    #     dQ <- 1/Matrix::diag(Q)
-                    #     e <- dQ*Matrix::t(Q)%*%y[nid]
-                    #     Be <- B%*%Matrix::diag(Matrix::drop(e))
-                    #     SE <- sqrt(Matrix::diag(invM))
-                    #     tstat <- newest/SE
-                    #     pval <- 2*(1-pnorm(abs(tstat)))
-                    #     maxid <- order(Be[par,],decreasing = sign(ests[par])==1)[1]
-                    #     newest <- newest - Be[par,maxid]
-                    #     self$mean_function$parameters <- self$mean_function$parameters - Be[,maxid]
-                    #     self$check(verbose = FALSE)
-                    #     
-                    #     nid <- nid[-maxid]
-                    #     iter <- iter+1
-                    #     # check significance
-                    #     if(pval[par] >= alpha & is.null(sig)){
-                    #       sig <- iter
-                    #       attr(sig,"id") <- which(!c(1:n)%in%nid)
-                    #     }
-                    #     if(sign(ests[par]) != sign( newest ) & is.null(sign)){
-                    #       sign <- iter
-                    #       attr(sign,"id") <- which(!c(1:n)%in%nid)
-                    #     }
-                    #     if(sign(ests[par]) != sign( newest ) & pval[par] < alpha &  is.null(sigsign)){
-                    #       sigsign <- iter
-                    #       attr(sigsign,"id") <- which(!c(1:n)%in%nid)
-                    #     }
-                    #     
-                    #     
-                    #     if(verbose)cat("\rIteration: ",iter)
-                    #     
-                    #   }
-                    #   
-                    #   self$mean_function$parameters <- orig_par_b 
-                    #   self$covariance$parameters <- orig_par_cov
-                    #   self$check(verbose=FALSE)
-                    #   
-                    #   
-                    #   
-                    #   return(list(sig,sign,sigsign))
-                    # },
+                    dfbeta = function(y,
+                                      par){
+                        dfbeta_stat(self$Sigma,
+                                    self$mean_function$X,
+                                    y,
+                                    par)
+                      
+                    },
                     posterior = function(prior,
                                          var,
                                          parameters){
