@@ -23,9 +23,11 @@ print.mcml <- function(x, digits =2, ...){
              "Markov Chain Newton-Raphson"),
       ifelse(x$sim_step," with simulated likelihood step\n","\n"))
   
+  cat("\nFixed effects formula :",x$mean_form)
+  cat("\nCovariance function formula: ",x$cov_form,"\n")
   cat("\nNumber of Monte Carlo simulations per iteration: ",x$m," with tolerance ",x$tol,"\n")
   semethod <- ifelse(x$permutation,"permutation test",ifelse(x$hessian,"hessian","approx"))
-  cat("P-value and confidence interval method: ",semethod,"\n")
+  cat("P-value and confidence interval method: ",semethod,"\n\n")
   pars <- x$coefficients[!grepl("d",x$coefficients$par),c('est','SE','lower','upper')]
   z <- pars$est/pars$SE
   pars <- cbind(pars[,1:2],z=z,p=2*(1-pnorm(abs(z))),pars[,3:4])
@@ -33,6 +35,9 @@ print.mcml <- function(x, digits =2, ...){
   rownames(pars) <- x$coefficients$par[!grepl("d",x$coefficients$par)]
   pars <- apply(pars,2,round,digits = digits)
   print(pars)
+  
+  cat("\ncAIC: ",round(x$aic,digits))
+  cat("\nApproximate R-squared: Conditional: ",round(x$Rsq[1],digits)," Marginal: ",round(x$Rsq[2],digits))
   
   #messages
   if(x$permutation)message("Permutation test used for one parameter, other SEs are not reported. SEs and Z values

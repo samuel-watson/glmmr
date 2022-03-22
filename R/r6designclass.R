@@ -687,7 +687,8 @@ for more details")
                         mf_pars_names <- colnames(self$mean_function$X)
                       }
                       
-                      cov_pars_names <- paste0("cov",1:R)
+                      cov_pars_names <- rep(as.character(unlist(rev(self$covariance$.__enclos_env__$private$flist))),
+                                            unlist(lapply(rev(cov1$.__enclos_env__$private$Funclist),ncol)))#paste0("cov",1:R)
                       permutation = FALSE
                       if(se.method=="lik"){
                         if(verbose)cat("using Hessian method\n")
@@ -761,6 +762,35 @@ for more details")
                       }
                       
                      colnames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
+                     
+                     ## model summary statistics
+                     aic <- aic_mcml(Z = as.matrix(self$covariance$Z),
+                              X = as.matrix(self$mean_function$X),
+                              y = y,
+                              u = dsamps,
+                              family = self$mean_function$family[[1]],
+                              link=self$mean_function$family[[2]],
+                              func = self$covariance$.__enclos_env__$private$Funclist,
+                              data = self$covariance$.__enclos_env__$private$Distlist,
+                              beta_par = mf_pars,
+                              cov_par = theta[parInds$cov])
+                     
+                     xb <- self$mean_function$X %*% theta[parInds$b]
+                     zd <- self$covariance$Z %*% colMeans(dsamps)
+                     
+                     wdiag <- gen_dhdmu(Matrix::drop(xb),
+                                        family=self$mean_function$family[[1]],
+                                        link = self$mean_function$family[[2]])
+                     
+                     if(self$mean_function$family[[1]]%in%c("gaussian","gamma")){
+                       wdiag <- theta[parInds$sig] * wdiag
+                     }
+                     
+                     total_var <- var(Matrix::drop(xb)) + var(Matrix::drop(zd)) + mean(wdiag)
+                     condR2 <- (var(Matrix::drop(xb)) + var(Matrix::drop(zd)))/total_var
+                     margR2 <- var(Matrix::drop(xb))/total_var
+                     
+                     
                      out <- list(coefficients = res,
                                  converged = !not_conv,
                                  method = method,
@@ -769,6 +799,10 @@ for more details")
                                  m = m,
                                  tol = tol,
                                  sim_lik = sim_lik_step,
+                                 aic = aic,
+                                 Rsq = c(cond = condR2,marg=margR2),
+                                 mean_form = as.character(self$mean_function$formula),
+                                 cov_form = as.character(self$covariance$formula),
                                  re.samps = dsamps)
                      
                      class(out) <- "mcml"

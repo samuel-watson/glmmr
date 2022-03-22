@@ -18,10 +18,11 @@ class D_likelihood : public ObjFun {
   arma::mat u_;
   
 public:
-  D_likelihood(Rcpp::List func, Rcpp::List data, arma::mat u) : func_(func), data_(data), u_(u) {}
+  D_likelihood(Rcpp::List func, Rcpp::List data, arma::mat u) : 
+    func_(func), data_(data), u_(u) {}
   double operator()(const vec &par) override{
     arma::uword nrow = u_.n_rows;
-    arma::uword Q = u_.n_cols;
+    // arma::uword Q = u_.n_cols;
     
     arma::mat D = genD(func_,
                        data_,
@@ -31,8 +32,7 @@ public:
     double dmv = 0;
     
     for(arma::uword j=0;j<nrow;j++){
-      dmv += -0.5*Q*log(2*arma::datum::pi)-
-        0.5*logdetD - 0.5*arma::as_scalar(u_.row(j)*D*u_.row(j).t());
+      dmv += log_mv_gaussian_pdf(u_.row(j),D,logdetD);
     }
     // Rcpp::Rcout << "\n" << dmv;
     //double check that the matrix u is orientated
@@ -173,7 +173,6 @@ public:
     
     //now loop through all the iterations
     // log likelihood of D
-    //Rcpp::Rcout << par  << std::endl;
     arma::mat Dnew = genD(func_,
                           data_,
                           par.subvec(P,P+Q-1));
@@ -282,7 +281,6 @@ arma::mat f_lik_optim(Rcpp::List func,
   
 }
 
-
 // [[Rcpp::export]]
 Rcpp::List mcnr_step(arma::vec &y,
                      arma::mat &X,
@@ -333,3 +331,57 @@ Rcpp::List mcnr_step(arma::vec &y,
   Rcpp::List L = List::create(_["beta_step"] = bincr , _["sigmahat"] = arma::mean(sigmas));
   return L;
 }
+
+// [[Rcpp::export]]
+double aic_mcml(const arma::mat &Z, 
+                const arma::mat &X,
+                const arma::vec &y, 
+                const arma::mat &u, 
+                std::string family, 
+                std::string link,
+                Rcpp::List func,
+                Rcpp::List data,
+                const arma::vec& beta_par,
+                const arma::vec& cov_par){
+  arma::uword niter = u.n_rows;
+  arma::uword Q = u.n_cols;
+  arma::uword n = y.n_elem;
+  arma::vec zd(n);
+  arma::uword P = beta_par.n_elem;
+  arma::vec xb(n);
+  double var_par;
+  arma::uword dof = beta_par.n_elem + cov_par.n_elem;
+  
+  if(family=="gaussian"){
+    var_par = beta_par(P-1);
+    xb = X*beta_par.subvec(0,P-2);
+  } else {
+    var_par = 0;
+    xb = X*beta_par;
+  }
+  
+  arma::mat D = genD(func,
+                     data,
+                     cov_par);
+  double logdetD = arma::log_det_sympd(D);
+  D = arma::inv_sympd(D);
+  double dmv = 0;
+  
+  double lfa;
+  
+  for(arma::uword j=0; j<niter ; j++){
+    zd = Z * u.row(j).t();
+    double ll = log_likelihood(y,
+                               xb + zd,
+                               var_par,
+                               family,
+                               link);
+    
+    dmv += log_mv_gaussian_pdf(u.row(j),D,logdetD);
+    lfa += ll;
+  }
+  
+  return (-2*( lfa/niter + dmv/niter ) + 2*arma::as_scalar(dof)); 
+  
+}
+

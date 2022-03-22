@@ -38,6 +38,15 @@ double gaussian_pdf(const double& x){
 }
 
 // [[Rcpp::export]]
+double log_mv_gaussian_pdf(const arma::rowvec& u,
+                           const arma::mat& D,
+                           const double& logdetD){
+  arma::uword Q = u.n_elem;
+  return (-0.5*Q*log(2*arma::datum::pi)-
+    0.5*logdetD - 0.5*arma::as_scalar(u*D*u.t()));
+}
+
+// [[Rcpp::export]]
 double log_likelihood(arma::vec y,
                       arma::vec mu,
                       double var_par,
