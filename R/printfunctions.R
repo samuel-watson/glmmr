@@ -136,9 +136,15 @@ print.glmmr.sim <- function(x, digits = 2,...){
   colnames(cidf) <- paste0("b",1:nbeta)
   print(apply(cidf,2,round,digits = digits))
   
+  ### dfbeta
+  
+  
+  
   ##robustness
-  # cat("\n\n Robustness (DFBETA) for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
-  # 
+  cat("\n\n DFBETA for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
+  
+  
+   
   # dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
   # cat("Mean minimum number of observations required to: \n\n")
   # dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),

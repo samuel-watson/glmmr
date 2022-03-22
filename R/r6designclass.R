@@ -9,6 +9,19 @@
 #' where h is the link function. A Design in comprised of a \link[glmmr]{MeanFunction} object, which defines the family F, 
 #' link function h, and fixed effects design matrix X, and a \link[glmmr]{Covariance} object, which defines Z and D. The class provides
 #' methods for analysis and simulation with these models.
+#' 
+#' This class provides methods for: data simulation (`sim_data()` and `fitted()`), model fitting using Markov Chain 
+#' Monte Carlo Maximum Likelihood (MCML) methods (`MCML()`), design analysis via simulation including power (`analysis()`),
+#' deletion diagnostics (`dfbeta()`), and permutation tests including p-values and confidence intervals (`permutation()`).
+#' 
+#' The class by default calculates the covariance matrix of the observations as:
+#' 
+#' \deqn{\Sigma = W^{-1} + ZDZ^T}
+#' 
+#' where _W_ is a diagonal matrix with the WLS iterated weights for each observation equal
+#' to, for individual _i_ \eqn{\phi a_i v(\mu_i)[h'(\mu_i)]^2} (see Table 2.1 in McCullagh 
+#' and Nelder (1989) <ISBN:9780412317606>). For very large designs, this can be disabled as
+#' the memory requirements can be prohibitive.   
 #' @importFrom Matrix Matrix
 #' @export 
 Design <- R6::R6Class("Design",
@@ -45,6 +58,47 @@ Design <- R6::R6Class("Design",
                     #' @param var_par Scale parameter required for some distributions, including Gaussian. Default is NULL.
                     #' @param verbose Logical indicating whether to provide detailed output
                     #' @return A new Design class object
+                    #' @seealso \link[glmmr]{nelder}, \link[glmmr]{MeanFunction}, \link[glmmr]{Covariance}
+                    #' @examples 
+                    #' #create a data frame describing a cross-sectional parallel cluster
+                    #' #randomised trial
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' 
+                    #' mf1 <- MeanFunction$new(
+                    #'   formula = ~ factor(t) + int - 1,
+                    #'   data=df,
+                    #'   parameters = c(rep(0,5),0.6),
+                    #'   family = gaussian()
+                    #' )
+                    #' cov1 <- Covariance$new(
+                    #'   data = df,
+                    #'   formula = ~ (1|gr(cl)) + (1|gr(cl*t)),
+                    #'   parameters = c(0.25,0.1)
+                    #' )
+                    #' des <- Design$new(
+                    #'   covariance = cov1,
+                    #'   mean.function = mf1,
+                    #'   var_par = 1
+                    #' )
+                    #' 
+                    #' #alternatively we can pass the data directly to Design
+                    #' #here we will specify a cohort study
+                    #' df <- nelder(~ind(20) > t(6))
+                    #' df$int <- 0
+                    #' df[df$t > 3, 'int'] <- 1
+                    #' 
+                    #' des <- Design$new(
+                    #' covariance = list(
+                    #'   data=df,
+                    #'   formula = ~ (1|pexp(t)*gr(ind)),
+                    #'   parameters = c(0.8,1)),
+                    #' mean.function = list(
+                    #'   formula = ~int + factor(t),
+                    #'   data=df,
+                    #'   parameters = rep(0,7),
+                    #'   family = poisson()))
                     initialize = function(covariance,
                                           mean.function,
                                           var_par = NULL,
@@ -83,8 +137,6 @@ Design <- R6::R6Class("Design",
                         )
                       }
 
-
-
                       self$var_par <- var_par
 
                       if(!skip.sigma)self$generate()
@@ -120,14 +172,65 @@ Design <- R6::R6Class("Design",
                                    Z = self$covariance$Z,
                                    W = private$W)
                     },
-                    analysis = function(type,
+                    #' @description 
+                    #' Run a design analysis of the model via simulation
+                    #' @details 
+                    #' The analysis function conducts a detailed design analysis using the analysis
+                    #' model specified by the object. Data are simulated either using the same
+                    #' data generating process, or using a different Design object specified by 
+                    #' the user to allow for model misspecification. On each iteration the model
+                    #' is estimated with the simulated data _y_ using either the `MCML` function or
+                    #' approximate parameters and standard errors using generalised least squares. 
+                    #' MCML is an exact maximum likelihood algorithm, and can be slow, so results
+                    #' from previous simulations are saved in the design object and can be recalled
+                    #' later. Deletion diagnostics are also calculated to calculate influential parts of 
+                    #' the design, although these are typically not useful for balanced 
+                    #' experimental designs.
+                    #' 
+                    #' The function returns an `glmmr.sim` object, which estimates and summarises: 
+                    #' 
+                    #' **Model fitting and simulation diagnostics** 
+                    #' Convergence failure percent and coverage. Maximum likelihood estimators
+                    #' for GLMMs can fail to converge or reach the MLE. GLMMs can also be 
+                    #' susceptible to small sample biases where the relevant sample size is
+                    #' at the level of clustering and correlation. 
+                    #' 
+                    #' **Error rates** 
+                    #' Type 2 (power), Type S (significance), and Type M (magnitude) errors are
+                    #' reported.
+                    #' 
+                    #' **p-value and confidence interval width distributions**
+                    #' 
+                    #' **Deletion diagnostics**
+                    #' For unbalanced designs and under model misspecifications, certain parts of 
+                    #' the design may have more influence than others over the estimate of interest,
+                    #' or have a larger than desired effect. A summary of the DFBETA diagnostic 
+                    #' is provided.
+                    #'  
+                    #' @param type One of either `sim_data` (recalls saved data from a previous
+                    #' call to this function), `sim` (full simulation using MCML), or `sim_approx` (
+                    #' uses GLS to approximate the MLE and standard errors)
+                    #' @param iter Integer. The number of iterations of the simulation to run
+                    #' @param par Integer. The parameter of interest for which design analysis 
+                    #' statistics should be calculated. Refers to the column of X.
+                    #' @param alpha Numeric. The type I error rate.
+                    #' @param sim_design Optional. A different `Design` object that will be used to 
+                    #' simulate data to allow for model misspecification.
+                    #' @param parallel Logical indicating whether to run the simulations in parallel
+                    #' @param verbose Logical indicating whether to report detailed output. Defaults to TRUE.
+                    #' @param ... Additional arguments passed to `MCML`, see below.
+                    #' @return A `glmmr.sim` object containing the estimates from all the simulations, including
+                    #' standard errors, deletion diagnostic statistics, and details about the simulation.
+                    #' @seealso \link[glmmr]{print.glmmr.sim}
+                    #' @examples 
+                    #' ...
+                    analysis = function(type, 
                                         iter,
                                         par,
                                         alpha = 0.05,
                                         sim_design,
                                         parallel,
                                         verbose = TRUE,
-                                        digits = 2,
                                         ...){
                       
                       if(!missing(sim_design)){
@@ -162,7 +265,7 @@ Design <- R6::R6Class("Design",
                         
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]$coefficients),
-                          #dfbeta = lapply(out,function(i)i[[2]]),
+                          dfbeta = lapply(out,function(i)i[[2]]),
                           sim_method = "full.sim",
                           mcml_method = out[[1]][[1]]$method,
                           convergence = unlist(lapply(out,function(i)i[[1]]$converged)),
@@ -210,7 +313,7 @@ Design <- R6::R6Class("Design",
                         
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]),
-                          #dfbeta = lapply(out,function(i)i[[2]]),
+                          dfbeta = lapply(out,function(i)i[[2]]),
                           sim_method = "approx.sim",
                           mcml_method = NA,
                           convergence = NA,
@@ -235,16 +338,32 @@ Design <- R6::R6Class("Design",
                       if(type=="sim_data")res <- private$saved_sim_data
                       
                       invisible(res)
-                      
                     },
+                    #' @description 
+                    #' Approximate power of the design using the GLS variance
+                    #' @details 
+                    #' Calculates the approximate power of the design using the square root
+                    #' of the relevant element of the GLS variance matrix:
+                    #' 
+                    #'  \deqn{(X^T\Sigma^{-1}X)^{-1}}
+                    #'  
+                    #' Note that this is equivalent to using the "design effect" for many
+                    #' models.
+                    #' @param par Integer indicating which parameter of the design the power
+                    #' should be calculated for. Refers to the order of parameters and column
+                    #' of X
+                    #' @param value Numeric specifying the value of the parameter to calculate
+                    #' the power at
+                    #' @param alpha Numeric between zero and one indicating the type I error rate. 
+                    #' Default of 0.05.
+                    #' @return A value between zero and one indicating the approximate power of the
+                    #' design.
+                    #' @examples 
+                    #' ...
                     power = function(par,
                                      value,
-                                     alpha=0.05,
-                                     method=NULL,
-                                     iter=10,
-                                     skip.check = FALSE,
-                                     parallel=TRUE){
-                      if(!skip.check)self$check(verbose=FALSE)
+                                     alpha=0.05){
+                      self$check(verbose=FALSE)
                       if(missing(par)|missing(value))stop("parameter missing")
                       old_par <- self$mean_function$parameters[[par]]
                       self$mean_function$parameters[[par]] <- value
@@ -362,7 +481,7 @@ Design <- R6::R6Class("Design",
                                     options = list()){
                      
                       # checks
-                      if(!se.method%in%c("perm","lik"))stop("se.method should be 'perm' or 'lik'")
+                      if(!se.method%in%c("perm","lik","none"))stop("se.method should be 'perm', 'lik', or 'none'")
                       if(se.method=="perm" & missing(permutation.par))stop("if using permutational based
 inference, set permuation.par")
                       if(se.method=="perm" & is.null(self$mean_function$randomise))stop("random allocations
@@ -493,12 +612,13 @@ for more details")
                         
                         # BETA PARAMETERS STEP
                         if(method == "mcnr"){
-                          beta_step <- mcnr_step(y,
-                                                 as.matrix(self$mean_function$X),
-                                                 as.matrix(self$covariance$Z),
-                                                 theta[parInds$b],
-                                                 dsamps,
-                                                 self$mean_function$family[[2]])
+                          beta_step <- mcnr_step(y = y,
+                                                 X= as.matrix(self$mean_function$X),
+                                                 Z = as.matrix(self$covariance$Z),
+                                                 beta = theta[parInds$b],
+                                                 u = dsamps,
+                                                 family = self$mean_function$family[[1]],
+                                                 link = self$mean_function$family[[2]])
                           
                           theta[parInds$b] <-  theta[parInds$b] + beta_step$beta_step
                           theta[parInds$sig] <- beta_step$sigmahat
@@ -525,7 +645,7 @@ for more details")
                                                       self$covariance$.__enclos_env__$private$Distlist,
                                                       dsamps,
                                                       start = c(theta[parInds$cov]),
-                                                      lower= rep(0,length(parInds$cov)),
+                                                      lower= rep(1e-6,length(parInds$cov)),
                                                       upper= rep(Inf,length(parInds$cov)),
                                                       trace=0))
                           
@@ -759,51 +879,16 @@ for more details")
                                     Xb,
                                     var_par=NULL){
                       # assume random effects value is at zero
-                      f <- family
-                      Xb <- c(Xb)
-                      if(!f[1]%in%c("poisson","binomial","gaussian","gamma"))stop("family must be one of Poisson, Binomial, Gaussian, Gamma")
-
-                      if(f[1]=="poisson"){
-                        if(f[2]=="log"){
-                          W <- diag(1/(exp(Xb)))
-                        }
-                        if(f[2]=="identity"){
-                          W <- diag(exp(Xb))
-                        }
+                      if(!family[[1]]%in%c("poisson","binomial","gaussian","gamma"))stop("family must be one of Poisson, Binomial, Gaussian, Gamma")
+                      
+                      wdiag <- gen_dhdmu(c(Xb),
+                                         family=family[[1]],
+                                         link = family[[2]])
+                      
+                      if(family[[1]]%in%c("gaussian","gamma")){
+                        wdiag <- var_par * wdiag
                       }
-
-                      if(f[1]=="binomial"){
-                        if(f[2]=="logit"){
-                          W <- diag(1/(private$logit(Xb)*(1-private$logit(Xb))))
-                        }
-                        if(f[2]=="log"){
-                          W <- diag((1-private$logit(Xb))/(private$logit(Xb)))
-                        }
-                        if(f[2]=="identity"){
-                          W <- diag((private$logit(Xb)*(1-private$logit(Xb))))
-                        }
-                        if(f[2]=="probit"){
-                          W <- diag((pnorm(Xb)*(1-pnorm(Xb)))/(dnorm(Xb)))
-                        }
-                      }
-
-                      if(f[1]=="gaussian"){
-                        if(f[2]=="identity"){
-                          if(is.null(var_par))stop("For gaussian(link='identity') provide var_par")
-                          W <- var_par*diag(length(Xb))
-                        }
-                        if(f[2]=="log"){
-                          if(is.null(var_par))stop("For gaussian(link='log') provide var_par")
-                          W <- diag(var_par/exp(Xb))
-                        }
-                      }
-
-                      if(f[1]=="gamma"){
-                        if(f[2]=="inverse"){
-                          if(is.null(var_par))stop("For gamma(link='inverse') provide var_par")
-                          W <- var_par*diag(length(Xb))
-                        }
-                      }
+                      W <- diag(drop(wdiag))
                       private$W <- Matrix::Matrix(W)
                     },
                     genS = function(D,Z,W,update=TRUE){
@@ -831,9 +916,12 @@ for more details")
                                                     verbose=TRUE,
                                                     options= list(method="mcem",
                                                                   no_warnings=TRUE),...))
-                      dfb <- NULL#self$dfbeta(y=ysim,
-                                  #       par = par,
-                                   #      b_hat = res$coefficients[grepl("b",res$coefficients$par),'est'])
+                      dfb <- self$dfbeta(as.matrix(self$Sigma),
+                                         as.matrix(self$mean_function$X),
+                                         y=ysim,
+                                         par = par)
+                        
+                        
                       
                       return(list(res,dfb))
                     },
@@ -846,9 +934,10 @@ for more details")
                       invM <- Matrix::solve(private$information_matrix())
                       b <- Matrix::drop(invM %*% Matrix::crossprod(self$mean_function$X,Matrix::solve(self$Sigma))%*%ysim)
                       res <- data.frame(par = paste0("b",1:length(b)),est=b,SE= sqrt(Matrix::drop(Matrix::diag(invM))))
-                      dfb <- NULL#self$dfbeta(y=ysim,
-                                #         par = par,
-                                 #        b_hat = res[grepl("b",res$par),'est'])
+                      dfb <- self$dfbeta(as.matrix(self$Sigma),
+                                         as.matrix(self$mean_function$X),
+                                         y=ysim,
+                                         par = par)
                       
                       return(list(res,dfb))
                     },
