@@ -115,6 +115,10 @@ print.glmmr.sim <- function(x, digits = 2,...){
   cover <- colMeans(cover)
   cat("MCML algorithm convergence: ",round(conv*100,1),"%\nalpha: ",paste0(x$alpha*100,"%"),
       "\nCI coverage (beta):",paste0(round(cover*100,1),"%"))
+  rsq <- ifelse(x$sim_method=="sim",Reduce(rbind,x$Rsq),NA)
+  cat("\nRange of cAIC: ",ifelse(x$sim_method=="sim",range(unlist(x$aic)),NA),"\nRange of: conditional R-squared",
+      ifelse(x$sim_method=="sim",range(rsq[,1]),NA),
+      " marginal R-squared: ",ifelse(x$sim_method=="sim",range(rsq[,2]),NA))
   
   ## errors 
   cat("\n\n Errors\n",paste0(rep("-",31),collapse = ""),"\n")
@@ -146,11 +150,12 @@ print.glmmr.sim <- function(x, digits = 2,...){
   
   
   ##robustness
-  cat("\n\n DFBETA for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
+  cat("\n\n Deletion diagnostics for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
   
-  
-   
-  # dfb <- summarize.dfbeta(x$dfbeta,n=x$n)
+  dfb <- summarize.dfbeta(x$dfbeta)
+  cat("Mean maximum DFBETA: ",signif(dfb$maxb,digits = digits),
+      "\nRange of mean DFBETA for each observation: ",signif(dfb$dfbrange,digits=digits),
+      "\nObservations with largest DFBETA: ",dfb$maxobs)
   # cat("Mean minimum number of observations required to: \n\n")
   # dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
   #                   Number = round(c(mean(
@@ -255,21 +260,29 @@ summarize.stats <- function(out,
 #' @param n Total number of observations in the model
 #' @return A list containing the number of observations and proportion of observations
 #' required to change significance, sign, and significant sign from the models.
-summarize.dfbeta <- function(out,
-                             n){
+summarize.dfbeta <- function(out){
   
-  #significance change
-  n.sig <- drop(Reduce(rbind,lapply(out,function(i)i[[1]])))
-  p.sig <- n.sig/n
+  # max values
+  maxb <- unlist(lapply(out,function(i)max(abs(i))))
   
-  # sign change
-  n.sign <- drop(Reduce(rbind,lapply(out,function(i)i[[2]])))
-  p.sign <- n.sign/n
+  #individual obs - do any have consistent leverage?
+  dfball <- colMeans(Reduce(rbind,out))
+  dfbrange <- range(dfball)
+  maxobs <- order(abs(dfball))[1:4]
+  return(list(maxb=mean(maxb),dfbrange=dfbrange,maxobs=maxobs))
   
-  # sigsign change
-  n.sigsign <- drop(Reduce(rbind,lapply(out,function(i)i[[3]])))
-  p.sigsign <- n.sigsign/n
-  
-  return(list(n.sig, p.sig, n.sign, p.sign, n.sigsign, p.sigsign))
+  # #significance change
+  # n.sig <- drop(Reduce(rbind,lapply(out,function(i)i[[1]])))
+  # p.sig <- n.sig/n
+  # 
+  # # sign change
+  # n.sign <- drop(Reduce(rbind,lapply(out,function(i)i[[2]])))
+  # p.sign <- n.sign/n
+  # 
+  # # sigsign change
+  # n.sigsign <- drop(Reduce(rbind,lapply(out,function(i)i[[3]])))
+  # p.sigsign <- n.sigsign/n
+  # 
+  # return(list(n.sig, p.sig, n.sign, p.sign, n.sigsign, p.sigsign))
 }
 

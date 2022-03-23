@@ -278,6 +278,8 @@ Design <- R6::R6Class("Design",
                           mean_formula = self$mean_function$formula,
                           cov_formula = self$covariance$formula,
                           family = self$mean_function$family,
+                          aic = lapply(out,function(i)i[[1]]$aic),
+                          Rsq = lapply(out,function(i)i[[1]]$Rsq),
                           n = self$n(),
                           par = par
                         )
@@ -326,6 +328,8 @@ Design <- R6::R6Class("Design",
                           mean_formula = self$mean_function$formula,
                           cov_formula = self$covariance$formula,
                           family = self$mean_function$family,
+                          aic = lapply(out,function(i)i[[1]]$aic),
+                          Rsq = lapply(out,function(i)i[[1]]$Rsq),
                           n = self$n(),
                           par = par
                         )
@@ -759,6 +763,7 @@ for more details")
                                           SE=NA,
                                           lower = NA,
                                           upper =NA)
+                        hessused <- FALSE
                       }
                       
                      colnames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
@@ -815,8 +820,8 @@ for more details")
                     },
                     dfbeta = function(y,
                                       par){
-                        dfbeta_stat(self$Sigma,
-                                    self$mean_function$X,
+                        dfbeta_stat(as.matrix(self$Sigma),
+                                    as.matrix(self$mean_function$X),
                                     y,
                                     par)
                       
@@ -950,9 +955,7 @@ for more details")
                                                     verbose=TRUE,
                                                     options= list(method="mcem",
                                                                   no_warnings=TRUE),...))
-                      dfb <- self$dfbeta(as.matrix(self$Sigma),
-                                         as.matrix(self$mean_function$X),
-                                         y=ysim,
+                      dfb <- self$dfbeta(y=ysim,
                                          par = par)
                         
                         
@@ -968,9 +971,7 @@ for more details")
                       invM <- Matrix::solve(private$information_matrix())
                       b <- Matrix::drop(invM %*% Matrix::crossprod(self$mean_function$X,Matrix::solve(self$Sigma))%*%ysim)
                       res <- data.frame(par = paste0("b",1:length(b)),est=b,SE= sqrt(Matrix::drop(Matrix::diag(invM))))
-                      dfb <- self$dfbeta(as.matrix(self$Sigma),
-                                         as.matrix(self$mean_function$X),
-                                         y=ysim,
+                      dfb <- self$dfbeta( y=ysim,
                                          par = par)
                       
                       return(list(res,dfb))
