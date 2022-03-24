@@ -378,13 +378,50 @@ Design <- R6::R6Class("Design",
                       self$mean_function$parameters[[par]] <- old_par
                       return(pwr)
                     },
+                    #' @description
+                    #' Subsets the design by removing the specified observations
+                    #' 
+                    #' Given a vector of row indices, the corresponding rows will be removed from the 
+                    #' mean function and covariance
+                    #' @param index Integer or vector integers listing the rows to remove from the design
+                    #' @return The function updates the object and nothing is returned
+                    #' @examples
+                    #' ...
                     subset_rows = function(index){
                       self$mean_function$subset_rows(index)
                       self$covariance$subset(index)
                     },
+                    #' @description 
+                    #' Removes a column or columns from the X matrix 
+                    #' 
+                    #' Removes the specified columns from the linked mean function object's X matrix
+                    #' @param index Integer or vector of integers specifying the indexes of the columns to remove from X
+                    #' @return The function updates the object and nothing is returned
+                    #' @examples
+                    #' ...
                     subset_cols = function(index){
                       self$mean_function$subset_cols(index)
                     },
+                    #'@description 
+                    #'Generates a plot of the design
+                    #'
+                    #'Generates a 'bubble' plot of the design with respect to two or three variables 
+                    #'in which the size of the points at each location are scaled by the number of observations at that
+                    #'location. For example, for a cluster randomised trial the user might specify
+                    #'time period on the x-axis and cluster ID on the y-axis. For a geospatial
+                    #'sampling design the x and y axes might represent spatial dimensions.
+                    #'@param x String naming a column in the data frame in the linked covariance object (self$covariance$data) 
+                    #'for the x-axis
+                    #'@param y  String naming a column in the data frame in the linked covariance object (self$covariance$data) 
+                    #'for the y-axis
+                    #'@param z Optional. String naming a column in the data frame in the linked covariance object (self$covariance$data) 
+                    #'for a 'third axis' used for faceting
+                    #'@param treat String naming a column in the data frame in the linked mean function
+                    #'object (self$mean_function$data) that identifies the treatment status of the observations
+                    #'at each location, used to set the colour of the points in the plot
+                    #'@return A \link[ggplot2]{ggplot2} plot
+                    #'@examples
+                    #' ...
                     plot = function(x,
                                     y,
                                     z=NULL,
@@ -465,15 +502,15 @@ Design <- R6::R6Class("Design",
                         self$generate()
                       }
                     },
-                    apv = function(prior,
-                                   var,
-                                   prior.fun,
-                                   iter,
-                                   verbose=TRUE){
-                      if(verbose)message("Monte Carlo integration")
-                      samps <- pbapply::pbreplicate(iter,self$posterior(prior,var,do.call(prior.fun,list())))
-                      summary(samps)
-                    },
+                    # apv = function(prior,
+                    #                var,
+                    #                prior.fun,
+                    #                iter,
+                    #                verbose=TRUE){
+                    #   if(verbose)message("Monte Carlo integration")
+                    #   samps <- pbapply::pbreplicate(iter,self$posterior(prior,var,do.call(prior.fun,list())))
+                    #   summary(samps)
+                    # },
                     MCML = function(y,
                                     start,
                                     se.method = "lik",

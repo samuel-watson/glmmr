@@ -282,42 +282,26 @@ arma::mat f_lik_optim(Rcpp::List func,
 }
 
 // [[Rcpp::export]]
-Rcpp::List mcnr_step(arma::vec &y,
-                     arma::mat &X,
-                     arma::mat &Z,
-                     arma::vec &beta,
-                     arma::mat &u,
-                     std::string family,
-                     std::string link){
-  arma::uword n = y.n_elem;
-  arma::uword P = X.n_cols;
-  arma::uword niter = u.n_rows;
-  arma::mat XtWX(P,P,fill::zeros);
-  arma::vec Wu(n,fill::zeros);
+Rcpp::List mcnr_step(const arma::vec &y, const arma::mat &X, const arma::mat &Z,
+                     const arma::vec &beta, const arma::mat &u,
+                     const std::string &family, const std::string &link){
+  const arma::uword n = y.n_elem;
+  const arma::uword P = X.n_cols;
+  const arma::uword niter = u.n_rows;
   
   //generate residuals
   arma::vec xb = X*beta;
-  arma::vec resid(n);
-  arma::vec mu(n);
-  arma::vec zd(n);
   arma::vec sigmas(niter);
-  arma::vec wdiag(xb.n_elem,fill::zeros);
-  arma::vec wdiag2(xb.n_elem,fill::zeros);
-  //arma::sp_mat W(n,n);
-  
-  for(arma::uword i=0;i<niter;i++){
-    zd = Z * u.row(i).t();
-    mu = mod_inv_func(xb + zd,
-                      link);
-    resid = y - mu;
+  arma::mat XtWX(P,P,fill::zeros);
+  arma::vec Wu(n,fill::zeros);
+  for(arma::uword i = 0; i < niter; ++i){
+    arma::vec zd = Z * u.row(i).t();
+    arma::vec mu = mod_inv_func(xb + zd, link);
+    arma::vec resid = y - mu;
     sigmas(i) = arma::stddev(resid);
-    wdiag = gen_dhdmu(xb + zd,family,link);
-    for(arma::uword j=0;j<wdiag2.n_elem;j++){
-      wdiag2(j) = 1/(pow(wdiag(j),2));
-      if(family=="gaussian" || family=="gamma"){
-        wdiag2(j) = sigmas(i)*wdiag2(j);
-      }
-    }
+    arma::vec wdiag = gen_dhdmu(xb + zd,family,link);
+    arma::vec wdiag2 = 1/arma::pow(wdiag, 2);
+    if(family=="gaussian" || family=="gamma") wdiag2 *= sigmas(i);
     arma::mat W = diagmat(wdiag2);
     arma::mat W2 = diagmat(wdiag);
     XtWX += X.t()*W*X;
@@ -331,6 +315,57 @@ Rcpp::List mcnr_step(arma::vec &y,
   Rcpp::List L = List::create(_["beta_step"] = bincr , _["sigmahat"] = arma::mean(sigmas));
   return L;
 }
+
+// // [[Rcpp::export]]
+// Rcpp::List mcnr_step(arma::vec &y,
+//                      arma::mat &X,
+//                      arma::mat &Z,
+//                      arma::vec &beta,
+//                      arma::mat &u,
+//                      std::string family,
+//                      std::string link){
+//   arma::uword n = y.n_elem;
+//   arma::uword P = X.n_cols;
+//   arma::uword niter = u.n_rows;
+//   arma::mat XtWX(P,P,fill::zeros);
+//   arma::vec Wu(n,fill::zeros);
+//   
+//   //generate residuals
+//   arma::vec xb = X*beta;
+//   arma::vec resid(n);
+//   arma::vec mu(n);
+//   arma::vec zd(n);
+//   arma::vec sigmas(niter);
+//   arma::vec wdiag(xb.n_elem,fill::zeros);
+//   arma::vec wdiag2(xb.n_elem,fill::zeros);
+//   //arma::sp_mat W(n,n);
+//   
+//   for(arma::uword i=0;i<niter;i++){
+//     zd = Z * u.row(i).t();
+//     mu = mod_inv_func(xb + zd,
+//                       link);
+//     resid = y - mu;
+//     sigmas(i) = arma::stddev(resid);
+//     wdiag = gen_dhdmu(xb + zd,family,link);
+//     for(arma::uword j=0;j<wdiag2.n_elem;j++){
+//       wdiag2(j) = 1/(pow(wdiag(j),2));
+//       if(family=="gaussian" || family=="gamma"){
+//         wdiag2(j) = sigmas(i)*wdiag2(j);
+//       }
+//     }
+//     arma::mat W = diagmat(wdiag2);
+//     arma::mat W2 = diagmat(wdiag);
+//     XtWX += X.t()*W*X;
+//     Wu += W*W2*resid;
+//   }
+//   //Rcpp::Rcout<< XtWX;
+//   XtWX = arma::inv_sympd(XtWX/niter);
+//   Wu = Wu/niter;
+//   
+//   arma::vec bincr = XtWX*X.t()*Wu;
+//   Rcpp::List L = List::create(_["beta_step"] = bincr , _["sigmahat"] = arma::mean(sigmas));
+//   return L;
+// }
 
 // [[Rcpp::export]]
 double aic_mcml(const arma::mat &Z, 
