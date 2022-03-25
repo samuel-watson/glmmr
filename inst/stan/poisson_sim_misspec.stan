@@ -16,7 +16,7 @@ transformed data {
 #include /stan_files/tdata_sim_m.stan  
   
   for(i in 1:N){
-    if(type==1) y_sim[i] = poisson_log_rng(X*beta_sim + Z*g_sim);
+    if(type==1) y_sim[i] = poisson_log_rng(X[i,]*beta_sim + Z[i,]*g_sim);
   } 
 }
 parameters {
