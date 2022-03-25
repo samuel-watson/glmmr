@@ -14,10 +14,10 @@ transformed data {
 #include /stan_files/tdata_sim.stan  
   
   for(i in 1:N){
-    if(type==1) y_sim[i] ~ bernoulli_logit_rng(X*beta + Z*g);
-    if(type==2) y_sim[i]~bernoulli_rng(exp(X*beta + Z*g));
-    if(type==3) y_sim[i]~bernoulli_rng(X*beta + Z*g);
-    if(type==4) y_sim[i]~bernoulli_rng(Phi_approx(X*beta + Z*g));
+    if(type==1) y_sim[i] = bernoulli_logit_rng(X*beta + Z*g);
+    if(type==2) y_sim[i]=bernoulli_rng(exp(X*beta + Z*g));
+    if(type==3) y_sim[i]=bernoulli_rng(X*beta + Z*g);
+    if(type==4) y_sim[i]=bernoulli_rng(Phi_approx(X*beta + Z*g));
   } 
 }
 parameters {
