@@ -13,9 +13,8 @@ transformed data {
   
 #include /stan_files/tdata_sim.stan  
   
-  sigma_sim = fabs(normal_rng(0,sigma_sd));
   for(i in 1:N){
-    if(type==1) y_sim[i] ~ poisson_log_rng(X*beta + Z*g,sigma);
+    if(type==1) y_sim[i] ~ poisson_log_rng(X*beta + Z*g);
   } 
 }
 parameters {

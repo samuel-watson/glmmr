@@ -16,7 +16,7 @@ transformed data {
 #include /stan_files/tdata_sim_m.stan  
   
   for(i in 1:N){
-    if(type==1) y_sim[i] ~ poisson_log_rng(X*beta + Z*g,sigma);
+    if(type==1) y_sim[i] ~ poisson_log_rng(X*beta + Z*g);
   } 
 }
 parameters {
@@ -26,7 +26,7 @@ model{
   
 #include /stan_files/priors.stan
   
-  if(type==1) y ~ poisson_log(X*beta + Z*g,sigma);
+  if(type==1) y ~ poisson_log(X*beta + Z*g);
 } 
 generated quantities {
   int<lower=0,upper=1> betaIn = beta[par_ind] < beta_sim[par_ind];

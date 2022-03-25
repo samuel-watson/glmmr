@@ -15,5 +15,5 @@ parameters {
 model{
 #include /stan_files/priors.stan
   
-  if(type==1) y ~ poisson_log(X*beta + Z*g,sigma);
+  if(type==1) y ~ poisson_log(X*beta + Z*g);
 } 
