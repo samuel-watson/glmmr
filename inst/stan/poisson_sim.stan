@@ -24,7 +24,7 @@ model{
   
 #include /stan_files/priors.stan
   
-  if(type==1) y_sim ~ poisson_log(X*beta + Z*g,sigma);
+  if(type==1) y_sim ~ poisson_log(X*beta + Z*g);
 } 
 generated quantities {
   int<lower=0,upper=1> betaIn = beta[par_ind] < beta_sim[par_ind];
