@@ -21,7 +21,14 @@
 #' where _W_ is a diagonal matrix with the WLS iterated weights for each observation equal
 #' to, for individual _i_ \eqn{\phi a_i v(\mu_i)[h'(\mu_i)]^2} (see Table 2.1 in McCullagh 
 #' and Nelder (1989) <ISBN:9780412317606>). For very large designs, this can be disabled as
-#' the memory requirements can be prohibitive.   
+#' the memory requirements can be prohibitive.
+#' @references 
+#' Braun and Feng
+#' McCullagh
+#' Stan
+#' McCullagh and Nelder
+#' Approx GLMMs paper
+#' Watson confidence interval
 #' @importFrom Matrix Matrix
 #' @export 
 Design <- R6::R6Class("Design",
@@ -263,6 +270,11 @@ Design <- R6::R6Class("Design",
                                                                           ysim = ysim,...)})
                         }
                         
+                        
+                        sim_mean_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$mean_function$formula))
+                        sim_cov_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$covariance$formula))
+                        
+                        
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]$coefficients),
                           dfbeta = lapply(out,function(i)i[[2]]),
@@ -277,11 +289,14 @@ Design <- R6::R6Class("Design",
                           cov_parameters = self$covariance$parameters,
                           mean_formula = self$mean_function$formula,
                           cov_formula = self$covariance$formula,
+                          sim_mean_formula = sim_mean_formula,
+                          sim_cov_formula = sim_cov_formula,
                           family = self$mean_function$family,
                           aic = lapply(out,function(i)i[[1]]$aic),
                           Rsq = lapply(out,function(i)i[[1]]$Rsq),
                           n = self$n(),
-                          par = par
+                          par = par,
+                          type = 1
                         )
                         
                         class(res) <- "glmmr.sim"
@@ -331,7 +346,8 @@ Design <- R6::R6Class("Design",
                           aic = lapply(out,function(i)i[[1]]$aic),
                           Rsq = lapply(out,function(i)i[[1]]$Rsq),
                           n = self$n(),
-                          par = par
+                          par = par,
+                          type = 1
                         )
                         
                         class(res) <- "glmmr.sim"
@@ -442,6 +458,16 @@ Design <- R6::R6Class("Design",
                           ggplot2::scale_color_viridis_c(name=treat)+
                           ggplot2::scale_size_area()
                       }},
+                    #'@description 
+                    #'Generates a realisation of the design
+                    #'
+                    #'Generates a single vector of outcome data based upon the 
+                    #'specified GLMM design
+                    #'@param type Either 'y' to return just the outcome data, or 'data'
+                    #' to return a data frame with the simulated outcome data alongside the model data 
+                    #' @return Either a vector or a data frame
+                    #' @examples
+                    #' ...
                     sim_data = function(type = "y"){
                       re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
                       mu <- c(drop(as.matrix(self$mean_function$X)%*%self$mean_function$parameters)) + as.matrix(self$covariance$Z%*%re)
@@ -495,6 +521,12 @@ Design <- R6::R6Class("Design",
                       return(y)
                       
                     },
+                    #'@description
+                    #'Checks for any changes in linked objects and updates
+                    #'@param verbose Logical indicating whether to report if any updates are made, defaults to TRUE
+                    #'@return Linked objects are updated by nothing is returned
+                    #'@examples
+                    #'...
                     check = function(verbose=TRUE){
                       self$covariance$check(verbose=verbose)
                       self$mean_function$check(verbose = verbose)
@@ -511,6 +543,66 @@ Design <- R6::R6Class("Design",
                     #   samps <- pbapply::pbreplicate(iter,self$posterior(prior,var,do.call(prior.fun,list())))
                     #   summary(samps)
                     # },
+                    #'@description
+                    #'Markov Chain Monte Carlo Maximum Likelihood  model fitting
+                    #'
+                    #'@details
+                    #'Fits generalised linear mixed models using one of three algorithms: Markov Chain Newton
+                    #'Raphson (MCNR), Markov Chain Expectation Maximisation (MCEM), or Maximum simulated
+                    #'likelihood (MSL). All the algorithms are described by McCullagh (1997). For each iteration
+                    #'of the algorithm the unobserved random effect terms (\eqn{\gamma}) are simulated
+                    #'using Markov Chain Monte Carlo (MCMC) methods (we use Hamiltonian Monte Carlo through Stan),
+                    #'and then these values are conditioned on in the subsequent steps to estimate the covariance
+                    #'parameters and the mean function parameters (\eqn{\beta}). For all the algorithms, 
+                    #'the covariance parameter estimates are updated using an expectation maximisation step.
+                    #'For the mean function parameters you can either use a Newton Raphson step (MCNR) or
+                    #'an expectation maximisation step (MCEM). A simulated likelihood step can be added at the 
+                    #'end of either MCNR or MCEM, which uses an importance sampling technique to refine the 
+                    #'parameter estimates. 
+                    #'
+                    #'The accuracy of the algorithm depends on the user specified tolerance. For higher levels of
+                    #'tolerance, larger numbers of MCMC samples are likely need to sufficiently reduce Monte Carlo error.
+                    #'
+                    #'The function also offers different methods of obtaining standard errors. First, one can generate
+                    #'estimates from the estimated Hessian matrix (`se.method = 'lik'`), use approximate generalised 
+                    #'least squares estimates based on the maximum likelihood estimates of the covariance
+                    #'parameters (`se.method = 'approx'`), or use a permutation test approach (`se.method = 'perm'`).
+                    #'Note that the permutation test can be accessed separately with the function `permutation_test()`.
+                    #'We plan to also add sandwich estimators in the near future.
+                    #'
+                    #'There are several options that can be specified to the function using the `options` argument. 
+                    #'The options should be provided as a list, e.g. `options = list(method="mcnr")`. The possible options are:
+                    #'* `b_se_only` TRUE (calculate standard errors of the mean function parameters only) or FALSE (calculate
+                    #'all standard errors), default it FALSE.
+                    #'* `use_cmdstanr` TRUE (uses `cmdstanr` for the MCMC sampling, requires cmdstanr), or FALSE (uses `rstan`). Default is FALSE.
+                    #'* `skip_cov_optim` TRUE (skips the covariance parameter estimation step, and uses the values covariance$parameters), or 
+                    #'FALSE (run the whole algorithm)], default is FALSE
+                    #'* `method` One of either `mcnr` or `mcem`, see above. Default is `mcnr`.
+                    #'* `sim_lik_step` TRUE (conduct a simulated likelihood step at the end of the algorithm), or FALSE (does
+                    #'not do this step), defaults to FALSE.
+                    #'* `no_warnings` TRUE (do not report any warnings) or FALSE (report warnings), default to FALSE
+                    #'* `perm_type` Either `cov` (use weighted test statistic in permutation test) or `unw` (use unweighted
+                    #' test statistic), defaults to `cov`. See `permutation_test()`.
+                    #' * `perm_iter` Number of iterations for the permutation test, default is 100.
+                    #' * `perm_parallel` TRUE (run permuation test in parallel) or FALSE (runs on a single thread), default to TRUE
+                    #' * `warmup_iter` Number of warmup iterations on each iteration for the MCMC sampler, default is 500
+                    #' * `perm_ci_steps` Number of steps for the confidence interval search procedure if using the permutation
+                    #' test, default is 1000. See `permutation_test()`.
+                    #'
+                    #'@param y A numeric vector of outcome data
+                    #'@param start Optional. A numeric vector indicating starting values for the MCML algorithm iterations. 
+                    #'If this is not specified then the parameter values stored in the linked mean function object will be used.
+                    #'@param se.method One of either `'lik'`, `'approx'`, `'perm'`, or `'none'`, see Details.
+                    #'@param verbose Logical indicating whether to provide detailed output, defaults to TRUE.
+                    #'@param tol Numeric value, tolerance of the MCML algorithm, the maximum difference in parameter estimates 
+                    #'between iterations at which to stop the algorithm.
+                    #'@param m Integer. The number of MCMC draws of the random effects on each iteration.
+                    #'@param max.iter Integer. The maximum number of iterations of the MCML algorithm.
+                    #'@param options An optional list providing options to the algorithm, see Details.
+                    #'@return A `mcml` object
+                    #'@examples
+                    #'...
+                    #'@md
                     MCML = function(y,
                                     start,
                                     se.method = "lik",
@@ -539,9 +631,9 @@ for more details")
                       no_warnings <- ifelse("no_warnings"%in%names(options),options$no_warnings,FALSE)
                       perm_type <- ifelse("perm_type"%in%names(options),options$perm_type,"cov")
                       perm_iter <- ifelse("perm_iter"%in%names(options),options$perm_iter,100)
-                      perm_parallel <- ifelse("perm_iter"%in%names(options),options$perm_iter,TRUE)
+                      perm_parallel <- ifelse("perm_parallel"%in%names(options),options$perm_iter,TRUE)
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
-                      perm_ci_steps <- ifelse("warmup_iter"%in%names(options),options$perm_ci_steps,1000)
+                      perm_ci_steps <- ifelse("perm_ci_steps"%in%names(options),options$perm_ci_steps,1000)
                       #theta_in <- ifelse("theta_in"%in%names(options),options$theta_in,NULL)
                       
                       P <- ncol(self$mean_function$X)
@@ -855,6 +947,18 @@ for more details")
                       
                       return(out)
                     },
+                    #'@description
+                    #'Calculates DFBETA deletion diagnostic values
+                    #'
+                    #'@details
+                    #'Add more description...
+                    #'@param y Numeric vector of outcomes data
+                    #'@param par Integer indicating which parameter, as a column of X, to report the 
+                    #'deletion diagnostics for.
+                    #'@return A vector of length self$n() with the value of DFBETA for each observation for
+                    #'the specified parameter
+                    #'@examples
+                    #'...
                     dfbeta = function(y,
                                       par){
                         dfbeta_stat(as.matrix(self$Sigma),
@@ -863,17 +967,36 @@ for more details")
                                     par)
                       
                     },
-                    posterior = function(prior,
-                                         var,
-                                         parameters){
-                      #move to private and set this as Monte Carlo integration
-                      #can just request a function that outputs a new set of covariance parameters
-                      R <- solve(Matrix::Matrix(diag(prior)))
-                      S <- private$genS(self$covariance$sampleD(parameters),self$covariance$Z,private$W,update=FALSE)
-                      M <- R + Matrix::crossprod(self$mean_function$X,solve(S))%*%self$mean_function$X
-                      M <- solve(M)
-                      M[var,var]
-                    },
+                    # approx_posterior = function(prior,
+                    #                      var,
+                    #                      parameters){
+                    #   #move to private and set this as Monte Carlo integration
+                    #   #can just request a function that outputs a new set of covariance parameters
+                    #   R <- solve(Matrix::Matrix(diag(prior)))
+                    #   S <- private$genS(self$covariance$sampleD(parameters),self$covariance$Z,private$W,update=FALSE)
+                    #   M <- R + Matrix::crossprod(self$mean_function$X,solve(S))%*%self$mean_function$X
+                    #   M <- solve(M)
+                    #   M[var,var]
+                    # },
+                    #'@description
+                    #'Conducts a permuation test
+                    #'
+                    #'@details
+                    #' Add details
+                    #'@param y Numeric vector of outcome data
+                    #'@param permutation.par Integer indicator which parameter to conduct a permutation
+                    #'test for. Refers to a column of the X matrix.
+                    #'@param start Value of the parameter. Used both as a starting value for the algorithms
+                    #'and as a best estimate for the confidence interval search procedure.
+                    #'@param iter Integer. Number of iterations of the permuation test to conduct
+                    #'@param nsteps Integer. Number of steps of the confidence interval search procedure
+                    #'@param type Either `cov` for a test statistic weighted by the covariance matrix, or 
+                    #'`unw` for an unweighted test statistic. See Details.
+                    #'@param parallel Logical indicating whether to run the tests in parallel
+                    #'@param verbose Logical indicating whether to report detailed output
+                    #'@return A list with the estimated p-value and the estimated lower and upper 95% confidence interval
+                    #'@examples
+                    #'...
                     permutation_test = function(y,
                                                 permutation.par,
                                            start,
@@ -943,6 +1066,235 @@ for more details")
                                                       w.opt = w.opt,
                                                       nsteps = nsteps)
                       return(list(p=pval,lower=lower,upper=upper))
+                    },
+                    MCMC = function(y,
+                                    priors,
+                                    warmup_iter = 1000,
+                                    sampling_iter = 1000,
+                                    chains = 4,
+                                    use_cmdstanr=FALSE,...){
+                      
+                      if(missing(priors) || !is("priors",list)){
+                        warning("priors not specified properly, using defaults")
+                        priors <- list(
+                          prior_b_mean = rep(0,ncol(self$mean_function$X)),
+                          prior_b_sd = rep(1,ncol(self$mean_function$X)),
+                          prior_g_sd = rep(1,length(self$covariance$parameters)),
+                          sigma_sd = 1
+                        )
+                      } else {
+                        if(!"prior_b_mean" %in%names(priors)){
+                          message("prior_b_mean not specified, setting to 0")
+                          priors$prior_b_mean <- rep(0,ncol(self$mean_function$X))
+                        }
+                        if(!"prior_b_sd" %in%names(priors)){
+                          message("prior_b_sd not specified, setting to 1")
+                          priors$prior_b_sd <- rep(1,ncol(self$mean_function$X))
+                        }
+                        if(!"prior_g_sd" %in%names(priors)){
+                          message("prior_g_sd not specified, setting to 1")
+                          priors$prior_g_sd <- rep(1,length(self$covariance$parameters))
+                        }
+                        if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                          if(!"sigma_sd" %in%names(priors)){
+                            message("sigma_sd not specified, setting to 1")
+                            priors$sigma_sd <- 1
+                          }
+                        }
+                      }
+                      
+                      if(use_cmdstanr){
+                        if(!requireNamespace("cmdstanr"))stop("cmdstanr not available")
+                        model_file <- system.file("stan",
+                                                  paste0(self$mean_function$family[[1]],".stan"),
+                                                  package = "glmmr",
+                                                  mustWork = TRUE)
+                        mod <- cmdstanr::cmdstan_model(model_file)
+                      }
+                      
+                      ## get data
+                      stan_data <- private$gen_stan_data(type = "y",
+                                                         y=y)
+                      stan_data$prior_b_mean <- priors$prior_b_mean
+                      stan_data$prior_b_sd <- priors$prior_b_sd
+                      stan_data$prior_g_sd <- priors$prior_g_sd
+                      if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                        stan_data$sigma_sd <- priors$sigma_sd
+                      }
+                      
+                      
+                      if(use_cmdstanr){
+                        fit <- mod$sample(data = stan_data,
+                                          chains = chains,
+                                          iter_warmup = warmup_iter,
+                                          iter_sampling = sampling_iter,
+                                          ...)
+                      } else {
+                        fit <- rstan::sampling(stanmodels[[self$mean_function$family[[1]]]],
+                                               data = stan_data,
+                                               chains = chains,
+                                               warmup = warmup_iter,
+                                               iter = warmup_iter+sampling_iter,...)
+                      }
+                      return(fit)
+                    },
+                    analysis_bayesian = function(iter,
+                                                 par,
+                                                 priors,
+                                                 threshold = 0,
+                                                 sim_design,
+                                                 priors_sim,
+                                                 warmup_iter = 200,
+                                                 sampling_iter = 200,
+                                                 chains=1,
+                                                 verbose=TRUE,
+                                                 use_cmdstanr=FALSE,...){
+                      if(missing(priors) || !is("priors",list)){
+                        warning("priors not specified properly, using defaults")
+                        priors <- list(
+                          prior_b_mean = rep(0,ncol(self$mean_function$X)),
+                          prior_b_sd = rep(1,ncol(self$mean_function$X)),
+                          prior_g_sd = rep(1,length(self$covariance$parameters)),
+                          sigma_sd = 1
+                        )
+                      } else {
+                        if(!"prior_b_mean" %in%names(priors)){
+                          if(verbose)message("prior_b_mean not specified, setting to 0")
+                          priors$prior_b_mean <- rep(0,ncol(self$mean_function$X))
+                        }
+                        if(!"prior_b_sd" %in%names(priors)){
+                          if(verbose)message("prior_b_sd not specified, setting to 1")
+                          priors$prior_b_sd <- rep(1,ncol(self$mean_function$X))
+                        }
+                        if(!"prior_g_sd" %in%names(priors)){
+                          if(verbose)message("prior_g_sd not specified, setting to 1")
+                          priors$prior_g_sd <- rep(1,length(self$covariance$parameters))
+                        }
+                        if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                          if(!"sigma_sd" %in%names(priors)){
+                            message("sigma_sd not specified, setting to 1")
+                            priors$sigma_sd <- 1
+                          }
+                        }
+                      }
+                      
+                      f_str <- ifelse(missing(sim_design),"_sim","_sim_misspec")
+                      
+                      if(use_cmdstanr){
+                        if(!requireNamespace("cmdstanr"))stop("cmdstanr not available")
+                        
+                        model_file <- system.file("stan",
+                                                  paste0(self$mean_function$family[[1]],f_str,".stan"),
+                                                  package = "glmmr",
+                                                  mustWork = TRUE)
+                        mod <- cmdstanr::cmdstan_model(model_file)
+                      }
+                      
+                      stan_data <- private$gen_stan_data(type = "s")
+                      stan_data$prior_b_mean <- priors$prior_b_mean
+                      stan_data$prior_b_sd <- priors$prior_b_sd
+                      stan_data$prior_g_sd <- priors$prior_g_sd
+                      if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                        stan_data$sigma_sd <- priors$sigma_sd
+                      }
+                      
+                      if(!missing(sim_design)){
+                        if(!is(sim_design,"Design"))stop("sim_design must be another design")
+                        
+                        if(missing(priors_sim)|!is("priors",list)){
+                          warning("priors_sim not specified properly, using defaults")
+                          priors_sim <- list(
+                            prior_b_mean = rep(0,ncol(sim_design$mean_function$X)),
+                            prior_b_sd = rep(1,ncol(sim_design$mean_function$X)),
+                            prior_g_sd = rep(1,length(sim_design$covariance$parameters)),
+                            sigma_sd = 1
+                          )
+                        } else {
+                          if(!"prior_b_mean" %in%names(priors)){
+                            message("prior_b_mean not specified in priors_sim, setting to 0")
+                            priors_sim$prior_b_mean <- rep(0,ncol(sim_design$mean_function$X))
+                          }
+                          if(!"prior_b_sd" %in%names(priors)){
+                            message("prior_b_sd not specified in priors_sim, setting to 1")
+                            priors_sim$prior_b_sd <- rep(1,ncol(sim_design$mean_function$X))
+                          }
+                          if(!"prior_g_sd" %in%names(priors)){
+                            message("prior_g_sd not specified in priors_sim, setting to 1")
+                            priors_sim$prior_g_sd <- rep(1,length(sim_design$covariance$parameters))
+                          }
+                          if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                            if(!"sigma_sd" %in%names(priors)){
+                              message("sigma_sd not specified in priors_sim, setting to 1")
+                              priors_sim$sigma_sd <- 1
+                            }
+                          }
+                        }
+                        
+                        stan_data_m <- sim_design$.__enclos_env__$private$gen_stan_data(type = "m")
+                        stan_data_m$prior_b_mean_m <- priors_sim$prior_b_mean
+                        stan_data_m$prior_b_sd_m <- priors_sim$prior_b_sd
+                        stan_data_m$prior_g_sd_m <- priors_sim$prior_g_sd
+                        if(sim_design$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                          stan_data_m$sigma_sd <- priors_sim$sigma_sd
+                        }
+                        
+                        stan_data <- append(stan_data,stan_data_m)
+                      }
+                      
+                      stan_data$par_ind <- par
+                      stan_data$threshold <- threshold
+                      
+                      posterior_var <- c()
+                      sbc_ranks <- c()
+                      posterior_threshold <- c()
+                      if(verbose)cat("\nStarting simuations and model fitting...\n")
+                      if(verbose)cat(progress_bar(0,iter))
+                      for(i in 1:iter){
+                        if(use_cmdstanr){
+                          fit <- mod$sample(data = stan_data,
+                                            chains = chains,
+                                            iter_warmup = warmup_iter,
+                                            iter_sampling = sampling_iter,
+                                            ...)
+                        } else {
+                          fit <- rstan::sampling(stanmodels[[paste0(self$mean_function$family[[1]],f_str)]],
+                                                 data = stan_data,
+                                                 chains = chains,
+                                                 warmup = warmup_iter,
+                                                 iter = warmup_iter+sampling_iter,...)
+                          
+                          b1 <- rstan::extract(fit,"beta")
+                          b1 <- b1$beta[,par]
+                          posterior_var[i] <- var(b1)
+                          b2 <- rstan::extract(fit,"betaIn")
+                          sbc_ranks[i] <- sum(b2$betaIn)
+                          b3 <- rstan::extract(fit,"betaThresh")
+                          posterior_threshold[i] <- mean(b3$betaThresh)
+                        }
+                        
+                        if(verbose)cat("\rSimulations progress: ",progress_bar(i,iter))
+                      }
+                      
+                      sim_mean_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$mean_function$formula))
+                      sim_cov_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$covariance$formula))
+                      psim <- ifelse(missing(priors_sim),NA,priors_sim)
+                      
+                      res <- list(posterior_var = posterior_var,
+                                  sbc_ranks=sbc_ranks,
+                                  posterior_threshold=posterior_threshold,
+                                  iter = iter,
+                                  priors = priors,
+                                  priors_sim = psim,
+                                  mean_formula = self$mean_function$formula,
+                                  cov_formula = self$covariance$formula,
+                                  sim_mean_formula = sim_mean_formula,
+                                  sim_cov_formula = sim_cov_formula,
+                                  family = self$mean_function$family,
+                                  type = 2)
+                      
+                      class(res) <- "glmmr.sim"
+                      ## add on other return, include model specification and misspecification
+                      return(res)
                     }
                   ),
                   private = list(
@@ -1097,6 +1449,59 @@ for more details")
                       
                       return(bound)
                       
+                    },
+                    gen_stan_data = function(type="s",
+                                             y = NULL){
+                      B <- length(self$covariance$.__enclos_env__$private$flist)
+                      N_dim <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
+                      N_func <-  unlist(lapply(self$covariance$.__enclos_env__$private$Funclist,function(x)ncol(x)))
+                      func_def <- matrix(0,nrow=B,ncol=max(N_func))
+                      for(b in 1:B)func_def[b,1:N_func[b]] <- self$covariance$.__enclos_env__$private$Funclist[[b]][1,]
+                      fvar <- lapply(rev(self$covariance$.__enclos_env__$private$flistvars),function(x)x$groups)
+                      nvar <- lapply(lapply(fvar,table),as.vector)
+                      N_var_func <- matrix(0,ncol=max(N_func),nrow=B)
+                      for(b in 1:B)N_var_func[b,1:N_func[b]] <- nvar[[b]]
+                      col_id <- array(0,dim=c(B,max(N_func),max(N_var_func)))
+                      
+                      for(b in 1:B){
+                        for(k in 1:N_func[b]){
+                          vnames <- rev(self$covariance$.__enclos_env__$private$flistvars)[[b]]
+                          vnames <- vnames$rhs[vnames$groups==(N_func[b]+1-k)]
+                          col_id[b,k,1:N_var_func[b,k]] <- match(vnames,colnames(self$covariance$.__enclos_env__$private$Distlist[[b]]))
+                        }
+                      }
+                      n_par <- matrix(0,nrow=B,ncol=max(N_func))
+                      for(b in 1:B)for(k in 1:N_func[b])n_par[b,k] <- sum(self$covariance$.__enclos_env__$private$Funclist[[b]][6:9,k] > -1)
+                      cov_data <- array(0,dim=c(B,max(N_dim),max(rowSums(N_var_func))))
+                      for(b in 1:B)cov_data[b,1:N_dim[b],1:ncol(self$covariance$.__enclos_env__$private$Distlist[[b]])] <- self$covariance$.__enclos_env__$private$Distlist[[b]]
+                      
+                      stan_data <- list(
+                        B = B,
+                        N_dim = N_dim,
+                        max_N_dim = max(N_dim),
+                        N_func = N_func,
+                        max_N_func = max(N_func),
+                        func_def = func_def,
+                        N_var_func = N_var_func,
+                        max_N_var = max(rowSums(N_var_func)),
+                        max_N_var_func = max(N_var_func),
+                        col_id = col_id,
+                        N_par = n_par,
+                        sum_N_par = sum(n_par),
+                        cov_data = cov_data,
+                        N = self$n(),
+                        P = ncol(self$mean_function$X),
+                        Q = ncol(self$covariance$Z),
+                        X = as.matrix(self$mean_function$X),
+                        Z = as.matrix(self$covariance$Z)
+                      )
+                      if(type=="m"){
+                        for(i in 1:length(stan_data))names(stan_data)[i] <- paste0(names(stan_data)[i],"_m")
+                      } else if(type=="y"){
+                        if(is.null(y))stop("Must specify y for type y stan data")
+                        stan_data$y <- y
+                      }
+                      return(stan_data)
                     }
                   ))
 
