@@ -9,7 +9,7 @@ data {
   real threshold;
 }
 transformed data {
-  vector[N] y_sim;
+  int y_sim[N];
   
 #include /stan_files/tdata_sim.stan  
   
