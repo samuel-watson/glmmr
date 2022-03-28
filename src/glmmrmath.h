@@ -2,6 +2,8 @@
 #define GLMMRMATH_H
 
 #include <cmath>  // std::pow
+
+#include <Rmath.h>
 #include <RcppArmadillo.h>
 
 using namespace Rcpp;
@@ -22,19 +24,12 @@ double log_factorial_approx(int n){
 
 // [[Rcpp::export]]
 double gaussian_cdf(const double& x){
-  double k = 1.0/(1.0 + 0.2316419*x);
-  double k_sum = k*(0.319381530 + k*(-0.356563782 + k*(1.781477937 + k*(-1.821255978 + 1.330274429*k))));
-  
-  if (x >= 0.0) {
-    return (1.0 - (1.0/(pow(2*M_PI,0.5)))*exp(-0.5*x*x) * k_sum);
-  } else {
-    return 1.0 - gaussian_cdf(-x);
-  }
+  return R::pnorm(x, 0, 1, true, false);
 }
 
 // [[Rcpp::export]]
 double gaussian_pdf(const double& x){
-  return (1.0/sqrt(2.0 * arma::datum::pi)) * exp(-0.5*x*x);
+  return R::dnorm(x, 0, 1, false);
 }
 
 // [[Rcpp::export]]
@@ -54,10 +49,10 @@ double log_likelihood(arma::vec y,
                       std::string link) {
   // generate the log-likelihood function
   // for a range of models
-  
+
   double logl = 0;
   arma::uword n = y.n_elem;
-  
+
   if(family=="gaussian"){
     if(link=="identity"){
       for(arma::uword i=0; i<n; i++){
@@ -94,7 +89,7 @@ double log_likelihood(arma::vec y,
       }
     }
   }
-  
+
   return logl;
 }
 
@@ -118,19 +113,19 @@ arma::vec mod_inv_func(arma::vec mu,
       mu(j) = gaussian_cdf(mu(j));
     }
   }
-    
+
     return mu;
-  
+
 }
 
 // [[Rcpp::export]]
 arma::vec gen_dhdmu(arma::vec xb,
                     std::string family,
                     std::string link){
-  
+
   arma::vec wdiag(xb.n_elem, fill::value(1));
   arma::vec p(xb.n_elem, fill::zeros);
-  
+
   if(family=="poisson"){
     if(link=="log"){
       for(arma::uword j; j<xb.n_elem;j++){
