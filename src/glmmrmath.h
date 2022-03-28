@@ -23,13 +23,29 @@ double log_factorial_approx(int n){
 }
 
 // [[Rcpp::export]]
-double gaussian_cdf(const double& x){
+double gaussian_cdf(double x){
   return R::pnorm(x, 0, 1, true, false);
 }
 
 // [[Rcpp::export]]
-double gaussian_pdf(const double& x){
+arma::vec gaussian_cdf_vec(const arma::vec& v){
+  arma::vec res = arma::zeros<arma::vec>(v.n_elem);
+  for (arma::uword i = 0; i < v.n_elem; ++i)
+    res[i] = gaussian_cdf(v[i]);
+  return res;
+}
+
+// [[Rcpp::export]]
+double gaussian_pdf(double x){
   return R::dnorm(x, 0, 1, false);
+}
+
+// [[Rcpp::export]]
+arma::vec gaussian_pdf_vec(const arma::vec& v){
+  arma::vec res = arma::zeros<arma::vec>(v.n_elem);
+  for (arma::uword i = 0; i < v.n_elem; ++i)
+    res[i] = gaussian_pdf(v[i]);
+  return res;
 }
 
 // [[Rcpp::export]]
@@ -97,25 +113,18 @@ double log_likelihood(arma::vec y,
 // [[Rcpp::export]]
 arma::vec mod_inv_func(arma::vec mu,
                        std::string link){
-  arma::uword n = mu.n_elem;
+  //arma::uword n = mu.n_elem;
   if(link=="logit"){
-    for(arma::uword j = 0; j<n; j++){
-      mu(j) = exp(mu(j))/(1+exp(mu(j)));
-    }
+    mu = exp(mu) / (1+exp(mu));
   }
   if(link=="log"){
-    for(arma::uword j = 0; j<n; j++){
-      mu(j) = exp(mu(j));
-    }
+    mu = exp(mu);
   }
   if(link=="probit"){
-    for(arma::uword j = 0; j<n; j++){
-      mu(j) = gaussian_cdf(mu(j));
-    }
+    mu = gaussian_cdf_vec(mu);
   }
 
-    return mu;
-
+  return mu;
 }
 
 // [[Rcpp::export]]
@@ -128,39 +137,27 @@ arma::vec gen_dhdmu(arma::vec xb,
 
   if(family=="poisson"){
     if(link=="log"){
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = 1/exp(xb(j));
-      }
+      wdiag = 1/exp(xb);
     } else if(link =="identity"){
       wdiag = exp(xb);
     }
   } else if(family=="binomial"){
     p = mod_inv_func(xb,"logit");
     if(link=="logit"){
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = 1/(p(j)*(1-p(j)));
-      }
+      wdiag = 1/(p % (1-p));
     } else if(link=="log"){
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = (1-p(j))/p(j);
-      }
+      wdiag = (1-p)/p;
     } else if(link=="identity"){
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = (p(j)*(1-p(j)));
-      }
+      wdiag = p % (1-p);
     } else if(link=="probit"){
       p = mod_inv_func(xb,"probit");
       arma::vec p2(xb.n_elem,fill::zeros);
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = (p(j)*(1-p(j)))/gaussian_pdf(xb(j));
-      }
+      wdiag = (p % (1-p))/gaussian_pdf_vec(xb);
     }
   } else if(link=="gaussian"){
     // if identity do nothin
     if(link=="log"){
-      for(arma::uword j; j<xb.n_elem;j++){
-        wdiag(j) = 1/exp(xb(j));
-      }
+      wdiag = 1/exp(xb);
     }
   } // for gamma- inverse do nothing
   return wdiag;
