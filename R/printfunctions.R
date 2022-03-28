@@ -24,9 +24,11 @@ print.mcml <- function(x, digits =2, ...){
       ifelse(x$sim_step," with simulated likelihood step\n","\n"))
   
   cat("\nFixed effects formula :",x$mean_form)
-  cat("\nCovariance function formula: ",x$cov_form,"\n")
+  cat("\nCovariance function formula: ",x$cov_form)
+  cat("\nFamily: ",x$family,", Link function:",x$link,"\n")
   cat("\nNumber of Monte Carlo simulations per iteration: ",x$m," with tolerance ",x$tol,"\n")
-  semethod <- ifelse(x$permutation,"permutation test",ifelse(x$hessian,"hessian","approx"))
+  semethod <- ifelse(x$permutation,"permutation test",
+                     ifelse(x$robust,"robust",ifelse(x$hessian,"hessian","approx")))
   cat("P-value and confidence interval method: ",semethod,"\n\n")
   pars <- x$coefficients[!grepl("d",x$coefficients$par),c('est','SE','lower','upper')]
   z <- pars$est/pars$SE

@@ -138,7 +138,7 @@ arma::vec l_lik_optim(const arma::mat &Z,
 }
 
 
-class F_likelihood : public Functor {
+class F_likelihood : public ObjFun {
   Rcpp::List func_;
   Rcpp::List data_;
   arma::mat Z_;
@@ -248,38 +248,115 @@ public:
 };
 
 // [[Rcpp::export]]
-arma::mat f_lik_optim(Rcpp::List func,
-                      Rcpp::List data,
-                      arma::mat Z, 
-                      arma::mat X,
-                      arma::vec y, 
-                      arma::mat u,
-                      arma::vec cov_par_fix,
-                      std::string family, 
-                      std::string link,
-                      arma::vec start,
-                      arma::vec lower,
-                      bool importance){
+arma::vec f_lik_grad(Rcpp::List func,
+                     Rcpp::List data,
+                     arma::mat Z, 
+                     arma::mat X,
+                     arma::vec y, 
+                     arma::mat u,
+                     arma::vec cov_par_fix,
+                     std::string family, 
+                     std::string link,
+                     arma::vec start){
   
   F_likelihood dl(func,data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,importance);
+                  link,false);
   
-  Roptim<F_likelihood> opt("L-BFGS-B");
-  opt.control.trace = 0;
+  arma::vec gradient(start.n_elem,fill::zeros);
+  dl.Gradient(start,gradient);
+  return gradient;
+}
+
+// [[Rcpp::export]]
+arma::mat f_lik_hess(Rcpp::List func,
+                     Rcpp::List data,
+                     arma::mat Z,
+                     arma::mat X,
+                     arma::vec y,
+                     arma::mat u,
+                     arma::vec cov_par_fix,
+                     std::string family,
+                     std::string link,
+                     arma::vec start){
+  F_likelihood dl(func,data,Z,X,y,u,
+                  cov_par_fix,family,
+                  link,false);
+  arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
+  dl.Hessian(start,hessian);
+  return hessian;
+}
+
+// [[Rcpp::export]]
+arma::mat f_lik_optim(Rcpp::List func,
+                      Rcpp::List data,
+                      const arma::mat &Z, 
+                      const arma::mat &X,
+                      const arma::vec &y, 
+                      const arma::mat &u,
+                      const arma::vec &cov_par_fix,
+                      std::string family, 
+                      std::string link,
+                      arma::vec start,
+                      const arma::vec &lower,
+                      const arma::vec &upper,
+                      int trace){
+  
+  F_likelihood dl(func,data,Z,X,y,u,
+                  cov_par_fix,family,
+                  link,true);
+  
+  Rbobyqa<F_likelihood> opt;
   opt.set_lower(lower);
-  if(!importance){
-    opt.set_hessian(true);
-  }
+  opt.control.iprint = trace;
   opt.minimize(dl, start);
   
-  if(importance){
-    return opt.par();
-  } else {
-    return opt.hessian();
-  }
+  return opt.par();
+  
+  // Roptim<F_likelihood> opt;
+  // opt.control.trace = 0;
+  // opt.set_lower(lower);
+  // if(!importance){
+  //   opt.set_hessian(true);
+  // }
+  // opt.minimize(dl, start);
+  // 
+  // if(importance){
+  //   return opt.par();
+  // } else {
+  //   return opt.hessian();
+  // }
   
 }
+
+// // [[Rcpp::export]]
+// arma::mat f_lik_optim2(Rcpp::List func,
+//                       Rcpp::List data,
+//                       const arma::mat &Z,
+//                       const arma::mat &X,
+//                       const arma::vec &y,
+//                       const arma::mat &u,
+//                       const arma::vec &cov_par_fix,
+//                       std::string family,
+//                       std::string link,
+//                       arma::vec start,
+//                       const arma::vec &lower,
+//                       int trace){
+// 
+//   F_likelihood dl(func,data,Z,X,y,u,
+//                   cov_par_fix,family,
+//                   link,false);
+// 
+// 
+//   Roptim<F_likelihood> opt("L-BFGS-B");
+//   opt.control.trace = 0;
+//   opt.set_lower(lower);
+//   opt.set_hessian(true);
+//   opt.minimize(dl, start);
+// 
+//   return opt.hessian();
+// 
+// }
 
 // [[Rcpp::export]]
 Rcpp::List mcnr_step(const arma::vec &y, const arma::mat &X, const arma::mat &Z,
@@ -379,7 +456,6 @@ double aic_mcml(const arma::mat &Z,
                 const arma::vec& beta_par,
                 const arma::vec& cov_par){
   arma::uword niter = u.n_rows;
-  arma::uword Q = u.n_cols;
   arma::uword n = y.n_elem;
   arma::vec zd(n);
   arma::uword P = beta_par.n_elem;

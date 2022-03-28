@@ -614,7 +614,7 @@ Design <- R6::R6Class("Design",
                                     options = list()){
                      
                       # checks
-                      if(!se.method%in%c("perm","lik","none"))stop("se.method should be 'perm', 'lik', or 'none'")
+                      if(!se.method%in%c("perm","lik","none","robust"))stop("se.method should be 'perm', 'lik', 'robust', or 'none'")
                       if(se.method=="perm" & missing(permutation.par))stop("if using permutational based
 inference, set permuation.par")
                       if(se.method=="perm" & is.null(self$mean_function$randomise))stop("random allocations
@@ -625,7 +625,6 @@ for more details")
                       b_se_only <- ifelse("b_se_only"%in%names(options),options$b_se_only,FALSE)
                       use_cmdstanr <- ifelse("use_cmdstanr"%in%names(options),options$use_cmdstanr,FALSE)
                       skip_cov_optim <- ifelse("skip_cov_optim"%in%names(options),options$skip_cov_optim,FALSE)
-                      #skip_se <- ifelse("skip_se"%in%names(options),options$skip_se,FALSE)
                       method <- ifelse("method"%in%names(options),options$method,"mcnr")
                       sim_lik_step <- ifelse("sim_lik_step"%in%names(options),options$sim_lik_step,FALSE)
                       no_warnings <- ifelse("no_warnings"%in%names(options),options$no_warnings,FALSE)
@@ -634,7 +633,6 @@ for more details")
                       perm_parallel <- ifelse("perm_parallel"%in%names(options),options$perm_iter,TRUE)
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("perm_ci_steps"%in%names(options),options$perm_ci_steps,1000)
-                      #theta_in <- ifelse("theta_in"%in%names(options),options$theta_in,NULL)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -823,9 +821,10 @@ for more details")
                       cov_pars_names <- rep(as.character(unlist(rev(self$covariance$.__enclos_env__$private$flist))),
                                             unlist(lapply(rev(cov1$.__enclos_env__$private$Funclist),ncol)))#paste0("cov",1:R)
                       permutation = FALSE
-                      if(se.method=="lik"){
+                      dsamps <<- dsamps
+                      if(se.method=="lik"|se.method=="robust"){
                         if(verbose)cat("using Hessian method\n")
-                          hess <- tryCatch(f_lik_optim(self$covariance$.__enclos_env__$private$Funclist,
+                          hess <- tryCatch(f_lik_hess(self$covariance$.__enclos_env__$private$Funclist,
                                                        self$covariance$.__enclos_env__$private$Distlist,
                                                        as.matrix(self$covariance$Z),
                                                        as.matrix(self$mean_function$X),
@@ -834,13 +833,36 @@ for more details")
                                                        theta[parInds$cov],
                                                        family=self$mean_function$family[[1]],
                                                        link=self$mean_function$family[[2]],
-                                                       start = theta[all_pars],
-                                                       lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
-                                                       importance = FALSE),error=function(e)NULL)
+                                                       start = theta[all_pars]),
+                                           error=function(e)NULL)
                           
                           hessused <- TRUE
-                          if(!is.null(hess)){
-                            SE <- tryCatch(sqrt(Matrix::diag(Matrix::solve(hess))),error=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)))
+                          robust <- FALSE
+                          semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
+                      
+                          # if(se.method == "robust"&!is.null(semat)){
+                          #   hlist <- list()
+                          #   for(i in 1:500){
+                          #     g1 <- f_lik_grad(self$covariance$.__enclos_env__$private$Funclist,
+                          #                      self$covariance$.__enclos_env__$private$Distlist,
+                          #                      as.matrix(self$covariance$Z),
+                          #                      as.matrix(self$mean_function$X),
+                          #                      y,
+                          #                      dsamps,
+                          #                      theta[parInds$cov],
+                          #                      family=self$mean_function$family[[1]],
+                          #                      link=self$mean_function$family[[2]],
+                          #                      start = theta[all_pars])
+                          #     hlist[[i]] <- g1%*%t(g1)
+                          #   }
+                          #   g0 <- Reduce('+',hlist)
+                          #   semat <- semat%*%g0%*%semat
+                          #   robust <- TRUE
+                          # }
+                          
+                          if(!is.null(semat)){
+                            SE <- tryCatch(sqrt(Matrix::diag(semat)),
+                                           error=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)))
                           } else {
                             SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
                           }
@@ -886,6 +908,7 @@ for more details")
                                           lower=c(ci1l,ci2l),
                                           upper=c(ci1u,ci2u))
                       hessused <- FALSE
+                      robust <- FALSE
                       } else {
                         res <- data.frame(par = c(mf_pars_names,cov_pars_names),
                                           est = c(mf_pars,theta[parInds$cov]),
@@ -893,6 +916,7 @@ for more details")
                                           lower = NA,
                                           upper =NA)
                         hessused <- FALSE
+                        robust <- FALSE
                       }
                       
                      colnames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
@@ -929,6 +953,7 @@ for more details")
                                  converged = !not_conv,
                                  method = method,
                                  hessian = hessused,
+                                 robust = robust,
                                  permutation = permutation,
                                  m = m,
                                  tol = tol,
@@ -1020,7 +1045,7 @@ for more details")
                       if(verbose&type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
                       if(verbose&type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
                       w.opt <- type=="cov"
-                      invS <- ifelse(w.opt,Matrix::solve(self$Sigma),1)
+                      invS <- ifelse(type=="cov",Matrix::solve(self$Sigma),1)
                       qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
                       
                       if(verbose)cat("Starting permutations\n")
