@@ -51,7 +51,7 @@ Covariance <- R6::R6Class("Covariance",
                         #' see respective help files for the functions for parameterisation:
                         #' * \code{gr(x)}: Indicator function   
                         #' * \code{fexp(x)}: Exponential function
-                        #' * \code{pexp(x)}: Power function
+                        #' * \code{ar1(x)}: AR1 function
                         #' 
                         #' One can add other functions by specifying a function that takes a list as an 
                         #' argument with first element called data that contains the data, and a second 
@@ -63,12 +63,12 @@ Covariance <- R6::R6Class("Covariance",
                         #' providing the values of the parameters for each function in the order they are written. 
                         #' For example,
                         #' * Formula: `~(1|gr(j))+(1|gr(j)*gr(t))`; parameters: `c(0.25,0.1)`
-                        #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `c(0.25,0.5)`
+                        #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `c(0.25,1,0.5)`
                         #' @return A Covariance object
-                        #' @seealso \code{gr}, \code{fexp}, \code{pexp}
+                        #' @seealso \code{gr}, \code{fexp}, \code{ar1}
                         #' @examples 
                         #' df <- nelder(~(cl(5)*t(5)) > ind(5))
-                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*ar1(t)),
                         #'                       parameters = c(0.25,0.7),
                         #'                       data= df)
                         initialize = function(formula=NULL,
@@ -91,7 +91,7 @@ Covariance <- R6::R6Class("Covariance",
                         #' @return NULL
                         #' @examples 
                         #' df <- nelder(~(cl(5)*t(5)) > ind(5))
-                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*ar1(t)),
                         #'                       parameters = list(list(0.05,0.8)),
                         #'                       data= df)
                         #' cov$parameters <- list(list(0.01,0.1))
@@ -113,7 +113,7 @@ Covariance <- R6::R6Class("Covariance",
                         #' @param ... ignored
                         #' @examples
                         #' df <- nelder(~(cl(5)*t(5)) > ind(5))
-                        #' Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #' Covariance$new(formula = ~(1|gr(j)*ar1(t)),
                         #'                       parameters = list(list(0.05,0.8)),
                         #'                       data= df)
                         print = function(){
@@ -130,7 +130,7 @@ Covariance <- R6::R6Class("Covariance",
                         #' @param index vector of indices to keep
                         #' @examples 
                         #' df <- nelder(~(cl(10)*t(5)) > ind(10))
-                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*ar1(t)),
                         #'                       parameters = list(list(0.05,0.8)),
                         #'                       data= df)
                         #' cov$subset(1:100)                     
@@ -148,7 +148,7 @@ Covariance <- R6::R6Class("Covariance",
                         #' @return matrix 
                         #' @examples 
                         #' df <- nelder(~(cl(10)*t(5)) > ind(10))
-                        #' cov <- Covariance$new(formula = ~(1|gr(j)*pexp(t)),
+                        #' cov <- Covariance$new(formula = ~(1|gr(j)*ar1(t)),
                         #'                       parameters = list(list(0.05,0.8)),
                         #'                       data= df)
                         #' cov$sampleD(list(list(0.01,0.1)))
@@ -261,8 +261,8 @@ Covariance <- R6::R6Class("Covariance",
                           }
                           
                           fl <- rev(flistvars)
-                          fnames <- c("gr","fexp","pexp","sqexp","spherical","ar1","matern","bessel","car1","pow")
-                          fnpar <- c(1,2,1,2,)
+                          fnames <- c("gr","fexp","ar1","sqexp","matern","bessel")
+                          fnpar <- c(1,2,1,2,2,1)
                           parcount <- 0
                           Funclist <- list()
                           

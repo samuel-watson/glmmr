@@ -182,4 +182,44 @@ arma::mat gen_m(const arma::mat &X, const arma::mat &A) {
   return X.t() * A * X;
 }
 
+// [[Rcpp::export]]
+double fexp(const double &x, 
+               double par1,
+               double par2) {
+  //generate information matrix
+  return par1*exp(-1*x/par2);
+}
+
+// [[Rcpp::export]]
+double sqexp(const double &x, 
+               double par1,
+               double par2) {
+  //generate information matrix
+  return par1*exp(-1*pow(x,2)/pow(par2,2));
+}
+
+// [[Rcpp::export]]
+double matern(const double &x,
+              double rho, 
+              double nu){
+  double xr = pow(2*nu,0.5)*x/rho;
+  double ans = 1;
+  if(xr!=0){
+    if(nu == 0.5){
+      ans = exp(-xr);
+    } else {
+      double cte = pow(2,-1*(nu-1))/R::gammafn(nu);
+      ans = cte*pow(xr, nu)*R::bessel_k(xr,nu,1);
+    }
+  }
+  return ans;
+}
+
+// [[Rcpp::export]]
+double bessel1(const double &x,
+               double rho){
+  double xr = x/rho;
+  return xr* R::bessel_k(xr,1,1);
+}
+
 #endif

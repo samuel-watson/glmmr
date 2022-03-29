@@ -40,7 +40,7 @@ inline void ObjFun::ApproximateGradient(const arma::vec &par,
                                         arma::vec &grad) {
   if (os.parscale_.is_empty()) os.parscale_ = arma::ones<arma::vec>(par.size());
   if (os.ndeps_.is_empty())
-    os.ndeps_ = arma::ones<arma::vec>(par.size()) * 1e-6;
+    os.ndeps_ = arma::ones<arma::vec>(par.size()) * 1e-4;
   
   grad = arma::zeros<arma::vec>(par.size());
   arma::vec x = par % os.parscale_;
@@ -92,7 +92,7 @@ inline void ObjFun::ApproximateGradient(const arma::vec &par,
 inline void ObjFun::ApproximateHessian(const arma::vec &par, arma::mat &hess) {
   if (os.parscale_.is_empty()) os.parscale_ = arma::ones<arma::vec>(par.size());
   if (os.ndeps_.is_empty())
-    os.ndeps_ = arma::ones<arma::vec>(par.size()) * 1e-3;
+    os.ndeps_ = arma::ones<arma::vec>(par.size()) * 1e-4;
   
   hess = arma::zeros<arma::mat>(par.size(), par.size());
   arma::vec dpar = par / os.parscale_;

@@ -48,9 +48,22 @@ for(b in 1:B){
         // exponential 1
         val = val * gamma[gamma_idx]*exp(-1*dist*gamma[gamma_idx+1]);
       } else if(func_def[b,k] == 3){
-        // exponential 2 power
+        // ar1
         val = val * pow(gamma[gamma_idx],dist);
-      }
+      } else if(func_def[b,k] == 4){
+        // squared exponential
+        val = val * gamma[gamma_idx]*exp(-1*pow(dist,2)*
+          gamma[gamma_idx+1]^2);
+      } else if(func_def[b,k] == 5){
+        // matern
+        real xr = pow(2*gamma[gamma_idx],0.5)*dist/gamma[gamma_idx+1];
+        val = val * (pow(2, -1*(gamma[gamma_idx]-1))/tgamma(gamma[gamma_idx]))*
+          pow(xr, gamma[gamma_idx])*modified_bessel_second_kind(1,xr);
+      } else if(func_def[b,k] == 6){
+        // bessel
+        real xr = dist/gamma[gamma_idx];
+        val = val * xr * modified_bessel_second_kind(1,xr);
+      } 
      D[i,j] = val;
      D[j,i] = val;
      gamma_idx += N_par[b,k]; 
@@ -69,18 +82,11 @@ for(b in 1:B){
          // now to generate the right function
       if(func_def[b,k] == 1){
         // group member ship
-        if(dist == 0){
-          val = val*pow(gamma[gamma_idx_ii],2);
-        } else {
-          val = 0;
-        }
-      } else if(func_def[b,k] == 2){
+        val = val*pow(gamma[gamma_idx_ii],2);
+      } else if(func_def[b,k] == 2 || func_def[b,k] == 4){
         // exponential 1
-        val = val * gamma[gamma_idx_ii]*exp(-1*dist*gamma[gamma_idx_ii+1]);
-      } else if(func_def[b,k] == 3){
-        // exponential 2 power
-        val = val * pow(gamma[gamma_idx_ii],dist);
-      }
+        val = val * gamma[gamma_idx_ii];
+      } 
      D[i,i] = val;
      gamma_idx_ii += N_par[b,k]; 
       }

@@ -1,16 +1,16 @@
 #include <cmath>  // std::pow
 #include <RcppArmadillo.h>
-#include <roptim.h>
+// #include <roptim.h>
 #include "rbobyqa.h"
 #include "glmmrmath.h"
 #include "glmmrmatrix.h"
 using namespace rminqa;
 using namespace Rcpp;
 using namespace arma;
-using namespace roptim;
+// using namespace roptim;
 
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(roptim)]]
+// not include // [[Rcpp::depends(roptim)]]
 
 class D_likelihood : public ObjFun {
   Rcpp::List func_;
@@ -250,19 +250,30 @@ public:
 // [[Rcpp::export]]
 arma::vec f_lik_grad(Rcpp::List func,
                      Rcpp::List data,
-                     arma::mat Z, 
-                     arma::mat X,
-                     arma::vec y, 
-                     arma::mat u,
-                     arma::vec cov_par_fix,
+                     const arma::mat &Z, 
+                     const arma::mat &X,
+                     const arma::vec &y, 
+                     const arma::mat &u,
+                     const arma::vec &cov_par_fix,
                      std::string family, 
                      std::string link,
-                     arma::vec start){
+                     arma::vec start,
+                     const arma::vec &lower,
+                     const arma::vec &upper,
+                     double tol){
   
   F_likelihood dl(func,data,Z,X,y,u,
                   cov_par_fix,family,
                   link,false);
   
+  dl.os.usebounds_ = 1;
+  if(!lower.is_empty()){
+    dl.os.lower_ = lower;
+  }
+  if(!upper.is_empty()){
+    dl.os.upper_ = upper;
+  }
+  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
   arma::vec gradient(start.n_elem,fill::zeros);
   dl.Gradient(start,gradient);
   return gradient;
@@ -271,17 +282,28 @@ arma::vec f_lik_grad(Rcpp::List func,
 // [[Rcpp::export]]
 arma::mat f_lik_hess(Rcpp::List func,
                      Rcpp::List data,
-                     arma::mat Z,
-                     arma::mat X,
-                     arma::vec y,
-                     arma::mat u,
-                     arma::vec cov_par_fix,
+                     const arma::mat &Z,
+                     const arma::mat &X,
+                     const arma::vec &y,
+                     const arma::mat &u,
+                     const arma::vec &cov_par_fix,
                      std::string family,
                      std::string link,
-                     arma::vec start){
+                     arma::vec start,
+                     const arma::vec &lower,
+                     const arma::vec &upper,
+                     double tol = 1e-4){
   F_likelihood dl(func,data,Z,X,y,u,
                   cov_par_fix,family,
                   link,false);
+  dl.os.usebounds_ = 1;
+  if(!lower.is_empty()){
+    dl.os.lower_ = lower;
+  }
+  if(!upper.is_empty()){
+    dl.os.upper_ = upper;
+  }
+  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
   arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
   dl.Hessian(start,hessian);
   return hessian;

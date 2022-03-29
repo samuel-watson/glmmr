@@ -36,15 +36,26 @@ double findFunc(arma::vec funcdetail,
   
   //exponential 1
   if(f1==2){
-    out = pars(funcdetail(5))*exp(-1*val*pars(funcdetail(6)));
+    out = fexp(val,pars(funcdetail(5)),pars(funcdetail(6)));
   }
   
-  //power exponential
+  //ar1
   if(f1==3){
     out = pow(pars(funcdetail(5)),val);
   }
-  //c("gr","fexp","pexp","sqexp","spherical","ar1","matern","bessel","car1","pow")
+  //c("gr","fexp","ar1","sqexp","matern","bessel",)
   //squared exponential
+  if(f1==4){
+    out = sqexp(val,pars(funcdetail(5)),pars(funcdetail(6)));
+  }
+  
+  if(f1==5){
+    out = matern(val,pars(funcdetail(5)),pars(funcdetail(6)));
+  }
+  
+  if(f1==6){
+    out = bessel1(val,pars(funcdetail(5)));
+  }
   
   return(out);
 }

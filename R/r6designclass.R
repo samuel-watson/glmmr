@@ -1167,6 +1167,10 @@ for more details")
                                     chains = 4,
                                     use_cmdstanr=FALSE,...){
                       
+                      fn1 <- Reduce(cbind,self$covariance$.__enclos_env__$private$Funclist)
+                      if(any(fn1[1,]==5))warning("Matern not implemented exactly in Stan, order one is assumed as 
+fixed for the modified Bessel function of the second kind.")
+                      
                       if(missing(priors) || !is("priors",list)){
                         warning("priors not specified properly, using defaults")
                         priors <- list(
