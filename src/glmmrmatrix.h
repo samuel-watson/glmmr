@@ -43,6 +43,8 @@ double findFunc(arma::vec funcdetail,
   if(f1==3){
     out = pow(pars(funcdetail(5)),val);
   }
+  //c("gr","fexp","pexp","sqexp","spherical","ar1","matern","bessel","car1","pow")
+  //squared exponential
   
   return(out);
 }
