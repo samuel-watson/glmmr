@@ -1,5 +1,7 @@
-#' R6 Class representing a GLMM Design
+#' A GLMM Design 
 #' 
+#' An R6 class representing a GLMM and study design
+#' @details
 #' For the generalised linear mixed model 
 #' 
 #' \deqn{Y \sim F(\mu,\sigma)}
@@ -146,7 +148,7 @@ Design <- R6::R6Class("Design",
 
                       self$var_par <- var_par
 
-                      if(!skip.sigma)self$generate()
+                      if(!skip.sigma)private$generate()
                       private$hash <- private$hash_do()
                     },
                     #' @description 
@@ -166,18 +168,35 @@ Design <- R6::R6Class("Design",
                     #' @details 
                     #' The matrices X and Z both have n rows, where n is the number of observations in the model/design.
                     #' @param ... ignored
-                    n = function(){
+                    n = function(...){
                       self$mean_function$n()
                     },
-                    generate = function(){
-                      # add check for var par with gaussian family
-
-                      private$genW(family = self$mean_function$family,
-                                   Xb = self$mean_function$.__enclos_env__$private$Xb,
-                                   var_par = self$var_par)
-                      private$genS(D = self$covariance$D,
-                                   Z = self$covariance$Z,
-                                   W = private$W)
+                    #' @description
+                    #' Returns the number of clusters at each level
+                    #' @details
+                    #' Returns a data frame describing the number of independent clusters or groups at each level in the design. For example,
+                    #' if there were cluster-periods nested in clusters, then the top level would be clusters, and the second level would be 
+                    #' cluster periods.
+                    #' @param ... ignored
+                    #' @return A data frame with the level, number of clusters, and variables describing each level.
+                    #' @examples 
+                    #' ...
+                    n_cluster = function(){
+                      flist <- rev(self$covariance$.__enclos_env__$private$flistvars)
+                      gr_var <- unlist(lapply(flist,function(x)"gr"%in%x$funs))
+                      gr_count <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
+                      if(type=="data.frame"){
+                        gr_cov_var <- lapply(flist,function(x)x$rhs)
+                        if(any(gr_var)){
+                          dfncl <- data.frame(Level = 1:sum(gr_var),"N.clusters"=sort(gr_count[gr_var]),"Variables"=unlist(lapply(gr_cov_var,paste0,collapse=" "))[gr_var][order(gr_count[gr_var])])
+                        } else {
+                          dfncl <- data.frame(Level = 1,"N.clusters"=1,"Variables"=paste0(unlist(gr_cov_var)[!duplicated(unlist(gr_cov_var))],collapse=" "))
+                        }
+                        return(dfncl)
+                      } else if(type=="id"){
+                        
+                      }
+                      
                     },
                     #' @description 
                     #' Run a design analysis of the model via simulation
@@ -531,7 +550,7 @@ Design <- R6::R6Class("Design",
                       self$covariance$check(verbose=verbose)
                       self$mean_function$check(verbose = verbose)
                       if(private$hash != private$hash_do()){
-                        self$generate()
+                        private$generate()
                       }
                     },
                     # apv = function(prior,
@@ -564,11 +583,12 @@ Design <- R6::R6Class("Design",
                     #'tolerance, larger numbers of MCMC samples are likely need to sufficiently reduce Monte Carlo error.
                     #'
                     #'The function also offers different methods of obtaining standard errors. First, one can generate
-                    #'estimates from the estimated Hessian matrix (`se.method = 'lik'`), use approximate generalised 
-                    #'least squares estimates based on the maximum likelihood estimates of the covariance
+                    #'estimates from the estimated Hessian matrix (`se.method = 'lik'`). Second, there are robust standard 
+                    #'errors using a sandwich estimator based on White (1982) (`se.method = 'robust'`). 
+                    #'Third, there are use approximate generalised least squares estimates based on the maximum likelihood 
+                    #'estimates of the covariance
                     #'parameters (`se.method = 'approx'`), or use a permutation test approach (`se.method = 'perm'`).
                     #'Note that the permutation test can be accessed separately with the function `permutation_test()`.
-                    #'We plan to also add sandwich estimators in the near future.
                     #'
                     #'There are several options that can be specified to the function using the `options` argument. 
                     #'The options should be provided as a list, e.g. `options = list(method="mcnr")`. The possible options are:
@@ -821,9 +841,9 @@ for more details")
                       cov_pars_names <- rep(as.character(unlist(rev(self$covariance$.__enclos_env__$private$flist))),
                                             unlist(lapply(rev(cov1$.__enclos_env__$private$Funclist),ncol)))#paste0("cov",1:R)
                       permutation = FALSE
-                      dsamps <<- dsamps
                       if(se.method=="lik"|se.method=="robust"){
-                        if(verbose)cat("using Hessian method\n")
+                        if(verbose&!robust)cat("using Hessian\n")
+                        if(verbose&robust)cat("using robust sandwich estimator\n")
                           hess <- tryCatch(f_lik_hess(self$covariance$.__enclos_env__$private$Funclist,
                                                        self$covariance$.__enclos_env__$private$Distlist,
                                                        as.matrix(self$covariance$Z),
@@ -840,25 +860,34 @@ for more details")
                           robust <- FALSE
                           semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
                       
-                          # if(se.method == "robust"&!is.null(semat)){
-                          #   hlist <- list()
-                          #   for(i in 1:500){
-                          #     g1 <- f_lik_grad(self$covariance$.__enclos_env__$private$Funclist,
-                          #                      self$covariance$.__enclos_env__$private$Distlist,
-                          #                      as.matrix(self$covariance$Z),
-                          #                      as.matrix(self$mean_function$X),
-                          #                      y,
-                          #                      dsamps,
-                          #                      theta[parInds$cov],
-                          #                      family=self$mean_function$family[[1]],
-                          #                      link=self$mean_function$family[[2]],
-                          #                      start = theta[all_pars])
-                          #     hlist[[i]] <- g1%*%t(g1)
-                          #   }
-                          #   g0 <- Reduce('+',hlist)
-                          #   semat <- semat%*%g0%*%semat
-                          #   robust <- TRUE
-                          # }
+                          if(se.method == "robust"&!is.null(semat)){
+                            hlist <- list()
+                            #identify the clustering and sum over independent clusters
+                            flist <- rev(self$covariance$.__enclos_env__$private$flistvars)
+                            gr_var <- unlist(lapply(flist,function(x)"gr"%in%x$funs))
+                            gr_count <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
+                            gr_id <- which(gr_count == min(gr_count[gr_var]))
+                            gr_cov_var <- self$covariance$.__enclos_env__$private$Distlist[gr_id]
+                            Z_in <- match_rows(self$covariance$data,as.data.frame(gr_cov_var),by=colnames(gr_cov_var))
+                            
+                            for(i in 1:ncol(Z_in)){
+                              
+                              g1 <- f_lik_grad(self$covariance$.__enclos_env__$private$Funclist,
+                                               self$covariance$.__enclos_env__$private$Distlist,
+                                               as.matrix(self$covariance$Z)[Z_in[,i]==1,],
+                                               as.matrix(self$mean_function$X)[Z_in[,i]==1,],
+                                               y[Z_in[,i]==1],
+                                               dsamps,
+                                               theta[parInds$cov],
+                                               family=self$mean_function$family[[1]],
+                                               link=self$mean_function$family[[2]],
+                                               start = theta[all_pars])
+                              hlist[[i]] <- g1%*%t(g1)
+                            }
+                            g0 <- Reduce('+',hlist)
+                            semat <- semat%*%g0%*%semat
+                            robust <- TRUE
+                          }
                           
                           if(!is.null(semat)){
                             SE <- tryCatch(sqrt(Matrix::diag(semat)),
@@ -1006,8 +1035,18 @@ for more details")
                     #'@description
                     #'Conducts a permuation test
                     #'
+                    #' Estimates p-values and confidence intervals using a permutation test
+                    #'
                     #'@details
-                    #' Add details
+                    #' If the user provided a re-randomisation function to the linked mean function object (see \link[glmmr]{MeanFunction}),
+                    #' then a permuation test can be conducted. A new random assignment is generated on each iteration of the permutation test.
+                    #' The test statistic can be either a quasi-score statistic, weighting the observations using the covariance matrix (`type="cov"`),
+                    #' or an unweighted statistic that weights each observation in each cluster equally (`type="unw"`). The 1-alpha% 
+                    #' confidence interval limits are estimated using an efficient iterative stochastic search procedure. On each step of the algorithm
+                    #' a single permuation and test statistic is generated, and the current estimate of the confidence interval limit either 
+                    #' increased or decreased depedning on its value. The procedure converges in probability to the true limits, see Watson et al (2021)
+                    #' and Garthwaite (1996).
+                    #' 
                     #'@param y Numeric vector of outcome data
                     #'@param permutation.par Integer indicator which parameter to conduct a permutation
                     #'test for. Refers to a column of the X matrix.
@@ -1020,6 +1059,11 @@ for more details")
                     #'@param parallel Logical indicating whether to run the tests in parallel
                     #'@param verbose Logical indicating whether to report detailed output
                     #'@return A list with the estimated p-value and the estimated lower and upper 95% confidence interval
+                    #' @references 
+                    #' Watson et al. Arxiv
+                    #' Braun and Feng
+                    #' Gail
+                    #' Garthwaite
                     #'@examples
                     #'...
                     permutation_test = function(y,
@@ -1092,6 +1136,30 @@ for more details")
                                                       nsteps = nsteps)
                       return(list(p=pval,lower=lower,upper=upper))
                     },
+                    #' @description 
+                    #' Fit the GLMM using MCMC
+                    #' 
+                    #' Fit the GLMM using MCMC. The function calls a Stan program to draw posterior samples.
+                    #' @details 
+                    #' Draws samples from the posterior distribution of the model parameters using Stan. Priors are specified using the `priors` argument.
+                    #' Currently, only Gaussian (or half-Gaussian for covariance parameters) prior distributions are supported. The argument `priors`
+                    #' accepts a list with three or four elements, `prior_b_mean`, `prior_b_sd` which are vectors specifying the prior mean and 
+                    #' standard deviation for the mean function parameters \eqn{\beta} in the model; `prior_g_sd` specifying the prior standard deviation
+                    #' for the half-Gaussian prior for the covariance parameters, and optionally `sigma_sd` for the half-Gaussian prior for the scale 
+                    #' terms in models that have a scale parameter (Gaussian and Gamma currently). By default the function uses `rstan`, however the function
+                    #' can optionally call `cmdstanr` instead if it is installed, using the option `use_cmdstanr=TRUE`. For further details on the use and
+                    #' arguments that can be used, see \link[rstan]{sampling}.
+                    #' @param y Numeric vector providing the outcome data
+                    #' @param priors A named list specifying the prior mean and standard deviation for the Gaussian prior distributions, see Details.
+                    #' @param warmup_iter A positive integer specifying the number of warmup iterations for each MCMC chain
+                    #' @param sampling_iter A positive integer specifying the number of sampling iterations for each MCMC chain
+                    #' @param chain A positive integer specifying the number of MCMC chains to run
+                    #' @param use_cmdstanr Logical indicating whether to use `cmdstanr`, the default is FALSE, which will use `rstan`
+                    #' @param ... Additional arguments to pass to \link[rstan]{sampling}.
+                    #' @return Either an S4 `stanfit` object returned by \link[rstan]{sampling}, or a `cmdstanr` environment, depending on the sampler used.
+                    #' @seealso \link[rstan]{sampling}, \link[rstan]{stan}
+                    #' @examples 
+                    #' ...
                     MCMC = function(y,
                                     priors,
                                     warmup_iter = 1000,
@@ -1163,6 +1231,41 @@ for more details")
                       }
                       return(fit)
                     },
+                    #' @description 
+                    #' Bayesian design analysis
+                    #' 
+                    #' Runs a Bayesian design analysis using simulated data
+                    #' @details 
+                    #' The Bayesian design analysis conducts multiple iterations of simulating data from a GLMM and then fitting a GLMM to analyse
+                    #' the properties of the posterior distribution and model calibration to inform study design. Data are either simulated from the same
+                    #' model as the analysis model, i.e. there is correct model specification (nothing is specified for the option `sim_design`), or data
+                    #' are simulated from a different model (a `Design` object passed to the `sim_design` argument of this function) and then fit using
+                    #' the `Design` object from which this function was called, i.e. with model misspecification. The function analyses four related statistics 
+                    #' summarising the design. First, the expected posterior variance; second, the variance of the posterior variance; third, the probability the
+                    #' parameter of interest will be greater than some threshold; and fourth, simulation-based calibration (see Talts et al, 2021).
+                    #' 
+                    #' Model fitting is done using Stan's sampler (see \link[rstan]{sampling} and the `MCMC()` function in this class).
+                    #' @param iter A positive integer specifying the number of simulation iterations to run
+                    #' @param par A positive interger specifying the index of the parameter in the mean function to analyse, refers specifically to the column 
+                    #' of X
+                    #' @param priors A named list specifying the priors, see Details in the `MCMC()` function in this class
+                    #' @param threshold A number specifying the threshold. The probability that the parameter of interest is greater than this threshold will be calculated.
+                    #' @param sim_design. Optional. A different `Design` object that should be used to simulate the data for the simulation. 
+                    #' @param priors_sim Optional. A named list of the same structure as `priors` the specifies the priors from which to simulate data, if they are different
+                    #' to the priors for model fitting.
+                    #' @param warmup_iter A positive integer specifying the number of warmup iterations for each MCMC chain when fitting the model on each simulation
+                    #' iteration.
+                    #' @param sampling_iter A positive integer specifying the number of sampling iterations for each MCMC chain when fitting the model on each simulation
+                    #' iteration.
+                    #' @param chains A positive integer specifying the number of MCMC chains when fitting the model on each simulation
+                    #' iteration.
+                    #' @param verbose Logical indicating whether to provide detailed output of the progress of simulations.
+                    #' @param use_cmdstanr Logical indicating whether to use `cmdstanr` instead of `rstan`, the default is FALSE (i.e. use `rstan`)
+                    #' @return A `glmmr.sim` object containing the samples of posterior variance and relevant probabilities to summarise the analysis
+                    #' @references 
+                    #' ...
+                    #' @examples 
+                    #' ...
                     analysis_bayesian = function(iter,
                                                  par,
                                                  priors,
@@ -1327,6 +1430,16 @@ for more details")
                     Xb = NULL,
                     logit = function(x){
                       exp(x)/(1+exp(x))
+                    },
+                    generate = function(){
+                      # add check for var par with gaussian family
+                      
+                      private$genW(family = self$mean_function$family,
+                                   Xb = self$mean_function$.__enclos_env__$private$Xb,
+                                   var_par = self$var_par)
+                      private$genS(D = self$covariance$D,
+                                   Z = self$covariance$Z,
+                                   W = private$W)
                     },
                     genW = function(family,
                                     Xb,

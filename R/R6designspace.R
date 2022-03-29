@@ -1,9 +1,46 @@
-# DESIGN SPACE CLASS
-
+#' A GLMM Design Space
+#' 
+#' A class-based representation of a "design space" that contains one or more \link{glmmr}[Design] objects.
+#' @details 
+#' An experimental study is comprised of a collection of experimental conditions, which are one or more observations made a pre-specified locations/values
+#' of covariates. A design space represents the collection of all possible experimental conditions for the study design and plausible models describing
+#' the data generating process. The main purpose of this class is to identify optimal study designs, that is the set of `n` experimental conditions 
+#' from all possible experimental conditions that minimise the variance of a parameter of interest across the specified GLMMs.
+#' 
+#' A DesignSpace object is intialised using one or more Design objects. Design objects can be added or removed from the collection. 
+#' All designs must have the same number of rows in their design matrices (X and Z) and the same number of experimental conditions. 
+#' The DesignSpace functions can modify the linked design objects.
 DesignSpace <- R6::R6Class("DesignSpace",
                  public = list(
+                   #' @field 
+                   #' A vector denoting the prior weighting of each Design in the design space. Required if robust optimisation is used based on a 
+                   #' weighted average variance over the linked designs. If it is not specified in the call to `new()` then designs are assumed
+                   #' to have equal weighting.
                    weights = NULL,
+                   #' @field 
+                   #' A vector indicating the unique identifier of the experimental condition for each observation/row in the matrices X and Z.
                    experimental_condition = NULL,
+                   #' @description 
+                   #' Create a new Design Space
+                   #' 
+                   #' Creates a new design space from one or more glmmr designs.
+                   #' @details 
+                   #' The experimental condition refers to the smallest "unit" of the study design that could be included in the design. For example, in a
+                   #' cluster randomised trial, the experimental condition may be single individuals such that we can observed any number of individuals 
+                   #' in any cluster period (including none at all). In this case the experimental condition would be equivalent to row number. Alternatively,
+                   #' we may have to observe whole cluster periods, and we need to choose which cluster periods to observe, in which case the each observation 
+                   #' in a different cluster-period would have the same experimental condition identifier. Finally, we may determine that the whole cluster in 
+                   #' all periods (a "sequence") is either observed or not.
+                   #' @param ... One or more glmmr \link{glmmr}[Design] objects. The designs must have an equal number of observations.
+                   #' @param weights Optional. A numeric vector of values between 0 and 1 indicating the prior weights to assign to each of the designs. The weights
+                   #' are required for optimisation, if a weighted average variance is used across the designs. If not specified then designs are assumed 
+                   #' to have equal weighting.
+                   #' @param experimental_condition Optional. A vector of the same length as the number of observations in each design indicating the unique
+                   #' identifier of the experimental condition that observation belongs to, see Details. If not provided, then it is assumed that all observations
+                   #' are separate experimental conditions.
+                   #' @return A `DesignSpace` object
+                   #' @examples
+                   #' ...
                    initialize = function(...,
                                          weights=NULL,
                                          experimental_condition = NULL) {
@@ -41,15 +78,34 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      }
 
                    },
+                   #' @description 
+                   #' Add a design to the design space
+                   #' @param x A `Design` to add to the design space
+                   #' @return Nothing
+                   #' @examples 
+                   #' ...
                    add = function(x) {
+                     if(x$n()!=private$designs[[1]]$n())stop("New design is not same size as designs in this design space.")
                      private$designs <- append(private$designs, list(x))
                      self$weights <- rep(1/length(private$designs),length(private$designs))
                      invisible(self)
                    },
+                   #' @description 
+                   #' Removes a design from the design space
+                   #' @param index Index of the design to remove
+                   #' @return Nothing
+                   #' @examples 
+                   #' ...
                    remove = function(index) {
                      if (private$length() == 0) return(NULL)
                      private$designs <- private$designs[-index]
                    },
+                   #' @description 
+                   #' Print method for the Design Space
+                   #' @param ... ignored
+                   #' @return Prints to the console all the designs in the design space
+                   #' @examples 
+                   #' ...
                    print = function(){
                      cat(paste0("Design space with ",self$n()," design(s): \n"))
                      for(i in 1:length(private$designs)){
@@ -57,22 +113,74 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        print(private$designs[[i]])
                      }
                    },
-                   power = function(par,
-                                    value,
-                                    alpha=0.05){
-                     
-                     #change/remove this function
-                     pwr <- c()
-                     if(self$n()>1 && length(par)==1)par <- rep(par,self$n())
-                     if(self$n()>1 && length(value)==1)value <- rep(value,self$n())
-                     for(i in 1:self$n()){
-                       pwr[i] <- private$designs[[i]]$power(par[i],value[i],alpha)
-                     }
-                     return(data.frame(Design = 1:self$n(),power = pwr))
-                   },
+                   # power = function(par,
+                   #                  value,
+                   #                  alpha=0.05){
+                   #   
+                   #   #change/remove this function
+                   #   pwr <- c()
+                   #   if(self$n()>1 && length(par)==1)par <- rep(par,self$n())
+                   #   if(self$n()>1 && length(value)==1)value <- rep(value,self$n())
+                   #   for(i in 1:self$n()){
+                   #     pwr[i] <- private$designs[[i]]$power(par[i],value[i],alpha)
+                   #   }
+                   #   return(data.frame(Design = 1:self$n(),power = pwr))
+                   # },
+                   #' @description 
+                   #' Returns the size of the design space and number of observations
+                   #' @examples 
+                   #' ...
                    n = function(){
-                     length(private$designs)
+                     c("n.designs"=length(private$designs),"n" = private$designs[[1]]$n())
                    },
+                   #' @description 
+                   #' Identify a c-optimal design of size m
+                   #' 
+                   #' Algorithms to identify a c-optimal design of size m within the design space.
+                   #' @details 
+                   #' The algorithm identifies a c-optimal design of size m from the design space with N designs each with n observations. The objective
+                   #' function is
+                   #' 
+                   #' \deqn{C^TM^{-1}C}
+                   #' 
+                   #' where M is the information matrix and C is a vector. Typically C will be a vector of zeros with a single 1 in the position of the
+                   #' parameter of interest. For example, if the columns of X in the design are an interept, the treatment indicator, and then time 
+                   #' period indicators, the vector C may be `c(0,1,0,0,...)`, such that the objective function is the variance of that parameter. 
+                   #' If there are multiple designs in the design space, the C vectors do 
+                   #' not have to be the same as the columns of X in each design might differ, in which case a list of vectors can be provided.
+                   #' 
+                   #' If the experimental conditions are correlated with one another, then a hill climbing algorithm is used to find the optimal 
+                   #' design by using the convexity of the objective function to "climb the hill" towards the optimal design. 
+                   #' If the experimental conditional are uncorrelated (but there is correlation between observations within the same
+                   #' experimental condition) then optionally a fast algorithm can be used to approximate the optimal design using a second-order 
+                   #' cone program (see Sangol 2015 and van Dette). The approximate algorithm will return weights for each unique experimental condition representing
+                   #' the "proportion of effort" to spend on each design condition. There are different ways to translate these weights into integer
+                   #' values. Use of the approximate optimal design algorithm can be disabled used `force_hill=TRUE`
+                   #' 
+                   #' In some cases the optimal design will not be full rank with respect to the design matrix X of the design space. This will result
+                   #' in a non-positive definite information matrix, and an error. The program will indicate which columns of X are likely "empty" in the optimal
+                   #' design. The user can then optionally remove these columns in the algorithm using the `rm_cols` argument, which will delete the
+                   #' specified columns and linked observations before starting the algorithm. 
+                   #' 
+                   #' The algorithm will also identify robust optimal designs if there are multiple designs in the design space. 
+                   #' There are two options for robust optimisation. First, a weighted average of objective functions, where the weights are specified 
+                   #' by the `weights` field in the design space (`robust_function = "weighted"`). The weights may represent the prior probability or plausibility of each design, 
+                   #' for example. Second, a minimax approach can be used, where the function identifies the design that minimises the maximum objective
+                   #' function across all designs (`robust_function = "minimax"`).
+                   #' @param m A positive integer specifying the number of experimental conditions to include.
+                   #' @param C Either a vector or a list of vectors of the same length as the number of designs, see Details.
+                   #' @param rm_cols Optional. A list of vectors indicating columns of X to remove from each design, see Details.
+                   #' @param keep Logical indicating whether to "keep" the optimal design in the linked design objects and remove any experimental
+                   #' conditions and columns that are not part of the optimal design. Irreversible, so that these observations will be lost from the 
+                   #' linked design objects. Defaults to FALSE.
+                   #' @param verbose Logical indicating whether to reported detailed output on the progress of the algorithm. Default is TRUE.
+                   #' @param robust_function Either "weighted" or "minimax". Specifies the objective function to use in robust optimisation, see Details.
+                   #' @param force_hill Logical. If the experimental conditions are uncorrelated, if this option is TRUE then the hill climbing 
+                   #' algorithm will be used, otherwise if it is FALSE, then a fast approximate alternative will be used. See Details
+                   #' @return A vector indicating the identifiers of the experimental conditions in the optimal design, or a vector indicating the
+                   #' weights if the approximate algorithm is used. Optionally the linked designs are also modified (see option `keep`).
+                   #' @examples
+                   #' ...
                    optimal = function(m,
                                       C,
                                       rm_cols=NULL,
@@ -120,9 +228,7 @@ experimental conditions, which are uncorrelated.
 force_hill=FALSE so weights will be calculated for each experimental condition separately. Sum of weights for
 each condition will be reported below."))
                        }
-                       
                      }
-                     
                      
                      if(!is(C,"list")){
                        C_list <- list()
@@ -228,6 +334,7 @@ each condition will be reported below."))
                          }
                        }
                        if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp)
+                       return(invisible(idx_out_exp))
                      }
                      
                      
@@ -235,6 +342,10 @@ each condition will be reported below."))
                      
                      
                    },
+                   #' @description 
+                   #' Returns a linked design
+                   #' @param i Index of the design to return
+                   #' @examples 
                    show = function(i){
                      return(private$designs[[i]])
                    }
