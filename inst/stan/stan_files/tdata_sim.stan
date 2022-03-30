@@ -17,15 +17,12 @@ for(q in 1:Q){
 L_D_sim = gen_d(gamma_sim,
                 B,
                 N_dim, 
-                max_N_dim, 
                 N_func, 
-                max_N_func,
                 func_def,
                 N_var_func, 
-                max_N_var,
-                max_N_var_func,
                 col_id,
                 N_par,
                 sum_N_par,
                 cov_data);
 g_sim = L_D_sim * eta_sim;
+

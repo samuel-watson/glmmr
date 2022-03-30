@@ -9,122 +9,120 @@ using namespace arma;
 // [[Rcpp::depends(RcppArmadillo)]]
 
 // [[Rcpp::export]]
-double findFunc(arma::vec funcdetail,
-                arma::rowvec data1,
-                arma::rowvec data2,
-                arma::vec pars){
-  //generate Euclidean distance
-  double val = 0;
-  arma::uword f1 = funcdetail(0);
-  
-  for(arma::uword j=0;j<4;j++){
-    arma::sword idx = funcdetail(j+1);
-    if(idx >= 0){
-      val += pow(data1(idx) - data2(idx),2);
-    }
-  }
-  val = sqrt(val);
-  double out;
-  //group
-  if(f1==1){
-    if(val==0){
-      out = pow(pars(funcdetail(5)),2);
+arma::mat blockMat(arma::field<arma::mat> matfield){
+  arma::uword nmat = matfield.n_elem;
+  if(nmat==1){
+    return matfield(0);
+  } else {
+    arma::mat mat1 = matfield(0);
+    arma::mat mat2;
+    if(nmat==2){
+      mat2 = matfield(1);
     } else {
-      out = 0;
+      mat2 = blockMat(matfield.rows(1,nmat));
     }
+    arma::uword n1 = mat1.n_rows;
+    arma::uword n2 = mat2.n_rows;
+    arma::mat dmat(n1+n2,n1+n2);
+    dmat.fill(0);
+    dmat.submat(0,0,n1-1,n1-1) = mat1;
+    dmat.submat(n1,n1,n1+n2-1,n1+n2-1) = mat2;
+    return dmat;
   }
-  
-  //exponential 1
-  if(f1==2){
-    out = fexp(val,pars(funcdetail(5)),pars(funcdetail(6)));
-  }
-  
-  //ar1
-  if(f1==3){
-    out = pow(pars(funcdetail(5)),val);
-  }
-  //c("gr","fexp","ar1","sqexp","matern","bessel",)
-  //squared exponential
-  if(f1==4){
-    out = sqexp(val,pars(funcdetail(5)),pars(funcdetail(6)));
-  }
-  
-  if(f1==5){
-    out = matern(val,pars(funcdetail(5)),pars(funcdetail(6)));
-  }
-  
-  if(f1==6){
-    out = bessel1(val,pars(funcdetail(5)));
-  }
-  
-  return(out);
 }
 
 // [[Rcpp::export]]
-arma::mat blockMat(arma::mat mat1,
-                   arma::mat mat2){
-  arma::uword n1 = mat1.n_rows;
-  arma::uword n2 = mat2.n_rows;
-  arma::mat dmat(n1+n2,n1+n2);
-  dmat.fill(0);
-  dmat.submat(0,0,n1-1,n1-1) = mat1;
-  dmat.submat(n1,n1,n1+n2-1,n1+n2-1) = mat2;
-  return(dmat);
-}
-
-// [[Rcpp::export]]
-arma::mat genSubD(arma::mat &func,
-                  arma::mat &data,
-                  arma::vec pars){
-  arma::uword nF = func.n_cols;
-  arma::uword N = data.n_rows;
+arma::mat genBlockD(size_t N_dim,
+                    size_t N_func,
+                    arma::uvec func_def,
+                    arma::uvec N_var_func,
+                    arma::umat col_id,
+                    arma::uvec N_par,
+                    arma::mat cov_data,
+                    arma::vec gamma){
+  arma::mat D(N_dim,N_dim,fill::zeros);
   
-  //initialise the matrix
-  arma::mat D(N,N);
-  D.fill(1);
-  double val;
-  //loop through the matrix and produce all the elements
-  for(arma::uword j=0; j<N; j++){
-    for(arma::uword k=j+1; k < N; k++){
-      for(arma::uword l=0; l<nF; l++){
-        val = findFunc(func.col(l),
-                       data.row(j),
-                       data.row(k),
-                       pars);
-        D(j,k) = D(j,k)*val;
-        D(k,j) = D(k,j)*val;
+  for(arma::uword i=0;i<(N_dim-1);i++){
+    for(arma::uword j=i+1;j<N_dim;j++){
+      double val = 1;
+      size_t gamma_idx = 0;
+      for(arma::uword k=0;k<N_func;k++){
+        double dist = 0;
+        for(arma::uword p=0; p<N_var_func(k); p++){
+          dist += pow(cov_data(i,col_id(k,p)-1) - cov_data(j,col_id(k,p)-1),2);
+        }
+        dist= pow(dist,0.5);
+        
+        if(func_def(k)==1){
+          if(dist==0){
+            val = val*pow(gamma(gamma_idx),2);
+          } else {
+            val = 0;
+          }
+        } else if(func_def(k)==2){
+          val = val*fexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+        }else if(func_def(k)==3){
+          val = val*pow(gamma(gamma_idx),dist);
+        } else if(func_def(k)==4){
+          val = val*sqexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+        } else if(func_def(k)==5){
+          val = val*matern(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+        } else if(func_def(k)==6){
+          val = val*bessel1(dist,gamma(gamma_idx));
+        }
+        gamma_idx += N_par(k);      
       }
       
-    }
-    for(arma::uword l=0; l<nF; l++){
-      val = findFunc(func.col(l),
-                     data.row(j),
-                     data.row(j),
-                     pars);
-      D(j,j) = D(j,j)*val;
+      D(i,j) = val;
+      D(j,i) = val;
     }
   }
-  return(D);
+  
+  for(arma::uword i=0;i<N_dim;i++){
+    double val = 1;
+    size_t gamma_idx_ii = 0;
+    for(arma::uword k=0;k<N_func;k++){
+      if(func_def(k)==1){
+        val = val*pow(gamma(gamma_idx_ii),2);
+      } else if(func_def(k)==2 || func_def(k)==4){
+        val = val*gamma(gamma_idx_ii);
+      }
+    }
+    D(i,i) = val;
+  }
+  
+  return D;
 }
 
 // [[Rcpp::export]]
-arma::mat genD(Rcpp::List &func,
-               Rcpp::List &data,
-               arma::vec pars){
-  //arma::uword n = func.n_slices;
-  int n = func.length();
-  arma::mat f1 = func[0];
-  arma::mat d1 = data[0];
-  arma::mat D1 = genSubD(f1,d1,pars);
-  if(n > 1){
-    for(int j=1;j<n;j++){
-      arma::mat f1 = func[j];
-      arma::mat d1 = data[j];
-      arma::mat D2 = genSubD(f1,d1,pars);
-      D1 = blockMat(D1,D2);
-    }
+arma::field<arma::mat> genD(const arma::uword &B,
+                            const arma::uvec &N_dim,
+                            const arma::uvec &N_func,
+                            const arma::umat &func_def,
+                            const arma::umat &N_var_func,
+                            const arma::ucube &col_id,
+                            const arma::umat &N_par,
+                            const arma::uword &sum_N_par,
+                            const arma::cube &cov_data,
+                            const arma::vec &gamma){
+  arma::field<arma::mat> DBlocks(B);
+  arma::uword g_idx = 0;
+  arma::uword sumpar;
+  for(arma::uword b=0;b<B;b++){
+    sumpar = sum(N_par.row(b));
+    // arma::umat col_id_b = col_id.row(b);
+    // arma::umat cov_data_b = cov_data.row(b);
+    DBlocks[b] = genBlockD(N_dim(b),
+                           N_func(b),
+                           func_def.row(b),
+                           N_var_func.row(b),
+                           col_id.slice(b),
+                           N_par.row(b),
+                           cov_data.slice(b),
+                           gamma.subvec(g_idx,g_idx+sumpar-1));
+    g_idx += sumpar;
   }
-  return(D1);
+  return(DBlocks);
 }
 
 // [[Rcpp::export]]

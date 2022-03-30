@@ -13,3 +13,4 @@ model {
   gamma ~ multi_normal_cholesky(zeroes,L);
   if(type==1)y ~ normal(Xb + Z*gamma,sigma);
 }
+

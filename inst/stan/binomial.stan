@@ -20,3 +20,4 @@ model{
   if(type==3) y~bernoulli(X*beta + Z*g);
   if(type==4) y~bernoulli(Phi_approx(X*beta + Z*g));
 } 
+

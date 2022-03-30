@@ -18,3 +18,4 @@ model{
   sigma ~ normal(0,sigma_sd);
   y ~ normal(X*beta + Z*g,sigma);
 } 
+

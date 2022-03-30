@@ -185,17 +185,13 @@ Design <- R6::R6Class("Design",
                       flist <- rev(self$covariance$.__enclos_env__$private$flistvars)
                       gr_var <- unlist(lapply(flist,function(x)"gr"%in%x$funs))
                       gr_count <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
-                      if(type=="data.frame"){
-                        gr_cov_var <- lapply(flist,function(x)x$rhs)
-                        if(any(gr_var)){
-                          dfncl <- data.frame(Level = 1:sum(gr_var),"N.clusters"=sort(gr_count[gr_var]),"Variables"=unlist(lapply(gr_cov_var,paste0,collapse=" "))[gr_var][order(gr_count[gr_var])])
-                        } else {
-                          dfncl <- data.frame(Level = 1,"N.clusters"=1,"Variables"=paste0(unlist(gr_cov_var)[!duplicated(unlist(gr_cov_var))],collapse=" "))
-                        }
-                        return(dfncl)
-                      } else if(type=="id"){
-                        
+                      gr_cov_var <- lapply(flist,function(x)x$rhs)
+                      if(any(gr_var)){
+                        dfncl <- data.frame(Level = 1:sum(gr_var),"N.clusters"=sort(gr_count[gr_var]),"Variables"=unlist(lapply(gr_cov_var,paste0,collapse=" "))[gr_var][order(gr_count[gr_var])])
+                      } else {
+                        dfncl <- data.frame(Level = 1,"N.clusters"=1,"Variables"=paste0(unlist(gr_cov_var)[!duplicated(unlist(gr_cov_var))],collapse=" "))
                       }
+                      return(dfncl)
                       
                     },
                     #' @description 
@@ -608,6 +604,8 @@ Design <- R6::R6Class("Design",
                     #' * `warmup_iter` Number of warmup iterations on each iteration for the MCMC sampler, default is 500
                     #' * `perm_ci_steps` Number of steps for the confidence interval search procedure if using the permutation
                     #' test, default is 1000. See `permutation_test()`.
+                    #' * `fd_tol` The tolerance of the first difference method to estimate the Hessian and Gradient, default 
+                    #' is 1e-4.
                     #'
                     #'@param y A numeric vector of outcome data
                     #'@param start Optional. A numeric vector indicating starting values for the MCML algorithm iterations. 
@@ -653,6 +651,7 @@ for more details")
                       perm_parallel <- ifelse("perm_parallel"%in%names(options),options$perm_iter,TRUE)
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("perm_ci_steps"%in%names(options),options$perm_ci_steps,1000)
+                      fd_tol <- ifelse("fd_tol"%in%names(options),options$fd_tol,1e-4)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -758,6 +757,7 @@ for more details")
                                                                 iter = warmup_iter+m)))
                           dsamps <- rstan::extract(fit,"gamma",permuted=FALSE)
                           dsamps <- matrix(dsamps[,1,],ncol=Q)
+                          dsamps <- t(dsamps)
                         }
                         
                         
@@ -792,15 +792,13 @@ for more details")
                         
                         # COVARIANCE PARAMETERS STEP
                         if(!skip_cov_optim){
-                          theta[parInds$cov] <- drop(d_lik_optim(self$covariance$.__enclos_env__$private$Funclist,
-                                                      self$covariance$.__enclos_env__$private$Distlist,
-                                                      dsamps,
-                                                      start = c(theta[parInds$cov]),
-                                                      lower= rep(1e-6,length(parInds$cov)),
-                                                      upper= rep(Inf,length(parInds$cov)),
-                                                      trace=0))
-                          
-                          
+                          newtheta <- do.call(d_lik_optim,append(self$covariance$.__enclos_env__$private$D_data,
+                                                                 list(u = dsamps,
+                                                                      start = c(theta[parInds$cov]),
+                                                                      lower= rep(1e-6,length(parInds$cov)),
+                                                                      upper= rep(Inf,length(parInds$cov)),
+                                                                      trace=0)))
+                          theta[parInds$cov] <- drop(newtheta)
                         }
                         
                         if(verbose)cat("\ntheta:",theta[all_pars])
@@ -813,19 +811,18 @@ for more details")
                       if(sim_lik_step){
                         if(verbose)cat("\n\n")
                         if(verbose)message("Optimising simulated likelihood")
-                        theta[all_pars] <- f_lik_optim(self$covariance$.__enclos_env__$private$Funclist,
-                                           self$covariance$.__enclos_env__$private$Distlist,
-                                           as.matrix(self$covariance$Z),
-                                           as.matrix(self$mean_function$X),
-                                           y,
-                                           dsamps,
-                                           theta[parInds$cov],
-                                           family=self$mean_function$family[[1]],
-                                           link=self$mean_function$family[[2]],
-                                           start = theta[all_pars],
-                                           lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
-                                           importance = TRUE)
-                        
+                        newtheta <- do.call(f_lik_optim,append(self$covariance$.__enclos_env__$private$D_data,
+                                                               list(as.matrix(self$covariance$Z),
+                                                                    as.matrix(self$mean_function$X),
+                                                                    y,
+                                                                    dsamps,
+                                                                    theta[parInds$cov],
+                                                                    family=self$mean_function$family[[1]],
+                                                                    link=self$mean_function$family[[2]],
+                                                                    start = theta[all_pars],
+                                                                    lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
+                                                                    importance = TRUE)))
+                        theta[all_pars] <- newtheta
                       }
                       
                       if(verbose)cat("\n\nCalculating standard errors...")
@@ -839,49 +836,58 @@ for more details")
                       }
                       
                       cov_pars_names <- rep(as.character(unlist(rev(self$covariance$.__enclos_env__$private$flist))),
-                                            unlist(lapply(rev(cov1$.__enclos_env__$private$Funclist),ncol)))#paste0("cov",1:R)
-                      permutation = FALSE
+                                            drop(self$covariance$.__enclos_env__$private$D_data$N_par))#paste0("cov",1:R)
+                      permutation <- FALSE
+                      robust <- FALSE
                       if(se.method=="lik"|se.method=="robust"){
                         if(verbose&!robust)cat("using Hessian\n")
                         if(verbose&robust)cat("using robust sandwich estimator\n")
-                          hess <- tryCatch(f_lik_hess(self$covariance$.__enclos_env__$private$Funclist,
-                                                       self$covariance$.__enclos_env__$private$Distlist,
-                                                       as.matrix(self$covariance$Z),
-                                                       as.matrix(self$mean_function$X),
-                                                       y,
-                                                       dsamps,
-                                                       theta[parInds$cov],
-                                                       family=self$mean_function$family[[1]],
-                                                       link=self$mean_function$family[[2]],
-                                                       start = theta[all_pars]),
+                        
+                          hess <- tryCatch(do.call(f_lik_hess,append(self$covariance$.__enclos_env__$private$D_data,
+                                                                     list(as.matrix(self$covariance$Z),
+                                                                          as.matrix(self$mean_function$X),
+                                                                          y,
+                                                                          dsamps,
+                                                                          theta[parInds$cov],
+                                                                          family=self$mean_function$family[[1]],
+                                                                          link=self$mean_function$family[[2]],
+                                                                          start = theta[all_pars],
+                                                                          lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
+                                                                          upper = c(rep(Inf,P),rep(Inf,length(all_pars)-P)),
+                                                                          tol=fd_tol))),
                                            error=function(e)NULL)
                           
                           hessused <- TRUE
-                          robust <- FALSE
+                          
                           semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
                       
                           if(se.method == "robust"&!is.null(semat)){
                             hlist <- list()
                             #identify the clustering and sum over independent clusters
-                            flist <- rev(self$covariance$.__enclos_env__$private$flistvars)
-                            gr_var <- unlist(lapply(flist,function(x)"gr"%in%x$funs))
-                            gr_count <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
+                            D_data <- self$covariance$.__enclos_env__$private$D_data
+                            gr_var <- apply(D_data$func_def,1,function(x)any(x==1))
+                            gr_count <- D_data$N_dim
                             gr_id <- which(gr_count == min(gr_count[gr_var]))
-                            gr_cov_var <- self$covariance$.__enclos_env__$private$Distlist[gr_id]
+                            gr_cov_var <- D_data$cov_data[[gr_id]][1:D_data$N_dim[gr_id],
+                                                                   1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)]]
                             Z_in <- match_rows(self$covariance$data,as.data.frame(gr_cov_var),by=colnames(gr_cov_var))
                             
                             for(i in 1:ncol(Z_in)){
+                              id_in <- which(Z_in[,i]==1)
+                              g1 <- matrix(0,nrow=length(all_pars),ncol=1)
+                              g1 <- do.call(f_lik_grad,append(self$covariance$.__enclos_env__$private$D_data,
+                                                              list(as.matrix(self$covariance$Z)[id_in,,drop=FALSE],
+                                                                   as.matrix(self$mean_function$X)[id_in,,drop=FALSE],
+                                                                   y[id_in],
+                                                                   dsamps,
+                                                                   theta[parInds$cov],
+                                                                   family=self$mean_function$family[[1]],
+                                                                   link=self$mean_function$family[[2]],
+                                                                   start = theta[all_pars],
+                                                                   lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
+                                                                   upper = c(rep(Inf,P),rep(Inf,length(all_pars)-P)),
+                                                                   tol=fd_tol)))
                               
-                              g1 <- f_lik_grad(self$covariance$.__enclos_env__$private$Funclist,
-                                               self$covariance$.__enclos_env__$private$Distlist,
-                                               as.matrix(self$covariance$Z)[Z_in[,i]==1,],
-                                               as.matrix(self$mean_function$X)[Z_in[,i]==1,],
-                                               y[Z_in[,i]==1],
-                                               dsamps,
-                                               theta[parInds$cov],
-                                               family=self$mean_function$family[[1]],
-                                               link=self$mean_function$family[[2]],
-                                               start = theta[all_pars])
                               hlist[[i]] <- g1%*%t(g1)
                             }
                             g0 <- Reduce('+',hlist)
@@ -895,9 +901,10 @@ for more details")
                           } else {
                             SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
                           }
+                          
                           res <- data.frame(par = c(mf_pars_names,cov_pars_names,paste0("d",1:Q)),
-                                            est = c(mf_pars,theta[parInds$cov],colMeans(dsamps)),
-                                            SE=c(SE,apply(dsamps,2,sd)))
+                                            est = c(mf_pars,theta[parInds$cov],rowMeans(dsamps)),
+                                            SE=c(SE,apply(dsamps,1,sd)))
                         
                         
                         if(any(is.na(res$SE[1:P]))){
@@ -948,22 +955,21 @@ for more details")
                         robust <- FALSE
                       }
                       
-                     colnames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
+                     rownames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
                      
                      ## model summary statistics
-                     aic <- aic_mcml(Z = as.matrix(self$covariance$Z),
-                              X = as.matrix(self$mean_function$X),
-                              y = y,
-                              u = dsamps,
-                              family = self$mean_function$family[[1]],
-                              link=self$mean_function$family[[2]],
-                              func = self$covariance$.__enclos_env__$private$Funclist,
-                              data = self$covariance$.__enclos_env__$private$Distlist,
-                              beta_par = mf_pars,
-                              cov_par = theta[parInds$cov])
+                     aic_data <- append(list(Z = as.matrix(self$covariance$Z),
+                                             X = as.matrix(self$mean_function$X),
+                                             y = y,
+                                             u = dsamps,
+                                             family = self$mean_function$family[[1]],
+                                             link=self$mean_function$family[[2]]), 
+                                        self$covariance$.__enclos_env__$private$D_data)
+                     aic <- do.call(aic_mcml,append(aic_data,list(beta_par = mf_pars,
+                                                                  cov_par = theta[parInds$cov])))
                      
                      xb <- self$mean_function$X %*% theta[parInds$b]
-                     zd <- self$covariance$Z %*% colMeans(dsamps)
+                     zd <- self$covariance$Z %*% rowMeans(dsamps)
                      
                      wdiag <- gen_dhdmu(Matrix::drop(xb),
                                         family=self$mean_function$family[[1]],
@@ -991,6 +997,8 @@ for more details")
                                  Rsq = c(cond = condR2,marg=margR2),
                                  mean_form = as.character(self$mean_function$formula),
                                  cov_form = as.character(self$covariance$formula),
+                                 family = self$mean_function$family[[1]],
+                                 link = self$mean_function$family[[2]],
                                  re.samps = dsamps)
                      
                      class(out) <- "mcml"
@@ -1089,7 +1097,13 @@ for more details")
                       if(verbose&type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
                       if(verbose&type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
                       w.opt <- type=="cov"
-                      invS <- ifelse(type=="cov",Matrix::solve(self$Sigma),1)
+                      #invS <- ifelse(type=="cov",Matrix::solve(self$Sigma),1)
+                      if(w.opt){
+                        invS <- Matrix::solve(self$Sigma)
+                      } else {
+                        invS <- 1
+                      }
+                      
                       qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
                       
                       if(verbose)cat("Starting permutations\n")
@@ -1530,6 +1544,7 @@ fixed for the modified Bessel function of the second kind.")
                         tr_mat <- Matrix::diag(tr)
                         g <- Matrix::t(private$get_G(xb))
                         q <- (g%*%invS)%*%(tr_mat%*%resids)
+                        
                       } else {
                         tr_mat <- Matrix::Matrix(tr,nrow=1)
                         q <- (tr_mat%*%resids)
@@ -1565,7 +1580,11 @@ fixed for the modified Bessel function of the second kind.")
                       dtr <- tr
                       dtr[dtr==0] <- -1
                       k <- 2/(pnorm(1-alpha)*((2*pi)^-0.5)*exp((-pnorm(1-alpha)^2)/2))
-                      invS <- ifelse(w.opt,Matrix::solve(self$Sigma),1)
+                      if(w.opt){
+                        invS <- Matrix::solve(self$Sigma)
+                      } else {
+                        invS <- 1
+                      }
                       
                       for(i in 1:nsteps){
                         null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family,offset = tr*bound)
@@ -1595,8 +1614,8 @@ fixed for the modified Bessel function of the second kind.")
                     gen_stan_data = function(type="s",
                                              y = NULL){
                       B <- length(self$covariance$.__enclos_env__$private$flist)
-                      N_dim <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
-                      N_func <-  unlist(lapply(self$covariance$.__enclos_env__$private$Funclist,function(x)ncol(x)))
+                      N_dim <- c(unlist(rev(self$covariance$.__enclos_env__$private$flistcount)),0)
+                      N_func <-  c(unlist(lapply(self$covariance$.__enclos_env__$private$Funclist,function(x)ncol(x))),0)
                       func_def <- matrix(0,nrow=B,ncol=max(N_func))
                       for(b in 1:B)func_def[b,1:N_func[b]] <- self$covariance$.__enclos_env__$private$Funclist[[b]][1,]
                       fvar <- lapply(rev(self$covariance$.__enclos_env__$private$flistvars),function(x)x$groups)

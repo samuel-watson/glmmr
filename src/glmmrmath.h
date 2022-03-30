@@ -49,12 +49,12 @@ arma::vec gaussian_pdf_vec(const arma::vec& v){
 }
 
 // [[Rcpp::export]]
-double log_mv_gaussian_pdf(const arma::rowvec& u,
+double log_mv_gaussian_pdf(const arma::vec& u,
                            const arma::mat& D,
                            const double& logdetD){
   arma::uword Q = u.n_elem;
   return (-0.5*Q*log(2*arma::datum::pi)-
-    0.5*logdetD - 0.5*arma::as_scalar(u*D*u.t()));
+    0.5*logdetD - 0.5*arma::as_scalar(u.t()*D*u));
 }
 
 // [[Rcpp::export]]

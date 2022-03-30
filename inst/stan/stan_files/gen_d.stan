@@ -1,17 +1,13 @@
 matrix gen_d(vector gamma,
              int B,
              int[] N_dim, 
-             int max_N_dim, 
              int[] N_func, 
-             int max_N_func,
              int[,] func_def,
              int[,] N_var_func, 
-             int max_N_var,
-             int max_N_var_func,
              int[,,] col_id,
              int[,] N_par,
              int sum_N_par,
-             matrix[] cov_data){
+             real[,,] cov_data){
                
   int sum_N_dim = sum(N_dim);             
   matrix[sum_N_dim,sum_N_dim] D = rep_matrix(0,sum_N_dim,sum_N_dim);
@@ -32,8 +28,8 @@ for(b in 1:B){
         // generate the distance
         real dist = 0;
         for(p in 1:N_var_func[b,k]){
-          dist += pow(cov_data[b,i+1-idx,col_id[b,k,p]] - 
-            cov_data[b,j+1-idx,col_id[b,k,p]],2);
+          dist += pow(cov_data[i+1-idx,col_id[b,k,p],b] - 
+            cov_data[j+1-idx,col_id[b,k,p],b],2);
         }
         dist = sqrt(dist);
          // now to generate the right function
@@ -64,11 +60,11 @@ for(b in 1:B){
         real xr = dist/gamma[gamma_idx];
         val = val * xr * modified_bessel_second_kind(1,xr);
       } 
-     D[i,j] = val;
-     D[j,i] = val;
+     
      gamma_idx += N_par[b,k]; 
       }
-      
+      D[i,j] = val;
+     D[j,i] = val;
     }
   }
   
@@ -77,8 +73,6 @@ for(b in 1:B){
       //loop over all the functions
       int gamma_idx_ii = g1_idx_ii;
       for(k in 1:N_func[b]){
-        // generate the distance
-        real dist = 0;
          // now to generate the right function
       if(func_def[b,k] == 1){
         // group member ship
@@ -87,14 +81,14 @@ for(b in 1:B){
         // exponential 1
         val = val * gamma[gamma_idx_ii];
       } 
-     D[i,i] = val;
      gamma_idx_ii += N_par[b,k]; 
       }
+      D[i,i] = val;
     }
   g1_idx += sum(N_par[b,]);
   g1_idx_ii += sum(N_par[b,]);
   idx += N_dim[b];
 }
 return cholesky_decompose(D);
-//g ~ multi_normal_cholesky(zeros,L_D);
 } 
+

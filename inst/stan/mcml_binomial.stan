@@ -15,3 +15,4 @@ model {
   if(type==3) y~bernoulli(Xb + Z*gamma);
   if(type==4) y~bernoulli(Phi_approx(Xb + Z*gamma));
 }
+

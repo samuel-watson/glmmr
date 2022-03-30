@@ -17,3 +17,4 @@ model{
   
   if(type==1) y ~ poisson_log(X*beta + Z*g);
 } 
+

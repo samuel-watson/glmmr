@@ -12,3 +12,4 @@ model {
   gamma ~ multi_normal_cholesky(zeroes,L);
   if(type==1) y~poisson_log(Xb + Z*gamma);
 }
+

@@ -35,3 +35,4 @@ generated quantities {
   int<lower=0,upper=1> betaIn = beta[par_ind] < beta_sim[par_ind];
   int<lower=0,upper=1> betaThresh = beta[par_ind] > threshold;
 }
+
