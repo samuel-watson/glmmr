@@ -265,9 +265,9 @@ Covariance <- R6::R6Class("Covariance",
                           for(b in 1:D_data$B)for(k in 1:D_data$N_func[b])D_data$N_par[b,k] <- fnpar[D_data$func_def[b,k]]
                           D_data$sum_N_par <- sum(D_data$N_par)
                           D_data$cov_data <- array(0,dim=c(max(D_data$N_dim),max(rowSums(D_data$N_var_func)),D_data$B))
-                          for(b in 1:D_data$B)D_data$cov_data[1:D_data$N_dim[b],1:ncol(Distlist[[b]]),b] <- Distlist[[b]]
-                          
-                          
+                          for(b in 1:D_data$B) D_data$cov_data[1:D_data$N_dim[b],1:ncol(Distlist[[b]]),b] <- Distlist[[b]]
+                                                      
+                          D_data <<- D_data
                           Z <- Reduce(cbind,rev(Zlist))
                           Z <- Matrix::Matrix(Z)
                           if(nrow(Z) < ncol(Z))warning("More random effects than observations")

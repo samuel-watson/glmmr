@@ -652,6 +652,7 @@ for more details")
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("perm_ci_steps"%in%names(options),options$perm_ci_steps,1000)
                       fd_tol <- ifelse("fd_tol"%in%names(options),options$fd_tol,1e-4)
+                      block <- ifelse("block"%in%names(options),options$block,TRUE)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -797,7 +798,8 @@ for more details")
                                                                       start = c(theta[parInds$cov]),
                                                                       lower= rep(1e-6,length(parInds$cov)),
                                                                       upper= rep(Inf,length(parInds$cov)),
-                                                                      trace=0)))
+                                                                      trace=0,
+                                                                      block = block)))
                           theta[parInds$cov] <- drop(newtheta)
                         }
                         
@@ -868,8 +870,10 @@ for more details")
                             gr_var <- apply(D_data$func_def,1,function(x)any(x==1))
                             gr_count <- D_data$N_dim
                             gr_id <- which(gr_count == min(gr_count[gr_var]))
-                            gr_cov_var <- D_data$cov_data[[gr_id]][1:D_data$N_dim[gr_id],
-                                                                   1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)]]
+                            gr_cov_var <- D_data$cov_data[1:D_data$N_dim[gr_id],
+                                                                   1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)],gr_id,drop=FALSE]
+                            gr_cov_var <- as.data.frame(gr_cov_var)
+                            colnames(gr_cov_var) <- all.vars(rev(self$covariance$.__enclos_env__$private$flist)[[gr_id]])
                             Z_in <- match_rows(self$covariance$data,as.data.frame(gr_cov_var),by=colnames(gr_cov_var))
                             
                             for(i in 1:ncol(Z_in)){

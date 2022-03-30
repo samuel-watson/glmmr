@@ -20,6 +20,7 @@ class D_likelihood : public ObjFun {
   arma::uword sum_N_par_;
   arma::cube cov_data_;
   arma::mat u_;
+  bool block_;
   
 public:
   D_likelihood(const arma::uword &B,
@@ -31,12 +32,13 @@ public:
                const arma::umat &N_par,
                const arma::uword &sum_N_par,
                const arma::cube &cov_data, 
-               const arma::mat &u) : 
+               const arma::mat &u,
+               bool block) : 
     B_(B), N_dim_(N_dim), 
     N_func_(N_func), 
     func_def_(func_def), N_var_func_(N_var_func),
     col_id_(col_id), N_par_(N_par), sum_N_par_(sum_N_par),
-    cov_data_(cov_data), u_(u) {}
+    cov_data_(cov_data), u_(u), block_(block) {}
   double operator()(const vec &par) override{
     arma::uword nrow = u_.n_cols;
     arma::field<arma::mat> Dfield = genD(B_,N_dim_,
@@ -48,12 +50,29 @@ public:
     double logdetD;
     for(arma::uword b=0;b<B_;b++){
       arma::uword ndim_idx = 0;
-      logdetD = arma::log_det_sympd(Dfield[b]);
-      for(arma::uword j=0;j<nrow;j++){
-        dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
-                                   inv_sympd(Dfield[b]),logdetD);
+      if(block_){
+        arma::field<arma::mat> dblock = sepBlockMat(Dfield[b]);
+        arma::uword nb = dblock.n_elem;
+        arma::field<arma::mat> invdblock = invBlockMat(dblock);
+        arma::vec logdetb = logDetBlockMat(dblock);
+        for(arma::uword k=0;k<nb;k++){
+          arma::uword dimdb = dblock[k].n_rows;
+          for(arma::uword j=0;j<nrow;j++){
+            dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+dimdb-1),
+                                       invdblock[k],logdetb(k));
+          }
+          ndim_idx += dimdb;
+        }
+      } else {
+        arma::mat invD = inv_sympd(Dfield[b]);
+        arma::uword ndim_idx = 0;
+        logdetD = arma::log_det_sympd(Dfield[b]);
+        for(arma::uword j=0;j<nrow;j++){
+          dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
+                                     invD,logdetD);
+        }
+        ndim_idx += N_dim_(b);
       }
-      ndim_idx += N_dim_(b);
     }
     
     return -1 * dmv/nrow;
@@ -75,12 +94,13 @@ arma::vec d_lik_optim(const arma::uword &B,
                       arma::vec start,
                       const arma::vec &lower,
                       const arma::vec &upper,
-                      int trace = 0){
+                      int trace = 0,
+                      bool block = true){
   D_likelihood dl(B,N_dim,
                   N_func,
                   func_def,N_var_func,
                   col_id,N_par,sum_N_par,
-                  cov_data, u);
+                  cov_data, u, block);
   
   Rbobyqa<D_likelihood> opt;
   opt.set_upper(upper);
@@ -186,6 +206,7 @@ class F_likelihood : public ObjFun {
   std::string family_;
   std::string link_;
   bool importance_;
+  bool block_;
   
 public:
   F_likelihood(const arma::uword &B,
@@ -204,14 +225,15 @@ public:
                arma::vec cov_par_fix,
                std::string family, 
                std::string link,
-               bool importance) : 
+               bool importance,
+               bool block) : 
   B_(B), N_dim_(N_dim), 
   N_func_(N_func), 
   func_def_(func_def), N_var_func_(N_var_func),
   col_id_(col_id), N_par_(N_par), sum_N_par_(sum_N_par),
   cov_data_(cov_data),Z_(Z), X_(X), y_(y), 
   u_(u),cov_par_fix_(cov_par_fix), family_(family) , link_(link),
-  importance_(importance){}
+  importance_(importance), block_(block){}
   double operator()(const vec &par) override{
     arma::uword niter = u_.n_cols;
     arma::uword n = y_.n_elem;
@@ -230,12 +252,29 @@ public:
     double logdetD;
     for(arma::uword b=0;b<B_;b++){
       arma::uword ndim_idx = 0;
-      logdetD = arma::log_det_sympd(Dfield[b]);
-      for(arma::uword j=0;j<niter;j++){
-        numerD(j) += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
-               inv_sympd(Dfield[b]),logdetD);
+      if(block_){
+        arma::field<arma::mat> dblock = sepBlockMat(Dfield[b]);
+        arma::uword nb = dblock.n_elem;
+        arma::field<arma::mat> invdblock = invBlockMat(dblock);
+        arma::vec logdetb = logDetBlockMat(dblock);
+        for(arma::uword k=0;k<nb;k++){
+          arma::uword dimdb = dblock[k].n_rows;
+          for(arma::uword j=0;j<nrow;j++){
+            dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+dimdb-1),
+                                       invdblock[k],logdetb(k));
+          }
+          ndim_idx += dimdb;
+        }
+      } else {
+        arma::mat invD = inv_sympd(Dfield[b]);
+        arma::uword ndim_idx = 0;
+        logdetD = arma::log_det_sympd(Dfield[b]);
+        for(arma::uword j=0;j<nrow;j++){
+          dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
+                                     invD,logdetD);
+        }
+        ndim_idx += N_dim_(b);
       }
-      ndim_idx += N_dim_(b);
     }
     
     // log likelihood for observations
@@ -271,12 +310,29 @@ public:
       arma::vec denomD(niter,fill::zeros);
       for(arma::uword b=0;b<B_;b++){
         arma::uword ndim_idx = 0;
-        logdetD = arma::log_det_sympd(Dfield[b]);
-        for(arma::uword j=0;j<niter;j++){
-          denomD(j) += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
-                 inv_sympd(Dfield[b]),logdetD);
+        if(block_){
+          arma::field<arma::mat> dblock = sepBlockMat(Dfield[b]);
+          arma::uword nb = dblock.n_elem;
+          arma::field<arma::mat> invdblock = invBlockMat(dblock);
+          arma::vec logdetb = logDetBlockMat(dblock);
+          for(arma::uword k=0;k<nb;k++){
+            arma::uword dimdb = dblock[k].n_rows;
+            for(arma::uword j=0;j<nrow;j++){
+              dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+dimdb-1),
+                                         invdblock[k],logdetb(k));
+            }
+            ndim_idx += dimdb;
+          }
+        } else {
+          arma::mat invD = inv_sympd(Dfield[b]);
+          arma::uword ndim_idx = 0;
+          logdetD = arma::log_det_sympd(Dfield[b]);
+          for(arma::uword j=0;j<nrow;j++){
+            dmv += log_mv_gaussian_pdf(u_.col(j).subvec(ndim_idx,ndim_idx+N_dim_(b)-1),
+                                       invD,logdetD);
+          }
+          ndim_idx += N_dim_(b);
         }
-        ndim_idx += N_dim_(b);
       }
       du = 0;
       for(arma::uword j=0;j<niter;j++){
@@ -312,7 +368,8 @@ arma::vec f_lik_grad(const arma::uword &B,
                      arma::vec start,
                      const arma::vec &lower,
                      const arma::vec &upper,
-                     double tol){
+                     double tol = 1e-4,
+                     bool block = true){
   
   F_likelihood dl(B,N_dim,
                   N_func,
@@ -320,7 +377,7 @@ arma::vec f_lik_grad(const arma::uword &B,
                   col_id,N_par,sum_N_par,
                   cov_data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,false);
+                  link,false,block);
   
   dl.os.usebounds_ = 1;
   if(!lower.is_empty()){
@@ -355,14 +412,15 @@ arma::mat f_lik_hess(const arma::uword &B,
                      arma::vec start,
                      const arma::vec &lower,
                      const arma::vec &upper,
-                     double tol = 1e-4){
+                     double tol = 1e-4,
+                     bool block = true){
   F_likelihood dl(B,N_dim,
                   N_func,
                   func_def,N_var_func,
                   col_id,N_par,sum_N_par,
                   cov_data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,false);
+                  link,false,block);
   dl.os.usebounds_ = 1;
   if(!lower.is_empty()){
     dl.os.lower_ = lower;
@@ -396,7 +454,8 @@ arma::mat f_lik_optim(const arma::uword &B,
                       arma::vec start,
                       const arma::vec &lower,
                       const arma::vec &upper,
-                      int trace){
+                      int trace,
+                      bool block = true){
   
   F_likelihood dl(B,N_dim,
                   N_func,
@@ -404,7 +463,7 @@ arma::mat f_lik_optim(const arma::uword &B,
                   col_id,N_par,sum_N_par,
                   cov_data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,true);
+                  link,true,block);
   
   Rbobyqa<F_likelihood> opt;
   opt.set_lower(lower);
@@ -474,7 +533,8 @@ double aic_mcml(const arma::mat &Z,
                 const arma::uword &sum_N_par,
                 const arma::cube &cov_data,
                 const arma::vec& beta_par,
-                const arma::vec& cov_par){
+                const arma::vec& cov_par,
+                bool block = true){
   arma::uword niter = u.n_cols;
   arma::uword n = y.n_elem;
   arma::vec zd(n);
@@ -500,12 +560,29 @@ double aic_mcml(const arma::mat &Z,
   double logdetD;
   for(arma::uword b=0;b<B;b++){
     arma::uword ndim_idx = 0;
-    logdetD = arma::log_det_sympd(Dfield[b]);
-    for(arma::uword j=0;j<niter;j++){
-      dmv += log_mv_gaussian_pdf(u.col(j).subvec(ndim_idx,ndim_idx+N_dim(b)-1),
-                                 inv_sympd(Dfield[b]),logdetD);
+    if(block){
+      arma::field<arma::mat> dblock = sepBlockMat(Dfield[b]);
+      arma::uword nb = dblock.n_elem;
+      arma::field<arma::mat> invdblock = invBlockMat(dblock);
+      arma::vec logdetb = logDetBlockMat(dblock);
+      for(arma::uword k=0;k<nb;k++){
+        arma::uword dimdb = dblock[k].n_rows;
+        for(arma::uword j=0;j<nrow;j++){
+          dmv += log_mv_gaussian_pdf(u.col(j).subvec(ndim_idx,ndim_idx+dimdb-1),
+                                     invdblock[k],logdetb(k));
+        }
+        ndim_idx += dimdb;
+      }
+    } else {
+      arma::mat invD = inv_sympd(Dfield[b]);
+      arma::uword ndim_idx = 0;
+      logdetD = arma::log_det_sympd(Dfield[b]);
+      for(arma::uword j=0;j<nrow;j++){
+        dmv += log_mv_gaussian_pdf(u.col(j).subvec(ndim_idx,ndim_idx+N_dim(b)-1),
+                                   invD,logdetD);
+      }
+      ndim_idx += N_dim(b);
     }
-    ndim_idx += N_dim(b);
   }
   
   double lfa = 0;
