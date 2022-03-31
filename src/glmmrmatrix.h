@@ -41,41 +41,44 @@ arma::mat genBlockD(size_t N_dim,
                     const arma::mat &cov_data,
                     const arma::vec &gamma){
   arma::mat D(N_dim,N_dim,fill::zeros);
-  for(arma::uword i=0;i<(N_dim-1);i++){
-    for(arma::uword j=i+1;j<N_dim;j++){
-      double val = 1;
-      size_t gamma_idx = 0;
-      for(arma::uword k=0;k<N_func;k++){
-        double dist = 0;
-        for(arma::uword p=0; p<N_var_func(k); p++){
-          dist += pow(cov_data(i,col_id(k,p)-1) - cov_data(j,col_id(k,p)-1),2);
-        }
-        dist= pow(dist,0.5);
-        
-        if(func_def(k)==1){
-          if(dist==0){
-            val = val*pow(gamma(gamma_idx),2);
-          } else {
-            val = 0;
+  if(!all(func_def == 1)){
+    for(arma::uword i=0;i<(N_dim-1);i++){
+      for(arma::uword j=i+1;j<N_dim;j++){
+        double val = 1;
+        size_t gamma_idx = 0;
+        for(arma::uword k=0;k<N_func;k++){
+          double dist = 0;
+          for(arma::uword p=0; p<N_var_func(k); p++){
+            dist += pow(cov_data(i,col_id(k,p)-1) - cov_data(j,col_id(k,p)-1),2);
           }
-        } else if(func_def(k)==2){
-          val = val*fexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
-        }else if(func_def(k)==3){
-          val = val*pow(gamma(gamma_idx),dist);
-        } else if(func_def(k)==4){
-          val = val*sqexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
-        } else if(func_def(k)==5){
-          val = val*matern(dist,gamma(gamma_idx),gamma(gamma_idx+1));
-        } else if(func_def(k)==6){
-          val = val*bessel1(dist,gamma(gamma_idx));
+          dist= pow(dist,0.5);
+          
+          if(func_def(k)==1){
+            if(dist==0){
+              val = val*pow(gamma(gamma_idx),2);
+            } else {
+              val = 0;
+            }
+          } else if(func_def(k)==2){
+            val = val*fexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+          }else if(func_def(k)==3){
+            val = val*pow(gamma(gamma_idx),dist);
+          } else if(func_def(k)==4){
+            val = val*sqexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+          } else if(func_def(k)==5){
+            val = val*matern(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+          } else if(func_def(k)==6){
+            val = val*bessel1(dist,gamma(gamma_idx));
+          }
+          gamma_idx += N_par(k);      
         }
-        gamma_idx += N_par(k);      
+        
+        D(i,j) = val;
+        D(j,i) = val;
       }
-      
-      D(i,j) = val;
-      D(j,i) = val;
     }
   }
+  
   
   for(arma::uword i=0;i<N_dim;i++){
     double val = 1;
@@ -249,59 +252,67 @@ arma::uvec uvec_minus(const arma::uvec &v, arma::uword rm_idx) {
   return res;
 }
 
-// [[Rcpp::export]]
-arma::field<arma::mat> sepBlockMat(const arma::mat &X){
-  arma::uword n = X.n_rows; 
-  //algorithm to find the block
-  arma::uword idx = 0;
-  bool block = true;
-  while(block && idx < (n-1)){
-    if(X(idx,0)==0){
-      //check next entry
-      if(sum(X.col(idx).subvec(0,idx-1))==0){
-        block = false;
-      } else {
-        idx++;
-      }
-    } else {
-      idx++;
-    }
-  }
-  
-  if(idx < (n-1)){
-    arma::field<arma::mat> bfield(n);
-    bfield[0] = X.submat(0,0,idx-1,idx-1);
-    arma::field<arma::mat> sub_bfield = sepBlockMat(X.submat(idx,idx,n-1,n-1));
-    arma::uword sub_bsize = sub_bfield.n_elem;
-    for(arma::uword b=0;b<sub_bsize;b++){
-      bfield[b+1] = sub_bfield[b];
-    }
-    return bfield.rows(0,sub_bsize);
-  } else {
-    arma::field<arma::mat> bfield(1);
-    bfield[0] = X;
-    return bfield;
-  }
-  
-}
-
-// [[Rcpp::export]]
-arma::field<arma::mat> invBlockMat(const arma::field<arma::mat> &X){
-  arma::uword n = X.n_elem;
-  arma::field<arma::mat> invX(n);
-  for(arma::uword b=0;b<n;b++){
-    invX[b] = inv_sympd(X[b]);
-  }
-  return invX;
-}
-
-// [[Rcpp::export]]
-arma::vec logDetBlockMat(const arma::field<arma::mat> &X){
-  arma::vec ld(X.n_elem, fill::zeros);
-  for(arma::uword b=0; b<X.n_elem; b++){
-    ld(b) = log_det_sympd(X[b]);
-  }
-  return(ld);
-}
+// // [[Rcpp::export]]
+// arma::field<arma::mat> sepBlockMat(const arma::mat &X){
+//   arma::uword n = X.n_rows; 
+//   //algorithm to find the block
+//   arma::uword idx = 0;
+//   bool block = true;
+//   while(block && idx < (n-1)){
+//     if(X(idx,0)==0){
+//       //check next entry
+//       if(sum(X.col(idx).subvec(0,idx-1))==0){
+//         block = false;
+//       } else {
+//         idx++;
+//       }
+//     } else {
+//       idx++;
+//     }
+//   }
+//   
+//   if(idx < (n-1)){
+//     arma::field<arma::mat> bfield(n);
+//     bfield[0] = X.submat(0,0,idx-1,idx-1);
+//     arma::field<arma::mat> sub_bfield = sepBlockMat(X.submat(idx,idx,n-1,n-1));
+//     arma::uword sub_bsize = sub_bfield.n_elem;
+//     for(arma::uword b=0;b<sub_bsize;b++){
+//       bfield[b+1] = sub_bfield[b];
+//     }
+//     return bfield.rows(0,sub_bsize);
+//   } else {
+//     arma::field<arma::mat> bfield(1);
+//     bfield[0] = X;
+//     return bfield;
+//   }
+//   
+// }
+// 
+// // [[Rcpp::export]]
+// arma::field<arma::mat> invBlockMat(const arma::field<arma::mat> &X){
+//   arma::uword n = X.n_elem;
+//   arma::field<arma::mat> invX(n);
+//   for(arma::uword b=0;b<n;b++){
+//     if(X[b].n_rows == 1){
+//       invX[b] = 1/(X[b](0,0));
+//     } else {
+//       invX[b] = inv_sympd(X[b]);
+//     }
+//   }
+//   return invX;
+// }
+// 
+// // [[Rcpp::export]]
+// arma::vec logDetBlockMat(const arma::field<arma::mat> &X){
+//   arma::vec ld(X.n_elem, fill::zeros);
+//   for(arma::uword b=0; b<X.n_elem; b++){
+//     if(X[b].n_rows == 1){
+//       ld(b) = X[b](0,0);
+//     } else {
+//       ld(b) = log_det_sympd(X[b]);
+//     }
+//   }
+//   return(ld);
+// }
 
 #endif

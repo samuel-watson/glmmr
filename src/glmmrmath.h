@@ -72,7 +72,7 @@ double log_likelihood(arma::vec y,
   if(family=="gaussian"){
     if(link=="identity"){
       for(arma::uword i=0; i<n; i++){
-        logl += -0.5*log(var_par) -0.5*log(2*arma::datum::pi) -
+        logl += -1*log(var_par) -0.5*log(2*arma::datum::pi) -
           0.5*pow((y(i) - mu(i))/var_par,2);
       }
     }

@@ -85,7 +85,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @examples 
                    #' ...
                    add = function(x) {
-                     if(x$n()!=private$designs[[1]]$n())stop("New design is not same size as designs in this design space.")
+                     if(length(private$designs)>0 && x$n()!=private$designs[[1]]$n())stop("New design is not same size as designs in this design space.")
                      private$designs <- append(private$designs, list(x))
                      self$weights <- rep(1/length(private$designs),length(private$designs))
                      invisible(self)

@@ -109,36 +109,40 @@ uvec_minus <- function(v, rm_idx) {
     .Call(`_glmmr_uvec_minus`, v, rm_idx)
 }
 
-sepBlockMat <- function(X) {
-    .Call(`_glmmr_sepBlockMat`, X)
+d_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace = 0L) {
+    .Call(`_glmmr_d_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace)
 }
 
-invBlockMat <- function(X) {
-    .Call(`_glmmr_invBlockMat`, X)
+d_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_d_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol)
 }
 
-logDetBlockMat <- function(X) {
-    .Call(`_glmmr_logDetBlockMat`, X)
-}
-
-d_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace = 0L, block = TRUE) {
-    .Call(`_glmmr_d_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace, block)
+d_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_d_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol)
 }
 
 l_lik_optim <- function(Z, X, y, u, family, link, start, lower, upper, trace) {
     .Call(`_glmmr_l_lik_optim`, Z, X, y, u, family, link, start, lower, upper, trace)
 }
 
-f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4, block = TRUE) {
-    .Call(`_glmmr_f_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, block)
+l_lik_hess <- function(Z, X, y, u, family, link, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_l_lik_hess`, Z, X, y, u, family, link, start, lower, upper, tol)
 }
 
-f_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4, block = TRUE) {
-    .Call(`_glmmr_f_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, block)
+l_lik_grad <- function(Z, X, y, u, family, link, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_l_lik_grad`, Z, X, y, u, family, link, start, lower, upper, tol)
 }
 
-f_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace, block = TRUE) {
-    .Call(`_glmmr_f_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace, block)
+f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_f_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
+}
+
+f_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
+    .Call(`_glmmr_f_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
+}
+
+f_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace) {
+    .Call(`_glmmr_f_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace)
 }
 
 mcnr_step <- function(y, X, Z, beta, u, family, link) {

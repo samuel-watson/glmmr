@@ -652,7 +652,7 @@ for more details")
                       warmup_iter <- ifelse("warmup_iter"%in%names(options),options$warmup_iter,500)
                       perm_ci_steps <- ifelse("perm_ci_steps"%in%names(options),options$perm_ci_steps,1000)
                       fd_tol <- ifelse("fd_tol"%in%names(options),options$fd_tol,1e-4)
-                      block <- ifelse("block"%in%names(options),options$block,TRUE)
+                      trace <- ifelse("trace"%in%names(options),options$trace,0)
                       
                       P <- ncol(self$mean_function$X)
                       R <- length(unlist(self$covariance$parameters))
@@ -786,20 +786,26 @@ for more details")
                                                           start = theta[mf_parInd],
                                                           lower = rep(-Inf,length(mf_parInd)),
                                                           upper = rep(Inf,length(mf_parInd)),
-                                                          trace= 0))
+                                                          trace= trace))
                           
                         }
                         
                         
                         # COVARIANCE PARAMETERS STEP
                         if(!skip_cov_optim){
+                          upper <- rep(Inf,length(parInds$cov))
+                          # if any are ar1, then need to set upper limit of 1
+                          if(any(c(t(self$covariance$.__enclos_env__$private$D_data$func_def))==3)){
+                            id3 <- which(rep(c(t(self$covariance$.__enclos_env__$private$D_data$func_def)),c(t(self$covariance$.__enclos_env__$private$D_data$N_par)))==3)
+                            upper[id3] <- 1
+                          }
+                            
                           newtheta <- do.call(d_lik_optim,append(self$covariance$.__enclos_env__$private$D_data,
                                                                  list(u = dsamps,
                                                                       start = c(theta[parInds$cov]),
                                                                       lower= rep(1e-6,length(parInds$cov)),
-                                                                      upper= rep(Inf,length(parInds$cov)),
-                                                                      trace=0,
-                                                                      block = block)))
+                                                                      upper= upper,
+                                                                      trace=trace)))
                           theta[parInds$cov] <- drop(newtheta)
                         }
                         
@@ -832,19 +838,19 @@ for more details")
                       if(family%in%c("gaussian")){
                         mf_pars <- theta[c(parInds$b,parInds$sig)]
                         mf_pars_names <- c(colnames(self$mean_function$X),"sigma")
+                        upper <- c(upper,Inf)
                       } else {
                         mf_pars <- theta[c(parInds$b)]
                         mf_pars_names <- colnames(self$mean_function$X)
                       }
                       
                       cov_pars_names <- rep(as.character(unlist(rev(self$covariance$.__enclos_env__$private$flist))),
-                                            drop(self$covariance$.__enclos_env__$private$D_data$N_par))#paste0("cov",1:R)
+                                            rowSums(self$covariance$.__enclos_env__$private$D_data$N_par))#paste0("cov",1:R)
                       permutation <- FALSE
                       robust <- FALSE
                       if(se.method=="lik"|se.method=="robust"){
                         if(verbose&!robust)cat("using Hessian\n")
                         if(verbose&robust)cat("using robust sandwich estimator\n")
-                        
                           hess <- tryCatch(do.call(f_lik_hess,append(self$covariance$.__enclos_env__$private$D_data,
                                                                      list(as.matrix(self$covariance$Z),
                                                                           as.matrix(self$mean_function$X),
@@ -854,15 +860,14 @@ for more details")
                                                                           family=self$mean_function$family[[1]],
                                                                           link=self$mean_function$family[[2]],
                                                                           start = theta[all_pars],
-                                                                          lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
-                                                                          upper = c(rep(Inf,P),rep(Inf,length(all_pars)-P)),
+                                                                          lower = c(rep(-Inf,P),rep(1e-6,length(all_pars)-P)),
+                                                                          upper = c(rep(Inf,P),upper),
                                                                           tol=fd_tol))),
                                            error=function(e)NULL)
                           
                           hessused <- TRUE
-                          
                           semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
-                      
+                          hess <<- hess
                           if(se.method == "robust"&!is.null(semat)){
                             hlist <- list()
                             #identify the clustering and sum over independent clusters
@@ -873,7 +878,10 @@ for more details")
                             gr_cov_var <- D_data$cov_data[1:D_data$N_dim[gr_id],
                                                                    1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)],gr_id,drop=FALSE]
                             gr_cov_var <- as.data.frame(gr_cov_var)
-                            colnames(gr_cov_var) <- all.vars(rev(self$covariance$.__enclos_env__$private$flist)[[gr_id]])
+                            gr_var_id <- which(rev(self$covariance$.__enclos_env__$private$flistvars)[[gr_id]]$funs=="gr")
+                            gr_cov_names <- rev(self$covariance$.__enclos_env__$private$flistvars)[[gr_id]]$rhs[
+                              rev(self$covariance$.__enclos_env__$private$flistvars)[[gr_id]]$groups==gr_var_id]
+                            colnames(gr_cov_var) <- gr_cov_names
                             Z_in <- match_rows(self$covariance$data,as.data.frame(gr_cov_var),by=colnames(gr_cov_var))
                             
                             for(i in 1:ncol(Z_in)){
@@ -889,7 +897,7 @@ for more details")
                                                                    link=self$mean_function$family[[2]],
                                                                    start = theta[all_pars],
                                                                    lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
-                                                                   upper = c(rep(Inf,P),rep(Inf,length(all_pars)-P)),
+                                                                   upper = c(rep(Inf,P),upper),
                                                                    tol=fd_tol)))
                               
                               hlist[[i]] <- g1%*%t(g1)
@@ -915,7 +923,15 @@ for more details")
                           if(!no_warnings)warning("Hessian was not positive definite, using approximation")
                           hessused <- FALSE
                           self$check(verbose=FALSE)
-                          res$SE[1:P] <- sqrt(Matrix::diag(Matrix::solve(private$information_matrix())))
+                          invM <- Matrix::solve(private$information_matrix())
+                          if(!robust){
+                            res$SE[1:P] <- sqrt(Matrix::diag(invM))
+                          } else {
+                            xb <-self$mean_function$X%*%theta[parInds$b] 
+                            XSyXb <- Matrix::t(self$mean_function$X)%*%Matrix::solve(self$Sigma)%*%(y - xb)
+                            robSE <- invM %*% XSyXb %*% invM
+                            res$SE[1:P] <- sqrt(Matrix::diag(robSE))
+                          }
                         }
                           
                         res$lower <- res$est - qnorm(1-0.05/2)*res$SE

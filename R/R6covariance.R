@@ -161,6 +161,7 @@ Covariance <- R6::R6Class("Covariance",
                         D_data = NULL,
                         flist = NULL,
                         flistlabs = NULL,
+                        flistvars = NULL,
                         Zlist = NULL,
                         hash = NULL,
                         hash_do = function(){
@@ -279,6 +280,7 @@ Covariance <- R6::R6Class("Covariance",
                           private$flist <- flist
                           private$flistlabs <- flistlabs
                           private$genD()
+                          private$flistvars <- flistvars
 
                         },
                         genD = function(update=TRUE,

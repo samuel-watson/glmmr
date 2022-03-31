@@ -34,7 +34,14 @@ print.mcml <- function(x, digits =2, ...){
   z <- pars$est/pars$SE
   pars <- cbind(pars[,1:2],z=z,p=2*(1-pnorm(abs(z))),pars[,3:4])
   colnames(pars) <- c("Estimate","Std. Err.","z value","p value","2.5% CI","97.5% CI")
-  rownames(pars) <- x$coefficients$par[!grepl("d",x$coefficients$par)]
+  rnames <- x$coefficients$par[!grepl("d",x$coefficients$par)]
+  if(any(duplicated(rnames))){
+    did <- unique(rnames[duplicated(rnames)])
+    for(i in unique(did)){
+      rnames[rnames==i] <- paste0(rnames[rnames==i],".",1:length(rnames[rnames==i]))
+    }
+  }
+  rownames(pars) <- rnames
   pars <- apply(pars,2,round,digits = digits)
   print(pars)
   
