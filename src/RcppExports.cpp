@@ -47,27 +47,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// GradRobustAlg1
-Rcpp::List GradRobustAlg1(arma::uword N, arma::uvec idx_in, Rcpp::List C_list, Rcpp::List X_list, Rcpp::List sig_list, arma::vec weights, arma::uvec exp_cond, arma::uvec nfix, arma::uword any_fix, arma::uword rd_mode, bool trace);
-RcppExport SEXP _glmmr_GradRobustAlg1(SEXP NSEXP, SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP sig_listSEXP, SEXP weightsSEXP, SEXP exp_condSEXP, SEXP nfixSEXP, SEXP any_fixSEXP, SEXP rd_modeSEXP, SEXP traceSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::uword >::type N(NSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type idx_in(idx_inSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type C_list(C_listSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type X_list(X_listSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type sig_list(sig_listSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type weights(weightsSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type exp_cond(exp_condSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type nfix(nfixSEXP);
-    Rcpp::traits::input_parameter< arma::uword >::type any_fix(any_fixSEXP);
-    Rcpp::traits::input_parameter< arma::uword >::type rd_mode(rd_modeSEXP);
-    Rcpp::traits::input_parameter< bool >::type trace(traceSEXP);
-    rcpp_result_gen = Rcpp::wrap(GradRobustAlg1(N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix, rd_mode, trace));
-    return rcpp_result_gen;
-END_RCPP
-}
 // log_factorial_approx
 double log_factorial_approx(int n);
 RcppExport SEXP _glmmr_log_factorial_approx(SEXP nSEXP) {
@@ -76,50 +55,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type n(nSEXP);
     rcpp_result_gen = Rcpp::wrap(log_factorial_approx(n));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gaussian_cdf
-double gaussian_cdf(double x);
-RcppExport SEXP _glmmr_gaussian_cdf(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< double >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(gaussian_cdf(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gaussian_cdf_vec
-arma::vec gaussian_cdf_vec(const arma::vec& v);
-RcppExport SEXP _glmmr_gaussian_cdf_vec(SEXP vSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::vec& >::type v(vSEXP);
-    rcpp_result_gen = Rcpp::wrap(gaussian_cdf_vec(v));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gaussian_pdf
-double gaussian_pdf(double x);
-RcppExport SEXP _glmmr_gaussian_pdf(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< double >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(gaussian_pdf(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gaussian_pdf_vec
-arma::vec gaussian_pdf_vec(const arma::vec& v);
-RcppExport SEXP _glmmr_gaussian_pdf_vec(SEXP vSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::vec& >::type v(vSEXP);
-    rcpp_result_gen = Rcpp::wrap(gaussian_pdf_vec(v));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -133,82 +68,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type D(DSEXP);
     Rcpp::traits::input_parameter< const double& >::type logdetD(logdetDSEXP);
     rcpp_result_gen = Rcpp::wrap(log_mv_gaussian_pdf(u, D, logdetD));
-    return rcpp_result_gen;
-END_RCPP
-}
-// log_likelihood
-double log_likelihood(arma::vec y, arma::vec mu, double var_par, std::string family, std::string link);
-RcppExport SEXP _glmmr_log_likelihood(SEXP ySEXP, SEXP muSEXP, SEXP var_parSEXP, SEXP familySEXP, SEXP linkSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< double >::type var_par(var_parSEXP);
-    Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
-    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
-    rcpp_result_gen = Rcpp::wrap(log_likelihood(y, mu, var_par, family, link));
-    return rcpp_result_gen;
-END_RCPP
-}
-// mod_inv_func
-arma::vec mod_inv_func(arma::vec mu, std::string link);
-RcppExport SEXP _glmmr_mod_inv_func(SEXP muSEXP, SEXP linkSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
-    rcpp_result_gen = Rcpp::wrap(mod_inv_func(mu, link));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gen_dhdmu
-arma::vec gen_dhdmu(arma::vec xb, std::string family, std::string link);
-RcppExport SEXP _glmmr_gen_dhdmu(SEXP xbSEXP, SEXP familySEXP, SEXP linkSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type xb(xbSEXP);
-    Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
-    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
-    rcpp_result_gen = Rcpp::wrap(gen_dhdmu(xb, family, link));
-    return rcpp_result_gen;
-END_RCPP
-}
-// obj_fun
-double obj_fun(const arma::mat& A, const arma::vec& U2);
-RcppExport SEXP _glmmr_obj_fun(SEXP ASEXP, SEXP U2SEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type U2(U2SEXP);
-    rcpp_result_gen = Rcpp::wrap(obj_fun(A, U2));
-    return rcpp_result_gen;
-END_RCPP
-}
-// c_obj_fun
-double c_obj_fun(arma::mat M, arma::vec C);
-RcppExport SEXP _glmmr_c_obj_fun(SEXP MSEXP, SEXP CSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type M(MSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type C(CSEXP);
-    rcpp_result_gen = Rcpp::wrap(c_obj_fun(M, C));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gen_m
-arma::mat gen_m(const arma::mat& X, const arma::mat& A);
-RcppExport SEXP _glmmr_gen_m(SEXP XSEXP, SEXP ASEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
-    rcpp_result_gen = Rcpp::wrap(gen_m(X, A));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -324,33 +183,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// remove_one_many
-double remove_one_many(const arma::mat& A, const arma::uvec& i, const arma::vec& u);
-RcppExport SEXP _glmmr_remove_one_many(SEXP ASEXP, SEXP iSEXP, SEXP uSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
-    Rcpp::traits::input_parameter< const arma::uvec& >::type i(iSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
-    rcpp_result_gen = Rcpp::wrap(remove_one_many(A, i, u));
-    return rcpp_result_gen;
-END_RCPP
-}
-// add_one
-double add_one(const arma::mat& A, double sigma_jj, const arma::vec& f, const arma::vec& u);
-RcppExport SEXP _glmmr_add_one(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP, SEXP uSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
-    Rcpp::traits::input_parameter< double >::type sigma_jj(sigma_jjSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type f(fSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
-    rcpp_result_gen = Rcpp::wrap(add_one(A, sigma_jj, f, u));
-    return rcpp_result_gen;
-END_RCPP
-}
 // add_one_mat
 arma::mat add_one_mat(const arma::mat& A, double sigma_jj, const arma::vec& f);
 RcppExport SEXP _glmmr_add_one_mat(SEXP ASEXP, SEXP sigma_jjSEXP, SEXP fSEXP) {
@@ -361,18 +193,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type sigma_jj(sigma_jjSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type f(fSEXP);
     rcpp_result_gen = Rcpp::wrap(add_one_mat(A, sigma_jj, f));
-    return rcpp_result_gen;
-END_RCPP
-}
-// uvec_minus
-arma::uvec uvec_minus(const arma::uvec& v, arma::uword rm_idx);
-RcppExport SEXP _glmmr_uvec_minus(SEXP vSEXP, SEXP rm_idxSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::uvec& >::type v(vSEXP);
-    Rcpp::traits::input_parameter< arma::uword >::type rm_idx(rm_idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(uvec_minus(v, rm_idx));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -571,19 +391,8 @@ RcppExport SEXP _rcpp_module_boot_stan_fit4poisson_sim_misspec_mod();
 static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_dfbeta_stat", (DL_FUNC) &_glmmr_dfbeta_stat, 4},
     {"_glmmr_GradRobustStep", (DL_FUNC) &_glmmr_GradRobustStep, 11},
-    {"_glmmr_GradRobustAlg1", (DL_FUNC) &_glmmr_GradRobustAlg1, 11},
     {"_glmmr_log_factorial_approx", (DL_FUNC) &_glmmr_log_factorial_approx, 1},
-    {"_glmmr_gaussian_cdf", (DL_FUNC) &_glmmr_gaussian_cdf, 1},
-    {"_glmmr_gaussian_cdf_vec", (DL_FUNC) &_glmmr_gaussian_cdf_vec, 1},
-    {"_glmmr_gaussian_pdf", (DL_FUNC) &_glmmr_gaussian_pdf, 1},
-    {"_glmmr_gaussian_pdf_vec", (DL_FUNC) &_glmmr_gaussian_pdf_vec, 1},
     {"_glmmr_log_mv_gaussian_pdf", (DL_FUNC) &_glmmr_log_mv_gaussian_pdf, 3},
-    {"_glmmr_log_likelihood", (DL_FUNC) &_glmmr_log_likelihood, 5},
-    {"_glmmr_mod_inv_func", (DL_FUNC) &_glmmr_mod_inv_func, 2},
-    {"_glmmr_gen_dhdmu", (DL_FUNC) &_glmmr_gen_dhdmu, 3},
-    {"_glmmr_obj_fun", (DL_FUNC) &_glmmr_obj_fun, 2},
-    {"_glmmr_c_obj_fun", (DL_FUNC) &_glmmr_c_obj_fun, 2},
-    {"_glmmr_gen_m", (DL_FUNC) &_glmmr_gen_m, 2},
     {"_glmmr_fexp", (DL_FUNC) &_glmmr_fexp, 3},
     {"_glmmr_sqexp", (DL_FUNC) &_glmmr_sqexp, 3},
     {"_glmmr_matern", (DL_FUNC) &_glmmr_matern, 3},
@@ -592,10 +401,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_genBlockD", (DL_FUNC) &_glmmr_genBlockD, 8},
     {"_glmmr_genD", (DL_FUNC) &_glmmr_genD, 10},
     {"_glmmr_remove_one_many_mat", (DL_FUNC) &_glmmr_remove_one_many_mat, 2},
-    {"_glmmr_remove_one_many", (DL_FUNC) &_glmmr_remove_one_many, 3},
-    {"_glmmr_add_one", (DL_FUNC) &_glmmr_add_one, 4},
     {"_glmmr_add_one_mat", (DL_FUNC) &_glmmr_add_one_mat, 3},
-    {"_glmmr_uvec_minus", (DL_FUNC) &_glmmr_uvec_minus, 2},
     {"_glmmr_d_lik_optim", (DL_FUNC) &_glmmr_d_lik_optim, 14},
     {"_glmmr_l_lik_optim", (DL_FUNC) &_glmmr_l_lik_optim, 10},
     {"_glmmr_f_lik_grad", (DL_FUNC) &_glmmr_f_lik_grad, 20},

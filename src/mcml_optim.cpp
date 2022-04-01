@@ -76,7 +76,28 @@ public:
   }
 };
 
-
+//' Optimises the log-likelihood of the random effects
+//' 
+//' Optimises the log-likelihood of the random effects
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param start Vector of starting values for the optmisation
+//' @param lower Vector of lower bounds for the covariance parameters
+//' @param upper Vector of upper bounds for the covariance parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A vector of covariance parameters that maximise the log likelihood
 // [[Rcpp::export]]
 arma::vec d_lik_optim(const arma::uword &B,
                       const arma::uvec &N_dim,
@@ -225,6 +246,20 @@ public:
   }
 };
 
+//' Optimises the log-likelihood of the observations conditional on the random effects
+//' 
+//' Optimises the log-likelihood of the observations conditional on the random effects
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param start Vector of starting values for the optimisation
+//' @param lower Vector of lower bounds for the model parameters
+//' @param upper Vector of upper bounds for the model parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A vector of parameters that maximise the log likelihood
 // [[Rcpp::export]]
 arma::vec l_lik_optim(const arma::mat &Z, 
                       const arma::mat &X,
@@ -451,6 +486,34 @@ public:
   }
 };
 
+//' Calculates the gradient of the full log-likelihood 
+//' 
+//' Calculates the gradient of the full log-likelihood 
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param cov_par_fix A vector of covariance parameters for importance sampling
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param start Vector of starting values for the optimisation
+//' @param lower Vector of lower bounds for the model parameters
+//' @param upper Vector of upper bounds for the model parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A vector of the gradient for each parameter
 // [[Rcpp::export]]
 arma::vec f_lik_grad(const arma::uword &B,
                      const arma::uvec &N_dim,
@@ -494,6 +557,35 @@ arma::vec f_lik_grad(const arma::uword &B,
   return gradient;
 }
 
+
+//' Calculates the Hessian of the full log-likelihood 
+//' 
+//' Calculates the Hessian of the full log-likelihood 
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param cov_par_fix A vector of covariance parameters for importance sampling
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param start Vector of starting values for the optimisation
+//' @param lower Vector of lower bounds for the model parameters
+//' @param upper Vector of upper bounds for the model parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A matrix of the Hessian for each parameter
 // [[Rcpp::export]]
 arma::mat f_lik_hess(const arma::uword &B,
                      const arma::uvec &N_dim,
@@ -535,6 +627,34 @@ arma::mat f_lik_hess(const arma::uword &B,
   return hessian;
 }
 
+//' Simulated likelihood maximisation for the GLMM 
+//' 
+//' Simulated likelihood maximisation for the GLMM
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param cov_par_fix A vector of covariance parameters for importance sampling
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param start Vector of starting values for the optimisation
+//' @param lower Vector of lower bounds for the model parameters
+//' @param upper Vector of upper bounds for the model parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A vector of the parameters that maximise the simulated likelihood
 // [[Rcpp::export]]
 arma::mat f_lik_optim(const arma::uword &B,
                       const arma::uvec &N_dim,
@@ -574,11 +694,25 @@ arma::mat f_lik_optim(const arma::uword &B,
 }
 
 
-
+//' Newton-Raphson step for the MCMCML algorithm 
+//' 
+//' Newton-Raphson step for the MCMCML algorithm
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param beta A vector specifying the current values of the mean function parameters
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @return A vector specifying the Newton-Raphson step for the parameters
 // [[Rcpp::export]]
-Rcpp::List mcnr_step(const arma::vec &y, const arma::mat &X, const arma::mat &Z,
-                     const arma::vec &beta, const arma::mat &u,
-                     const std::string &family, const std::string &link){
+Rcpp::List mcnr_step(const arma::vec &y, 
+                     const arma::mat &X, 
+                     const arma::mat &Z,
+                     const arma::vec &beta, 
+                     const arma::mat &u,
+                     const std::string &family, 
+                     const std::string &link){
   const arma::uword n = y.n_elem;
   const arma::uword P = X.n_cols;
   const arma::uword niter = u.n_cols;
@@ -617,6 +751,31 @@ Rcpp::List mcnr_step(const arma::vec &y, const arma::mat &X, const arma::mat &Z,
   return L;
 }
 
+//' Calculates the Akaike Information Criterion for the GLMM
+//' 
+//' Calculates the Akaike Information Criterion for the GLMM 
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param beta_par Vector specifying the values of the mean function parameters
+//' @param cov_par Vector specifying the values of the covariance parameters
+//' @return A matrix of the Hessian for each parameter
 // [[Rcpp::export]]
 double aic_mcml(const arma::mat &Z, 
                 const arma::mat &X,

@@ -588,7 +588,21 @@ private:
 };
 
 
-
+//' Hill-Climbing algorithm to identify optimal GLMM design
+//' 
+//' Hill-Climbing algorithm to identify optimal GLMM design
+//' @param N Integer specifying number of experimental conditions in the optimal design
+//' @param idx_in Integer vector specifying the indexes of the experimental conditions to start from
+//' @param C_list List of C vectors for the c-optimal function, see \link{glmmr}[DesignSpace]
+//' @param X_list List of X matrices
+//' @param sig_list List of inverse covariance matrices
+//' @param weights Vector specifying the weights of each design
+//' @param exp_cond Vector specifying the experimental condition index of each observation
+//' @param nfix Vector listing the experimental condition indexes that are fixed in the design
+//' @param any_fix Integer. 0 = no experimental conditions are fixed, 1 = some experimental conditions are fixed
+//' @param rd_mode Integer. Robust objective function, 1=weighted average, 2=minimax
+//' @param trace Logical indicating whether to provide detailed output
+//' @return A vector of experimental condition indexes in the optimal design
 // [[Rcpp::export]]
 Rcpp::List GradRobustStep(arma::uword N,
                           arma::uvec idx_in, 
@@ -620,33 +634,33 @@ Rcpp::List GradRobustStep(arma::uword N,
                             Named("best_val_vec") = hc.best_val_vec_);
 }
 
-// [[Rcpp::export]]
-Rcpp::List GradRobustAlg1(arma::uword N,
-                          arma::uvec idx_in, 
-                          Rcpp::List C_list, 
-                          Rcpp::List X_list, 
-                          Rcpp::List sig_list, 
-                          arma::vec weights,
-                          arma::uvec exp_cond,
-                          arma::uvec nfix, 
-                          arma::uword any_fix = 0,
-                          arma::uword rd_mode = 1,
-                          bool trace = true) {
-  
-  // need to map Rcpp list to the field here:
-  arma::uword ndesign = weights.n_elem;
-  arma::field<arma::vec> Cfield(ndesign);
-  arma::field<arma::mat> Xfield(ndesign);
-  arma::cube sigcube(N,N,ndesign);
-  for(arma::uword j=0; j<ndesign; j++){
-    Cfield[j] = as<arma::vec>(C_list[j]);
-    Xfield[j] = as<arma::mat>(X_list[j]);
-    sigcube.slice(j) = as<arma::mat>(sig_list[j]);
-  }
-  
-  HillClimbing hc(idx_in, Cfield, Xfield, sigcube, weights, exp_cond, any_fix, nfix, rd_mode, trace);
-  hc.grad_robust_alg1();
-  return Rcpp::List::create(Named("idx_in") = hc.idx_in_,
-                            Named("idx_out") = hc.idx_out_,
-                            Named("best_val_vec") = hc.best_val_vec_);
-}
+// // [[Rcpp::export]]
+// Rcpp::List GradRobustAlg1(arma::uword N,
+//                           arma::uvec idx_in, 
+//                           Rcpp::List C_list, 
+//                           Rcpp::List X_list, 
+//                           Rcpp::List sig_list, 
+//                           arma::vec weights,
+//                           arma::uvec exp_cond,
+//                           arma::uvec nfix, 
+//                           arma::uword any_fix = 0,
+//                           arma::uword rd_mode = 1,
+//                           bool trace = true) {
+//   
+//   // need to map Rcpp list to the field here:
+//   arma::uword ndesign = weights.n_elem;
+//   arma::field<arma::vec> Cfield(ndesign);
+//   arma::field<arma::mat> Xfield(ndesign);
+//   arma::cube sigcube(N,N,ndesign);
+//   for(arma::uword j=0; j<ndesign; j++){
+//     Cfield[j] = as<arma::vec>(C_list[j]);
+//     Xfield[j] = as<arma::mat>(X_list[j]);
+//     sigcube.slice(j) = as<arma::mat>(sig_list[j]);
+//   }
+//   
+//   HillClimbing hc(idx_in, Cfield, Xfield, sigcube, weights, exp_cond, any_fix, nfix, rd_mode, trace);
+//   hc.grad_robust_alg1();
+//   return Rcpp::List::create(Named("idx_in") = hc.idx_in_,
+//                             Named("idx_out") = hc.idx_out_,
+//                             Named("best_val_vec") = hc.best_val_vec_);
+//}
