@@ -8,6 +8,12 @@ using namespace arma;
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
+//' Combines a field of matrices into a block diagonal matrix
+//' 
+//' Combines a field of matrices into a block diagonal matrix. Used on
+//' the output of `genD`
+//' @param matfield A field of matrices
+//' @return A block diagonal matrix
 // [[Rcpp::export]]
 arma::mat blockMat(arma::field<arma::mat> matfield){
   arma::uword nmat = matfield.n_rows;
@@ -31,6 +37,27 @@ arma::mat blockMat(arma::field<arma::mat> matfield){
   }
 }
 
+//' Generates a block of the random effects covariance matrix
+//' 
+//' Generates a block of the random effects covariance matrix
+//' @details 
+//' Using the sparse representation of the random effects covariance matrix, constructs
+//' one of the blocks. The function definitions are: 1 indicator, 2 exponential,
+//' 3 AR-1, 4 squared exponential, 5 matern, 6 Bessel.
+//' @param N_dim Integer specifying the dimension of the matrix
+//' @param N_func Integer specifying the number of functions in the covariance function 
+//' for this block.
+//' @param func_def Vector of integers of same length as `func_def` specifying the function definition for each function. 
+//' @param N_var_func Vector of integers of same length as `func_def` specying the number 
+//' of variables in the argument to the function
+//' @param col_id Matrix of integers of dimension length(func_def) x max(N_var_func) that indicates
+//' the respective column indexes of `cov_data` 
+//' @param N_par Vector of integers of same length as `func_def` specifying the number
+//' of parameters in the function
+//' @param cov_data Matrix holding the data for the covariance matrix
+//' @param gamma Vector of covariance parameters specified in order they appear in the functions 
+//' specified by `func_def`
+//' @return A symmetric positive definite matrix
 // [[Rcpp::export]]
 arma::mat genBlockD(size_t N_dim,
                     size_t N_func,
@@ -96,6 +123,25 @@ arma::mat genBlockD(size_t N_dim,
   return D;
 }
 
+//' Generates the covariance matrix of the random effects
+//' 
+//' Generates the covariance matrix of the random effects from a sparse representation
+//' @param B Integer specifying the number of blocks in the matrix
+//' @param N_dim Vector of integers, which each value specifying the dimension of each block
+//' @param N_func Vector of integers specifying the number of functions in the covariance function 
+//' for each block.
+//' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+//' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+//' of variables in the argument to each function in each block
+//' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+//' where each slice the respective column indexes of `cov_data` for each function in the block
+//' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+//' of parameters in the function in each block
+//' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+//' is the data required for each block
+//' @param gamma Vector of covariance parameters specified in order they appear column wise in the functions 
+//' specified by `func_def`
+//' @return A symmetric positive definite covariance matrix
 // [[Rcpp::export]]
 arma::field<arma::mat> genD(const arma::uword &B,
                             const arma::uvec &N_dim,
@@ -125,6 +171,24 @@ arma::field<arma::mat> genD(const arma::uword &B,
   return(DBlocks);
 }
 
+//' Efficiently calculate the inverse of a sub-matrix
+//' 
+//' Efficiently calculate the inverse of a sub-matrix
+//' @details
+//' For a given matrix \eqn{A = B^-1}, this will calculate the inverse of a submatrix of B 
+//' given only matrix A and requiring only vector multiplication. B typically represents a 
+//' covariance matrix for observations 1,...,N and the function is used to calculate the 
+//' inverse covariance matrix for a subset of those observations.
+//' @param A A square inverse matrix
+//' @param i Vector of integers specifying the rows/columns to remove from B, see details
+//' @return The inverse of a submatrix of B
+//' @examples
+//' B <- matrix(runif(16),nrow=4,ncol=4)
+//' diag(B) <- diag(B)+1
+//' A <- solve(B)
+//' remove_one_many_mat(A,1)
+//' #equal to
+//' solve(B[2:4,2:4])
 // [[Rcpp::export]]
 arma::mat remove_one_many_mat(const arma::mat &A, 
                               const arma::uvec &i) {
@@ -146,7 +210,6 @@ arma::mat remove_one_many_mat(const arma::mat &A,
   return A2;
 }
 
-// [[Rcpp::export]]
 double remove_one_many(const arma::mat &A, 
                        const arma::uvec &i,
                        const arma::vec &u) {
@@ -166,7 +229,7 @@ double remove_one_many(const arma::mat &A,
   return obj_fun(A2, u(uidx));
 }
 
-// [[Rcpp::export]]
+
 double add_one(const arma::mat &A, 
                double sigma_jj, 
                const arma::vec &f,
@@ -189,6 +252,28 @@ double add_one(const arma::mat &A,
   return obj_fun(A2, u);
 }
 
+//' Efficiently calculates the inverse of a super-matrix 
+//' 
+//' Efficiently calculates the inverse of a super-matrix by adding an observation
+//' @details
+//' Given matrix \eqn{A = B^-1} where B is a submatrix of a matrix C, this function efficiently calculates
+//' the inverse the matrix B+, which is B adding another row/column from C. For example, if C
+//' is the covariance matrix of observations 1,...,N, and B the covariance matrix of observations
+//' 1,...,n where n<N, then this function will calculate the inverse of the covariance matrix of 
+//' the observations 1,...,n+1.
+//' @param A Inverse matrix of dimensions `n`
+//' @param sigma_jj The element of C corresponding to the element [j,j] in matrix C where j is the index
+//' of the row/column we want to add, see Details
+//' @param f A vector of dimension n x 1, corresponding to the elements [b,j] in C where b is the indexes
+//' that make up submatrix B
+//' @return A matrix of size dim(A)+1
+//' @examples
+//' B <- matrix(runif(16),nrow=4,ncol=4)
+//' diag(B) <- diag(B)+1
+//' A <- solve(B[2:4,2:4])
+//' add_one_mat(A,B[1,1],B[2:4,1])
+//' #equal to
+//' solve(B)
 // [[Rcpp::export]]
 arma::mat add_one_mat(const arma::mat &A, 
                       double sigma_jj, 
@@ -241,7 +326,6 @@ arma::uvec std_setdiff(arma::uvec &x, arma::uvec &y) {
 }
 
 
-// [[Rcpp::export]]
 arma::uvec uvec_minus(const arma::uvec &v, arma::uword rm_idx) {
   arma::uword n = v.size();
   if (rm_idx == 0) return v.tail(n-1);
@@ -251,68 +335,5 @@ arma::uvec uvec_minus(const arma::uvec &v, arma::uword rm_idx) {
   res.tail(n-1-rm_idx) = v.tail(n-1-rm_idx);
   return res;
 }
-
-// // [[Rcpp::export]]
-// arma::field<arma::mat> sepBlockMat(const arma::mat &X){
-//   arma::uword n = X.n_rows; 
-//   //algorithm to find the block
-//   arma::uword idx = 0;
-//   bool block = true;
-//   while(block && idx < (n-1)){
-//     if(X(idx,0)==0){
-//       //check next entry
-//       if(sum(X.col(idx).subvec(0,idx-1))==0){
-//         block = false;
-//       } else {
-//         idx++;
-//       }
-//     } else {
-//       idx++;
-//     }
-//   }
-//   
-//   if(idx < (n-1)){
-//     arma::field<arma::mat> bfield(n);
-//     bfield[0] = X.submat(0,0,idx-1,idx-1);
-//     arma::field<arma::mat> sub_bfield = sepBlockMat(X.submat(idx,idx,n-1,n-1));
-//     arma::uword sub_bsize = sub_bfield.n_elem;
-//     for(arma::uword b=0;b<sub_bsize;b++){
-//       bfield[b+1] = sub_bfield[b];
-//     }
-//     return bfield.rows(0,sub_bsize);
-//   } else {
-//     arma::field<arma::mat> bfield(1);
-//     bfield[0] = X;
-//     return bfield;
-//   }
-//   
-// }
-// 
-// // [[Rcpp::export]]
-// arma::field<arma::mat> invBlockMat(const arma::field<arma::mat> &X){
-//   arma::uword n = X.n_elem;
-//   arma::field<arma::mat> invX(n);
-//   for(arma::uword b=0;b<n;b++){
-//     if(X[b].n_rows == 1){
-//       invX[b] = 1/(X[b](0,0));
-//     } else {
-//       invX[b] = inv_sympd(X[b]);
-//     }
-//   }
-//   return invX;
-// }
-// 
-// // [[Rcpp::export]]
-// arma::vec logDetBlockMat(const arma::field<arma::mat> &X){
-//   arma::vec ld(X.n_elem, fill::zeros);
-//   for(arma::uword b=0; b<X.n_elem; b++){
-//     if(X[b].n_rows == 1){
-//       ld(b) = X[b](0,0);
-//     } else {
-//       ld(b) = log_det_sympd(X[b]);
-//     }
-//   }
-//   return(ld);
-// }
 
 #endif

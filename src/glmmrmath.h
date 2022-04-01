@@ -11,6 +11,11 @@ using namespace arma;
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
+//' Approximation to the log factorial
+//' 
+//' Ramanujan's approximation to the log factorial
+//' @param n Integer to calculate log(n!)
+//' @return A numeric value
 // [[Rcpp::export]]
 double log_factorial_approx(int n){
   double ans;
@@ -22,12 +27,10 @@ double log_factorial_approx(int n){
   return ans;
 }
 
-// [[Rcpp::export]]
 double gaussian_cdf(double x){
   return R::pnorm(x, 0, 1, true, false);
 }
 
-// [[Rcpp::export]]
 arma::vec gaussian_cdf_vec(const arma::vec& v){
   arma::vec res = arma::zeros<arma::vec>(v.n_elem);
   for (arma::uword i = 0; i < v.n_elem; ++i)
@@ -35,12 +38,10 @@ arma::vec gaussian_cdf_vec(const arma::vec& v){
   return res;
 }
 
-// [[Rcpp::export]]
 double gaussian_pdf(double x){
   return R::dnorm(x, 0, 1, false);
 }
 
-// [[Rcpp::export]]
 arma::vec gaussian_pdf_vec(const arma::vec& v){
   arma::vec res = arma::zeros<arma::vec>(v.n_elem);
   for (arma::uword i = 0; i < v.n_elem; ++i)
@@ -48,6 +49,12 @@ arma::vec gaussian_pdf_vec(const arma::vec& v){
   return res;
 }
 
+//' Log multivariate Gaussian probability density funciton
+//' 
+//' Log multivariate Gaussian probability density funciton
+//' @param u Vector of realisations from the distribution
+//' @param D Inverse covariance matrix
+//' @param logdetD Log determinant of the covariance matrix
 // [[Rcpp::export]]
 double log_mv_gaussian_pdf(const arma::vec& u,
                            const arma::mat& D,
@@ -57,7 +64,6 @@ double log_mv_gaussian_pdf(const arma::vec& u,
     0.5*logdetD - 0.5*arma::as_scalar(u.t()*D*u));
 }
 
-// [[Rcpp::export]]
 double log_likelihood(arma::vec y,
                       arma::vec mu,
                       double var_par,
@@ -110,7 +116,6 @@ double log_likelihood(arma::vec y,
 }
 
 
-// [[Rcpp::export]]
 arma::vec mod_inv_func(arma::vec mu,
                        std::string link){
   //arma::uword n = mu.n_elem;
@@ -127,7 +132,6 @@ arma::vec mod_inv_func(arma::vec mu,
   return mu;
 }
 
-// [[Rcpp::export]]
 arma::vec gen_dhdmu(arma::vec xb,
                     std::string family,
                     std::string link){
@@ -163,25 +167,30 @@ arma::vec gen_dhdmu(arma::vec xb,
   return wdiag;
 }
 
-// [[Rcpp::export]]
 double obj_fun(const arma::mat &A, const arma::vec &U2) {
   // this is the directional derivative
   return arma::as_scalar(U2.t() * A * U2);
 }
 
-// [[Rcpp::export]]
 double c_obj_fun(arma::mat M, arma::vec C) {
   // this is the objective function c-optimal
   arma::mat M_inv = arma::inv_sympd(M);
   return arma::as_scalar(C.t() * M_inv * C);
 }
 
-// [[Rcpp::export]]
 arma::mat gen_m(const arma::mat &X, const arma::mat &A) {
   //generate information matrix
   return X.t() * A * X;
 }
 
+//' Exponential covariance function
+//' 
+//' Exponential covariance function
+//' @details
+//' \deqn{\theta_1 exp(-x/\theta_2)}
+//' @param x Numeric value 
+//' @param par1 First parameter of the distribution
+//' @param par2 Second parameter of the distribution
 // [[Rcpp::export]]
 double fexp(const double &x, 
                double par1,
@@ -190,6 +199,14 @@ double fexp(const double &x,
   return par1*exp(-1*x/par2);
 }
 
+//' Squared exponential covariance function
+//' 
+//' Squared exponential covariance function
+//' @details
+//' \deqn{\theta_1 exp(-x^2/\theta_2^2)}
+//' @param x Numeric value 
+//' @param par1 First parameter of the distribution
+//' @param par2 Second parameter of the distribution
 // [[Rcpp::export]]
 double sqexp(const double &x, 
                double par1,
@@ -198,6 +215,14 @@ double sqexp(const double &x,
   return par1*exp(-1*pow(x,2)/pow(par2,2));
 }
 
+//' Matern covariance function
+//' 
+//' Matern covariance function
+//' @details
+//' TBC
+//' @param x Numeric value 
+//' @param rho First parameter of the distribution
+//' @param nu Second parameter of the distribution
 // [[Rcpp::export]]
 double matern(const double &x,
               double rho, 
@@ -215,6 +240,13 @@ double matern(const double &x,
   return ans;
 }
 
+//' Bessel covariance function
+//' 
+//' Bessel covariance function
+//' @details
+//' TBC
+//' @param x Numeric value 
+//' @param rho First parameter of the distribution
 // [[Rcpp::export]]
 double bessel1(const double &x,
                double rho){
