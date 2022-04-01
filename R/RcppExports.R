@@ -5,134 +5,377 @@ dfbeta_stat <- function(sigma, X, y, par) {
     .Call(`_glmmr_dfbeta_stat`, sigma, X, y, par)
 }
 
+#' Hill-Climbing algorithm to identify optimal GLMM design
+#' 
+#' Hill-Climbing algorithm to identify optimal GLMM design
+#' @param N Integer specifying number of experimental conditions in the optimal design
+#' @param idx_in Integer vector specifying the indexes of the experimental conditions to start from
+#' @param C_list List of C vectors for the c-optimal function, see \link{glmmr}[DesignSpace]
+#' @param X_list List of X matrices
+#' @param sig_list List of inverse covariance matrices
+#' @param weights Vector specifying the weights of each design
+#' @param exp_cond Vector specifying the experimental condition index of each observation
+#' @param nfix Vector listing the experimental condition indexes that are fixed in the design
+#' @param any_fix Integer. 0 = no experimental conditions are fixed, 1 = some experimental conditions are fixed
+#' @param rd_mode Integer. Robust objective function, 1=weighted average, 2=minimax
+#' @param trace Logical indicating whether to provide detailed output
+#' @return A vector of experimental condition indexes in the optimal design
 GradRobustStep <- function(N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix = 0L, rd_mode = 1L, trace = TRUE) {
     .Call(`_glmmr_GradRobustStep`, N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix, rd_mode, trace)
 }
 
-GradRobustAlg1 <- function(N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix = 0L, rd_mode = 1L, trace = TRUE) {
-    .Call(`_glmmr_GradRobustAlg1`, N, idx_in, C_list, X_list, sig_list, weights, exp_cond, nfix, any_fix, rd_mode, trace)
-}
-
+#' Approximation to the log factorial
+#' 
+#' Ramanujan's approximation to the log factorial
+#' @param n Integer to calculate log(n!)
+#' @return A numeric value
 log_factorial_approx <- function(n) {
     .Call(`_glmmr_log_factorial_approx`, n)
 }
 
-gaussian_cdf <- function(x) {
-    .Call(`_glmmr_gaussian_cdf`, x)
-}
-
-gaussian_cdf_vec <- function(v) {
-    .Call(`_glmmr_gaussian_cdf_vec`, v)
-}
-
-gaussian_pdf <- function(x) {
-    .Call(`_glmmr_gaussian_pdf`, x)
-}
-
-gaussian_pdf_vec <- function(v) {
-    .Call(`_glmmr_gaussian_pdf_vec`, v)
-}
-
+#' Log multivariate Gaussian probability density funciton
+#' 
+#' Log multivariate Gaussian probability density funciton
+#' @param u Vector of realisations from the distribution
+#' @param D Inverse covariance matrix
+#' @param logdetD Log determinant of the covariance matrix
 log_mv_gaussian_pdf <- function(u, D, logdetD) {
     .Call(`_glmmr_log_mv_gaussian_pdf`, u, D, logdetD)
 }
 
-log_likelihood <- function(y, mu, var_par, family, link) {
-    .Call(`_glmmr_log_likelihood`, y, mu, var_par, family, link)
-}
-
-mod_inv_func <- function(mu, link) {
-    .Call(`_glmmr_mod_inv_func`, mu, link)
-}
-
-gen_dhdmu <- function(xb, family, link) {
-    .Call(`_glmmr_gen_dhdmu`, xb, family, link)
-}
-
-obj_fun <- function(A, U2) {
-    .Call(`_glmmr_obj_fun`, A, U2)
-}
-
-c_obj_fun <- function(M, C) {
-    .Call(`_glmmr_c_obj_fun`, M, C)
-}
-
-gen_m <- function(X, A) {
-    .Call(`_glmmr_gen_m`, X, A)
-}
-
+#' Exponential covariance function
+#' 
+#' Exponential covariance function
+#' @details
+#' \deqn{\theta_1 exp(-x/\theta_2)}
+#' @param x Numeric value 
+#' @param par1 First parameter of the distribution
+#' @param par2 Second parameter of the distribution
 fexp <- function(x, par1, par2) {
     .Call(`_glmmr_fexp`, x, par1, par2)
 }
 
+#' Squared exponential covariance function
+#' 
+#' Squared exponential covariance function
+#' @details
+#' \deqn{\theta_1 exp(-x^2/\theta_2^2)}
+#' @param x Numeric value 
+#' @param par1 First parameter of the distribution
+#' @param par2 Second parameter of the distribution
 sqexp <- function(x, par1, par2) {
     .Call(`_glmmr_sqexp`, x, par1, par2)
 }
 
+#' Matern covariance function
+#' 
+#' Matern covariance function
+#' @details
+#' TBC
+#' @param x Numeric value 
+#' @param rho First parameter of the distribution
+#' @param nu Second parameter of the distribution
 matern <- function(x, rho, nu) {
     .Call(`_glmmr_matern`, x, rho, nu)
 }
 
+#' Bessel covariance function
+#' 
+#' Bessel covariance function
+#' @details
+#' TBC
+#' @param x Numeric value 
+#' @param rho First parameter of the distribution
 bessel1 <- function(x, rho) {
     .Call(`_glmmr_bessel1`, x, rho)
 }
 
+#' Combines a field of matrices into a block diagonal matrix
+#' 
+#' Combines a field of matrices into a block diagonal matrix. Used on
+#' the output of `genD`
+#' @param matfield A field of matrices
+#' @return A block diagonal matrix
 blockMat <- function(matfield) {
     .Call(`_glmmr_blockMat`, matfield)
 }
 
+#' Generates a block of the random effects covariance matrix
+#' 
+#' Generates a block of the random effects covariance matrix
+#' @details 
+#' Using the sparse representation of the random effects covariance matrix, constructs
+#' one of the blocks. The function definitions are: 1 indicator, 2 exponential,
+#' 3 AR-1, 4 squared exponential, 5 matern, 6 Bessel.
+#' @param N_dim Integer specifying the dimension of the matrix
+#' @param N_func Integer specifying the number of functions in the covariance function 
+#' for this block.
+#' @param func_def Vector of integers of same length as `func_def` specifying the function definition for each function. 
+#' @param N_var_func Vector of integers of same length as `func_def` specying the number 
+#' of variables in the argument to the function
+#' @param col_id Matrix of integers of dimension length(func_def) x max(N_var_func) that indicates
+#' the respective column indexes of `cov_data` 
+#' @param N_par Vector of integers of same length as `func_def` specifying the number
+#' of parameters in the function
+#' @param cov_data Matrix holding the data for the covariance matrix
+#' @param gamma Vector of covariance parameters specified in order they appear in the functions 
+#' specified by `func_def`
+#' @return A symmetric positive definite matrix
 genBlockD <- function(N_dim, N_func, func_def, N_var_func, col_id, N_par, cov_data, gamma) {
     .Call(`_glmmr_genBlockD`, N_dim, N_func, func_def, N_var_func, col_id, N_par, cov_data, gamma)
 }
 
+#' Generates the covariance matrix of the random effects
+#' 
+#' Generates the covariance matrix of the random effects from a sparse representation
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param gamma Vector of covariance parameters specified in order they appear column wise in the functions 
+#' specified by `func_def`
+#' @return A symmetric positive definite covariance matrix
 genD <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, gamma) {
     .Call(`_glmmr_genD`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, gamma)
 }
 
+#' Efficiently calculate the inverse of a sub-matrix
+#' 
+#' Efficiently calculate the inverse of a sub-matrix
+#' @details
+#' For a given matrix \eqn{A = B^-1}, this will calculate the inverse of a submatrix of B 
+#' given only matrix A and requiring only vector multiplication. B typically represents a 
+#' covariance matrix for observations 1,...,N and the function is used to calculate the 
+#' inverse covariance matrix for a subset of those observations.
+#' @param A A square inverse matrix
+#' @param i Vector of integers specifying the rows/columns to remove from B, see details
+#' @return The inverse of a submatrix of B
+#' @examples
+#' B <- matrix(runif(16),nrow=4,ncol=4)
+#' diag(B) <- diag(B)+1
+#' A <- solve(B)
+#' remove_one_many_mat(A,1)
+#' #equal to
+#' solve(B[2:4,2:4])
 remove_one_many_mat <- function(A, i) {
     .Call(`_glmmr_remove_one_many_mat`, A, i)
 }
 
-remove_one_many <- function(A, i, u) {
-    .Call(`_glmmr_remove_one_many`, A, i, u)
-}
-
-add_one <- function(A, sigma_jj, f, u) {
-    .Call(`_glmmr_add_one`, A, sigma_jj, f, u)
-}
-
+#' Efficiently calculates the inverse of a super-matrix 
+#' 
+#' Efficiently calculates the inverse of a super-matrix by adding an observation
+#' @details
+#' Given matrix \eqn{A = B^-1} where B is a submatrix of a matrix C, this function efficiently calculates
+#' the inverse the matrix B+, which is B adding another row/column from C. For example, if C
+#' is the covariance matrix of observations 1,...,N, and B the covariance matrix of observations
+#' 1,...,n where n<N, then this function will calculate the inverse of the covariance matrix of 
+#' the observations 1,...,n+1.
+#' @param A Inverse matrix of dimensions `n`
+#' @param sigma_jj The element of C corresponding to the element [j,j] in matrix C where j is the index
+#' of the row/column we want to add, see Details
+#' @param f A vector of dimension n x 1, corresponding to the elements [b,j] in C where b is the indexes
+#' that make up submatrix B
+#' @return A matrix of size dim(A)+1
+#' @examples
+#' B <- matrix(runif(16),nrow=4,ncol=4)
+#' diag(B) <- diag(B)+1
+#' A <- solve(B[2:4,2:4])
+#' add_one_mat(A,B[1,1],B[2:4,1])
+#' #equal to
+#' solve(B)
 add_one_mat <- function(A, sigma_jj, f) {
     .Call(`_glmmr_add_one_mat`, A, sigma_jj, f)
 }
 
-uvec_minus <- function(v, rm_idx) {
-    .Call(`_glmmr_uvec_minus`, v, rm_idx)
-}
-
+#' Optimises the log-likelihood of the random effects
+#' 
+#' Optimises the log-likelihood of the random effects
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param start Vector of starting values for the optmisation
+#' @param lower Vector of lower bounds for the covariance parameters
+#' @param upper Vector of upper bounds for the covariance parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A vector of covariance parameters that maximise the log likelihood
 d_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace = 0L) {
     .Call(`_glmmr_d_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace)
 }
 
+#' Optimises the log-likelihood of the observations conditional on the random effects
+#' 
+#' Optimises the log-likelihood of the observations conditional on the random effects
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param start Vector of starting values for the optimisation
+#' @param lower Vector of lower bounds for the model parameters
+#' @param upper Vector of upper bounds for the model parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A vector of parameters that maximise the log likelihood
 l_lik_optim <- function(Z, X, y, u, family, link, start, lower, upper, trace) {
     .Call(`_glmmr_l_lik_optim`, Z, X, y, u, family, link, start, lower, upper, trace)
 }
 
+#' Calculates the gradient of the full log-likelihood 
+#' 
+#' Calculates the gradient of the full log-likelihood 
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param cov_par_fix A vector of covariance parameters for importance sampling
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param start Vector of starting values for the optimisation
+#' @param lower Vector of lower bounds for the model parameters
+#' @param upper Vector of upper bounds for the model parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A vector of the gradient for each parameter
 f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
     .Call(`_glmmr_f_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
 }
 
+#' Calculates the Hessian of the full log-likelihood 
+#' 
+#' Calculates the Hessian of the full log-likelihood 
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param cov_par_fix A vector of covariance parameters for importance sampling
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param start Vector of starting values for the optimisation
+#' @param lower Vector of lower bounds for the model parameters
+#' @param upper Vector of upper bounds for the model parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A matrix of the Hessian for each parameter
 f_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
     .Call(`_glmmr_f_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
 }
 
+#' Simulated likelihood maximisation for the GLMM 
+#' 
+#' Simulated likelihood maximisation for the GLMM
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param cov_par_fix A vector of covariance parameters for importance sampling
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param start Vector of starting values for the optimisation
+#' @param lower Vector of lower bounds for the model parameters
+#' @param upper Vector of upper bounds for the model parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A vector of the parameters that maximise the simulated likelihood
 f_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace) {
     .Call(`_glmmr_f_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, trace)
 }
 
+#' Newton-Raphson step for the MCMCML algorithm 
+#' 
+#' Newton-Raphson step for the MCMCML algorithm
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param beta A vector specifying the current values of the mean function parameters
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @return A vector specifying the Newton-Raphson step for the parameters
 mcnr_step <- function(y, X, Z, beta, u, family, link) {
     .Call(`_glmmr_mcnr_step`, y, X, Z, beta, u, family, link)
 }
 
+#' Calculates the Akaike Information Criterion for the GLMM
+#' 
+#' Calculates the Akaike Information Criterion for the GLMM 
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param B Integer specifying the number of blocks in the matrix
+#' @param N_dim Vector of integers, which each value specifying the dimension of each block
+#' @param N_func Vector of integers specifying the number of functions in the covariance function 
+#' for each block.
+#' @param func_def Matrix of integers where each column specifies the function definition for each function in each block. 
+#' @param N_var_func Matrix of integers of same size as `func_def` with each column specying the number 
+#' of variables in the argument to each function in each block
+#' @param col_id 3D array (cube) of integers of dimension length(func_def) x max(N_var_func) x B 
+#' where each slice the respective column indexes of `cov_data` for each function in the block
+#' @param N_par Matrix of integers of same size as `func_def` with each column specifying the number
+#' of parameters in the function in each block
+#' @param cov_data 3D array (cube) holding the data for the covariance matrix where each of the B slices
+#' is the data required for each block
+#' @param beta_par Vector specifying the values of the mean function parameters
+#' @param cov_par Vector specifying the values of the covariance parameters
+#' @return A matrix of the Hessian for each parameter
 aic_mcml <- function(Z, X, y, u, family, link, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, beta_par, cov_par) {
     .Call(`_glmmr_aic_mcml`, Z, X, y, u, family, link, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, beta_par, cov_par)
 }
