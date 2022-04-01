@@ -266,7 +266,7 @@ public:
                        match_uvec(exp_cond_,idx_out_(obs_j)));
           }
           
-          double val_in = rd_mode_==1 ? arma::sum(val_in_mat * weights_) : val_in_mat.max();
+          double val_in = rd_mode_==1 ? arma::dot(val_in_mat, weights_) : val_in_mat.max();
           // if the derivative is negative then go to next step, otherwise break this loop
           
           if (val_ - val_in < 0) {

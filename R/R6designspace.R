@@ -40,7 +40,39 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' are separate experimental conditions.
                    #' @return A `DesignSpace` object
                    #' @examples
-                   #' ...
+                   #' df <- nelder(~ ((int(2)*t(3)) > cl(3)) > ind(5))
+                   #' df$int <- df$int - 1
+                   #' mf1 <- MeanFunction$new(formula = ~ int + factor(t) - 1,
+                   #'                         data=df,
+                   #'                         parameters = rep(0,4),
+                   #'                         family = gaussian())
+                   #' cov1 <- Covariance$new(data = df,
+                   #'                        formula = ~ (1|gr(cl)) + (1|gr(cl*t)),
+                   #'                        parameters = c(0.25,0.1))
+                   #' des <- Design$new(covariance = cov1,
+                   #'                   mean.function = mf1,
+                   #'                   var_par = 1)
+                   #' ds <- DesignSpace$new(des)
+                   #' #add another design
+                   #' cov2 <- Covariance$new(data = df,
+                   #'                        formula = ~ (1|gr(cl)*ar1(t)),
+                   #'                        parameters = c(0.25,0.8))
+                   #' des2 <- Design$new(covariance = cov2,
+                   #'                   mean.function = mf1,
+                   #'                   var_par = 1)
+                   #' ds$add(des2)
+                   #' #report the size of the design
+                   #' ds$n()
+                   #' #we can access specific designs
+                   #' ds$show(2)$n()
+                   #' #and then remove it
+                   #' ds$remove(2)
+                   #' #or we could add them when we construct object
+                   #' ds <- DesignSpace$new(des,des2)
+                   #' #we can specify weights
+                   #' ds <- DesignSpace$new(des,des2,weights=c(0.1,0.9))
+                   #' #and add experimental conditions
+                   #' ds <- DesignSpace$new(des,des2,experimental_condition = df$cl)                   
                    initialize = function(...,
                                          weights=NULL,
                                          experimental_condition = NULL) {
@@ -52,7 +84,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        samp.size[i] <- item$n()
                      }
                      #print(samp.size)
-                     if(length(samp.size) > 1 && !all.equal(samp.size))stop("designs are of different sizes")
+                     if(length(samp.size) > 1 && !all(samp.size==samp.size[1]))stop("designs are of different sizes")
                      samp.size <- unique(samp.size)
                      
                      #if the weights are null assign equal weighting
@@ -83,7 +115,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @param x A `Design` to add to the design space
                    #' @return Nothing
                    #' @examples 
-                   #' ...
+                   #' #See examples for constructing the class
                    add = function(x) {
                      if(length(private$designs)>0 && x$n()!=private$designs[[1]]$n())stop("New design is not same size as designs in this design space.")
                      private$designs <- append(private$designs, list(x))
@@ -95,7 +127,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @param index Index of the design to remove
                    #' @return Nothing
                    #' @examples 
-                   #' ...
+                   #' #See examples for constructing the class
                    remove = function(index) {
                      if (private$length() == 0) return(NULL)
                      private$designs <- private$designs[-index]
@@ -105,31 +137,18 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @param ... ignored
                    #' @return Prints to the console all the designs in the design space
                    #' @examples 
-                   #' ...
+                   #' #See examples for constructing the class
                    print = function(){
-                     cat(paste0("Design space with ",self$n()," design(s): \n"))
+                     cat(paste0("Design space with ",self$n()[[1]]," design(s): \n"))
                      for(i in 1:length(private$designs)){
                        cat(paste0("=========================================================\nDESIGN ",i,"(weight ",self$weights[i],"):\n"))
                        print(private$designs[[i]])
                      }
                    },
-                   # power = function(par,
-                   #                  value,
-                   #                  alpha=0.05){
-                   #   
-                   #   #change/remove this function
-                   #   pwr <- c()
-                   #   if(self$n()>1 && length(par)==1)par <- rep(par,self$n())
-                   #   if(self$n()>1 && length(value)==1)value <- rep(value,self$n())
-                   #   for(i in 1:self$n()){
-                   #     pwr[i] <- private$designs[[i]]$power(par[i],value[i],alpha)
-                   #   }
-                   #   return(data.frame(Design = 1:self$n(),power = pwr))
-                   # },
                    #' @description 
                    #' Returns the size of the design space and number of observations
                    #' @examples 
-                   #' ...
+                   #' #See examples for constructing the class
                    n = function(){
                      c("n.designs"=length(private$designs),"n" = private$designs[[1]]$n())
                    },
@@ -180,7 +199,58 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @return A vector indicating the identifiers of the experimental conditions in the optimal design, or a vector indicating the
                    #' weights if the approximate algorithm is used. Optionally the linked designs are also modified (see option `keep`).
                    #' @examples
-                   #' ...
+                   #' df <- nelder(~(cl(6)*t(5)) > ind(5))
+                   #' df$int <- 0
+                   #' df[df$t >= df$cl, 'int'] <- 1
+                   #' mf1 <- MeanFunction$new(
+                   #'   formula = ~ factor(t) + int - 1,
+                   #'   data=df,
+                   #'   parameters = c(rep(0,5),0.6),
+                   #'   family =gaussian()
+                   #' )
+                   #' cov1 <- Covariance$new(
+                   #'   data = df,
+                   #'   formula = ~ (1|gr(cl)),
+                   #'   parameters = c(0.25)
+                   #' )
+                   #' des <- Design$new(
+                   #'   covariance = cov1,
+                   #'   mean.function = mf1,
+                   #'   var_par = 1
+                   #' )
+                   #' ds <- DesignSpace$new(des)
+                   #' 
+                   #' #find the optimal design of size 30 individuals
+                   #' opt <- ds$optimal(30,C=c(rep(0,5),1))
+                   #' 
+                   #' #let the experimental condition be the cluster
+                   #' # these experimental conditions are independent of one another
+                   #' ds <- DesignSpace$new(des,experimental_condition = df$cl)
+                   #' #now find the optimal 4 clusters to include
+                   #' # approximately, finding the weights for each condition
+                   #' # note it will ignore m and just return the weights
+                   #' opt <- ds$optimal(4,C=c(rep(0,5),1))
+                   #' # or use the exact algorithm
+                   #' opt <- ds$optimal(4,C=c(rep(0,5),1),force_hill = TRUE)
+                   #' 
+                   #' #robust optimisation using two designs
+                   #'   cov2 <- Covariance$new(
+                   #'   data = df,
+                   #'   formula = ~ (1|gr(cl)*ar1(t)),
+                   #'   parameters = c(0.25,0.8)
+                   #' )
+                   #' des2 <- Design$new(
+                   #'   covariance = cov1,
+                   #'   mean.function = mf1,
+                   #'   var_par = 1
+                   #' )
+                   #' ds <- DesignSpace$new(des,des2)
+                   #' #weighted average
+                   #' opt <- ds$optimal(30,C=list(c(rep(0,5),1),c(rep(0,5),1)),
+                   #'    robust_function = "weighted")
+                   #' #and minimax
+                   #' opt <- ds$optimal(30,C=list(c(rep(0,5),1),c(rep(0,5),1)),
+                   #'    verbose=FALSE,robust_function = "minimax")
                    optimal = function(m,
                                       C,
                                       rm_cols=NULL,
@@ -199,7 +269,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      if(length(self$experimental_condition)!=private$designs[[1]]$n())stop("experimental condition not the same length as design")
                      uncorr <- TRUE
                      unique_exp_cond <- unique(self$experimental_condition)
-                     for(i in 1:self$n()){
+                     for(i in 1:self$n()[[1]]){
                        for(j in unique_exp_cond){
                          uncorr <- all(private$designs[[i]]$Sigma[which(self$experimental_condition==j),which(self$experimental_condition!=j)]==0)
                          if(!uncorr)break
@@ -212,7 +282,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                        datahashes <- c()
                        for(j in unique_exp_cond){
                          datalist <- list()
-                         for(k in 1:self$n()){
+                         for(k in 1:self$n()[[1]]){
                            datalist[[k]] <- list(des$mean_function$X[self$experimental_condition==j,],
                                                  des$Sigma[self$experimental_condition==j,self$experimental_condition==j])
                          }
@@ -232,7 +302,7 @@ each condition will be reported below."))
                      
                      if(!is(C,"list")){
                        C_list <- list()
-                       for(i in 1:self$n()){
+                       for(i in 1:self$n()[[1]]){
                          C_list[[i]] <- matrix(C,ncol=1)
                        }
                      } else {
@@ -327,7 +397,7 @@ each condition will be reported below."))
                        
                        
                        if(keep){
-                         for(i in 1:self$n()){
+                         for(i in 1:self$n()[[1]]){
                            private$designs[[i]]$subset_rows(rows_to_keep)
                            ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
                            if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
@@ -346,6 +416,7 @@ each condition will be reported below."))
                    #' Returns a linked design
                    #' @param i Index of the design to return
                    #' @examples 
+                   #' #See examples for constructing the class
                    show = function(i){
                      return(private$designs[[i]])
                    }
@@ -354,14 +425,14 @@ each condition will be reported below."))
                    designs = list(),
                    genXlist = function(){
                      X_list <- list()
-                     for(i in 1:self$n()){
+                     for(i in 1:self$n()[[1]]){
                        X_list[[i]] <- as.matrix(private$designs[[i]]$mean_function$X)
                      }
                      return(X_list)
                    },
                    genSlist = function(){
                      S_list <- list()
-                     for(i in 1:self$n()){
+                     for(i in 1:self$n()[[1]]){
                        S_list[[i]] <- as.matrix(private$designs[[i]]$Sigma)
                      }
                      return(S_list)

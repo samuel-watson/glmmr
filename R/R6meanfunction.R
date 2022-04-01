@@ -318,7 +318,7 @@ and the parameters should also be in this order"))
                             }
                             if(any(private$funs=="RMINT"))X <- X[,-1]
                             if((ncol(X)!=length(unlist(self$parameters))&is.null(self$randomise)) || 
-                              (( ncol(X) + 1)!=length(unlist(self$parameters))&!is.null(self$randomise)))warning("more parameters provided than variables in X")
+                              (!(length(unlist(self$parameters))%in%c(ncol(X),ncol(X)+1))&!is.null(self$randomise)))warning("wrong number of parameters")
                             private$Xb <- X %*% matrix(unlist(self$parameters[1:ncol(X)]),ncol=1)
                             self$X <- Matrix::Matrix(X)
                             

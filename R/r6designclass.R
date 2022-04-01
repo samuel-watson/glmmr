@@ -101,13 +101,23 @@ Design <- R6::R6Class("Design",
                     #' des <- Design$new(
                     #' covariance = list(
                     #'   data=df,
-                    #'   formula = ~ (1|pexp(t)*gr(ind)),
+                    #'   formula = ~ (1|ar1(t)*gr(ind)),
                     #'   parameters = c(0.8,1)),
                     #' mean.function = list(
                     #'   formula = ~int + factor(t),
                     #'   data=df,
                     #'   parameters = rep(0,7),
                     #'   family = poisson()))
+                    #'                   
+                    #' #an example of a spatial grid with two time points
+                    #' df <- nelder(~ (x(10)*y(10))*t(2))
+                    #' spt_design <- Design$new(covariance = list(data=df,
+                    #'                                            formula = ~(1|fexp(x,y)*ar1(t)),
+                    #'                                            parameters =c(0.2,0.1,0.8)),
+                    #'                          mean.function = list(data=df,
+                    #'                                               formula = ~ 1,
+                    #'                                               parameters = c(0.5),
+                    #'                                               family=poisson())) 
                     initialize = function(covariance,
                                           mean.function,
                                           var_par = NULL,
@@ -135,13 +145,20 @@ Design <- R6::R6Class("Design",
                           stop("mean.function should be MeanFunction class or list of appropriate arguments")
                         }
                       } else if(is(mean.function,"list")){
+                        if("random_function"%in%names(mean.function)){
+                          rfunc <- mean.function$random_function
+                          tpar <- mean.function$treat_var
+                        } else {
+                          rfunc <- NULL
+                          tpar <- NULL
+                        }
                         self$mean_function <- MeanFunction$new(
                           formula = mean.function$formula,
                           data = mean.function$data,
                           family = mean.function$family,
                           parameters = mean.function$parameters,
-                          random_function = mean.function$random_function,
-                          treat_par = mean.function$treat_par,
+                          random_function = rfunc,
+                          treat_var = tpar,
                           verbose = verbose
                         )
                       }
@@ -180,11 +197,32 @@ Design <- R6::R6Class("Design",
                     #' @param ... ignored
                     #' @return A data frame with the level, number of clusters, and variables describing each level.
                     #' @examples 
-                    #' ...
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' 
+                    #' mf1 <- MeanFunction$new(
+                    #'   formula = ~ factor(t) + int - 1,
+                    #'   data=df,
+                    #'   parameters = c(rep(0,5),0.6),
+                    #'   family = gaussian()
+                    #' )
+                    #' cov1 <- Covariance$new(
+                    #'   data = df,
+                    #'   formula = ~ (1|gr(cl)) + (1|gr(cl*t)),
+                    #'   parameters = c(0.25,0.1)
+                    #' )
+                    #' des <- Design$new(
+                    #'   covariance = cov1,
+                    #'   mean.function = mf1,
+                    #'   var_par = 1
+                    #' )
+                    #' des$n_cluster() ## returns two levels of 10 and 50
                     n_cluster = function(){
+                      gr_var <- apply(self$covariance$.__enclos_env__$private$D_data$func_def,1,
+                                      function(x)any(x==1))
+                      gr_count <- self$covariance$.__enclos_env__$private$D_data$N_dim
                       flist <- rev(self$covariance$.__enclos_env__$private$flistvars)
-                      gr_var <- unlist(lapply(flist,function(x)"gr"%in%x$funs))
-                      gr_count <- unlist(rev(self$covariance$.__enclos_env__$private$flistcount))
                       gr_cov_var <- lapply(flist,function(x)x$rhs)
                       if(any(gr_var)){
                         dfncl <- data.frame(Level = 1:sum(gr_var),"N.clusters"=sort(gr_count[gr_var]),"Variables"=unlist(lapply(gr_cov_var,paste0,collapse=" "))[gr_var][order(gr_count[gr_var])])
@@ -243,16 +281,80 @@ Design <- R6::R6Class("Design",
                     #' @param ... Additional arguments passed to `MCML`, see below.
                     #' @return A `glmmr.sim` object containing the estimates from all the simulations, including
                     #' standard errors, deletion diagnostic statistics, and details about the simulation.
-                    #' @seealso \link[glmmr]{print.glmmr.sim}
+                    #' @seealso \link[glmmr]{print.glmmr.sim}, `MCML`
                     #' @examples 
-                    #' ...
+                    #' \dontrun{
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' 
+                    #' mf1 <- MeanFunction$new(
+                    #'   formula = ~ factor(t) + int - 1,
+                    #'   data=df,
+                    #'   parameters = c(rep(0,5),0.6),
+                    #'   family = gaussian()
+                    #' )
+                    #' cov1 <- Covariance$new(
+                    #'   data = df,
+                    #'   formula = ~ (1|gr(cl)) + (1|gr(cl*t)),
+                    #'   parameters = c(0.25,0.1)
+                    #' )
+                    #' des <- Design$new(
+                    #'   covariance = cov1,
+                    #'   mean.function = mf1,
+                    #'   var_par = 1
+                    #' )
+                    #' # analysis using MCML mcem algorithm
+                    #' test1 <- des$analysis(type="sim",
+                    #'                      iter=100,
+                    #'                      par=6,
+                    #'                      parallel = FALSE,
+                    #'                      verbose = FALSE,
+                    #'                      method = "mcem",
+                    #'                      m = 100)
+                    #' #an analysis using the permutation test option and MCNR
+                    #' test2 <- des$analysis(type="sim",
+                    #'                      iter=100,
+                    #'                      se.method="perm",
+                    #'                      par=6,
+                    #'                      parallel = FALSE,
+                    #'                      verbose = FALSE,
+                    #'                      options = list(
+                    #'                        perm_type="unw", perm_iter=100,
+                    #'                        perm_parallel=FALSE,perm_ci_steps=1000)
+                    #'                      method = "mcnr",
+                    #'                      m = 100)
+                    #' #returning previously saved sim data
+                    #' test3 <- des$analysis(type="sim_data")
+                    #' 
+                    #' #to test model misspecification we can simulate from a different model
+                    #' cov2 <- Covariance$new(
+                    #'   data = df,
+                    #'   formula = ~ (1|gr(cl)*ar1(t)),
+                    #'   parameters = c(0.25,0.8)
+                    #' )
+                    #' des2 <- Design$new(
+                    #'   covariance = cov2,
+                    #'   mean.function = mf1,
+                    #'   var_par = 1
+                    #' )    
+                    #'  test4 <- des$analysis(type="sim",
+                    #'                      iter=100,
+                    #'                      sim_design = des2,
+                    #'                      par=6,
+                    #'                      parallel = FALSE,
+                    #'                      verbose = FALSE,
+                    #'                      method = "mcem",
+                    #'                      m = 100)                       
+                    #' }
                     analysis = function(type, 
                                         iter,
                                         par,
                                         alpha = 0.05,
                                         sim_design,
-                                        parallel,
+                                        parallel=TRUE,
                                         verbose = TRUE,
+                                        options=list(),
                                         ...){
                       
                       if(!missing(sim_design)){
@@ -271,6 +373,13 @@ Design <- R6::R6Class("Design",
                         covpars <- self$covariance$parameters
                       }
                       
+                      if(verbose){
+                        pbapply::pboptions(type="timer")
+                      } else {
+                        pbapply::pboptions(type="none")
+                      }
+                      
+                      
                       if(type=="sim_data"&is.null(private$saved_sim_data))stop("no simulation data saved in object")
                       if(type=="sim"){
                         if(parallel){
@@ -278,14 +387,13 @@ Design <- R6::R6Class("Design",
                           parallel::clusterEvalQ(cl,library(Matrix))
                           #change when package built!
                           parallel::clusterEvalQ(cl,devtools::load_all())
-                          # out <- parallel::parLapply(cl,
-                          #                            1:10,
-                          #                            function(i)self$gen_sim_data(m=m))
                           out <- pbapply::pblapply(1:iter,
                                                    function(i){
                                                      ysim <- f1()
                                                      private$gen_sim_data(par=par,
-                                                                          ysim = ysim,...)},
+                                                                          ysim = ysim,
+                                                                          verbose=verbose,
+                                                                          mcml_options=options,...)},
                                                    cl=cl)
                           parallel::stopCluster(cl)
                         } else {
@@ -293,12 +401,10 @@ Design <- R6::R6Class("Design",
                                                    function(i){
                                                      ysim <- f1()
                                                      private$gen_sim_data(par=par,
-                                                                          ysim = ysim,...)})
+                                                                          ysim = ysim,
+                                                                          verbose=verbose,
+                                                                          mcml_options=options,...)})
                         }
-                        
-                        
-                        
-                        
                         
                         res <- list(
                           coefficients = lapply(out,function(i)i[[1]]$coefficients),
@@ -409,7 +515,27 @@ Design <- R6::R6Class("Design",
                     #' @return A value between zero and one indicating the approximate power of the
                     #' design.
                     #' @examples 
-                    #' ...
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' 
+                    #' mf1 <- MeanFunction$new(
+                    #'   formula = ~ factor(t) + int - 1,
+                    #'   data=df,
+                    #'   parameters = c(rep(0,5),0.6),
+                    #'   family = gaussian()
+                    #' )
+                    #' cov1 <- Covariance$new(
+                    #'   data = df,
+                    #'   formula = ~ (1|gr(cl)) + (1|gr(cl*t)),
+                    #'   parameters = c(0.25,0.1)
+                    #' )
+                    #' des <- Design$new(
+                    #'   covariance = cov1,
+                    #'   mean.function = mf1,
+                    #'   var_par = 1
+                    #' )
+                    #' des$power(6,0.5) #power of 0.79
                     power = function(par,
                                      value,
                                      alpha=0.05){
@@ -425,26 +551,31 @@ Design <- R6::R6Class("Design",
                       return(pwr)
                     },
                     #' @description
-                    #' Subsets the design by removing the specified observations
+                    #' Subsets the design keeping specified observations only
                     #' 
-                    #' Given a vector of row indices, the corresponding rows will be removed from the 
-                    #' mean function and covariance
-                    #' @param index Integer or vector integers listing the rows to remove from the design
+                    #' Given a vector of row indices, the corresponding rows will be kept and the 
+                    #' other rows will be removed from the mean function and covariance
+                    #' @param index Integer or vector integers listing the rows to keep
                     #' @return The function updates the object and nothing is returned
                     #' @examples
-                    #' ...
+                    #' #generate a stepped wedge design and remove the first sequence
+                    #' des <- stepped_wedge(8,10,icc=0.05)
+                    #' ids_to_keep <- which(des$mean_function$data$J!=1)
+                    #' des$subset_rows(ids_to_keep)
                     subset_rows = function(index){
                       self$mean_function$subset_rows(index)
                       self$covariance$subset(index)
                     },
                     #' @description 
-                    #' Removes a column or columns from the X matrix 
+                    #' Subsets the columns of the design 
                     #' 
-                    #' Removes the specified columns from the linked mean function object's X matrix
-                    #' @param index Integer or vector of integers specifying the indexes of the columns to remove from X
+                    #' Removes the specified columns from the linked mean function object's X matrix.
+                    #' @param index Integer or vector of integers specifying the indexes of the columns to keep
                     #' @return The function updates the object and nothing is returned
                     #' @examples
-                    #' ...
+                    #' #generate a stepped wedge design and remove first and last time periods
+                    #' des <- stepped_wedge(8,10,icc=0.05)
+                    #' des$subset_cols(c(2:8,10))
                     subset_cols = function(index){
                       self$mean_function$subset_cols(index)
                     },
@@ -467,7 +598,23 @@ Design <- R6::R6Class("Design",
                     #'at each location, used to set the colour of the points in the plot
                     #'@return A \link[ggplot2]{ggplot2} plot
                     #'@examples
-                    #' ...
+                    #'\dontrun{
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' des$plot(x="cl",y="t",treat="int")
+                    #'}
                     plot = function(x,
                                     y,
                                     z=NULL,
@@ -497,7 +644,21 @@ Design <- R6::R6Class("Design",
                     #' to return a data frame with the simulated outcome data alongside the model data 
                     #' @return Either a vector or a data frame
                     #' @examples
-                    #' ...
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' ysim <- des$sim_data()
                     sim_data = function(type = "y"){
                       re <- MASS::mvrnorm(n=1,mu=rep(0,nrow(self$covariance$D)),Sigma = self$covariance$D)
                       mu <- c(drop(as.matrix(self$mean_function$X)%*%self$mean_function$parameters)) + as.matrix(self$covariance$Z%*%re)
@@ -552,11 +713,32 @@ Design <- R6::R6Class("Design",
                       
                     },
                     #'@description
-                    #'Checks for any changes in linked objects and updates
+                    #'Checks for any changes in linked objects and updates.
+                    #'
+                    #' Checks for any changes in any object and updates all linked objects if
+                    #' any are detected. Generally called automatically.
                     #'@param verbose Logical indicating whether to report if any updates are made, defaults to TRUE
                     #'@return Linked objects are updated by nothing is returned
                     #'@examples
-                    #'...
+                    #'df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' des$check() #does nothing
+                    #' des$covariance$parameters <- c(0.1,0.9)
+                    #' des$check() #updates 
+                    #' des$mean_function$parameters <- c(rnorm(5),0.1)
+                    #' des$check() #updates 
                     check = function(verbose=TRUE){
                       self$covariance$check(verbose=verbose)
                       self$mean_function$check(verbose = verbose)
@@ -564,15 +746,6 @@ Design <- R6::R6Class("Design",
                         private$generate()
                       }
                     },
-                    # apv = function(prior,
-                    #                var,
-                    #                prior.fun,
-                    #                iter,
-                    #                verbose=TRUE){
-                    #   if(verbose)message("Monte Carlo integration")
-                    #   samps <- pbapply::pbreplicate(iter,self$posterior(prior,var,do.call(prior.fun,list())))
-                    #   summary(samps)
-                    # },
                     #'@description
                     #'Markov Chain Monte Carlo Maximum Likelihood  model fitting
                     #'
@@ -634,11 +807,51 @@ Design <- R6::R6Class("Design",
                     #'@param options An optional list providing options to the algorithm, see Details.
                     #'@return A `mcml` object
                     #'@examples
-                    #'...
+                    #'\dontrun{
+                    #'df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' ysim <- des$sim_data()
+                    #' # fits the models using MCEM but does not estimate standard errors
+                    #' fit1 <- des$MCML(y = ysim,
+                    #'   se.method = "none")
+                    #' #fits the models using MCNR but does not estimate standard errors
+                    #' fit2 <- des$MCML(y = ysim,
+                    #'   se.method = "none",
+                    #'   method="mcnr")
+                    #' #fits the models and uses permutation tests for parameter of interest
+                    #' fit3 <- des$MCML(y = ysim,
+                    #'   se.method = "perm",
+                    #'   permutation.par = 6,
+                    #'   options = list(
+                    #'     perm_type="unw",
+                    #'     perm_iter=1000,
+                    #'     perm_parallel=FALSE,
+                    #'     perm_ci_steps=1000
+                    #'   ))
+                    #'  #adds a simulated likelihood step after the MCEM algorithm
+                    #' fit4 <- des$MCML(y = des$sim_data(),
+                    #'   se.method = "none",
+                    #'   options = list(
+                    #'     sim_lik_step=TRUE
+                    #'   ))  
+                    #'}
                     #'@md
                     MCML = function(y,
                                     start,
                                     se.method = "lik",
+                                    method = "mcem",
                                     permutation.par,
                                     verbose=TRUE,
                                     tol = 1e-2,
@@ -647,7 +860,7 @@ Design <- R6::R6Class("Design",
                                     options = list()){
                      
                       # checks
-                      if(!se.method%in%c("perm","lik","none","robust"))stop("se.method should be 'perm', 'lik', 'robust', or 'none'")
+                      if(!se.method%in%c("perm","lik","none","robust","approx"))stop("se.method should be 'perm', 'lik', 'robust', 'approx', or 'none'")
                       if(se.method=="perm" & missing(permutation.par))stop("if using permutational based
 inference, set permuation.par")
                       if(se.method=="perm" & is.null(self$mean_function$randomise))stop("random allocations
@@ -658,7 +871,7 @@ for more details")
                       b_se_only <- ifelse("b_se_only"%in%names(options),options$b_se_only,FALSE)
                       use_cmdstanr <- ifelse("use_cmdstanr"%in%names(options),options$use_cmdstanr,FALSE)
                       skip_cov_optim <- ifelse("skip_cov_optim"%in%names(options),options$skip_cov_optim,FALSE)
-                      method <- ifelse("method"%in%names(options),options$method,"mcnr")
+                      #method <- ifelse("method"%in%names(options),options$method,"mcnr")
                       sim_lik_step <- ifelse("sim_lik_step"%in%names(options),options$sim_lik_step,FALSE)
                       no_warnings <- ifelse("no_warnings"%in%names(options),options$no_warnings,FALSE)
                       perm_type <- ifelse("perm_type"%in%names(options),options$perm_type,"cov")
@@ -843,8 +1056,9 @@ for more details")
                                                                     family=self$mean_function$family[[1]],
                                                                     link=self$mean_function$family[[2]],
                                                                     start = theta[all_pars],
-                                                                    lower = c(rep(-Inf,P),rep(1e-5,length(all_pars)-P)),
-                                                                    importance = TRUE)))
+                                                                    lower = c(rep(-Inf,P),rep(1e-6,length(all_pars)-P)),
+                                                                    upper = c(rep(Inf,P),upper),
+                                                                    trace=trace)))
                         theta[all_pars] <- newtheta
                       }
                       
@@ -863,9 +1077,10 @@ for more details")
                                             rowSums(self$covariance$.__enclos_env__$private$D_data$N_par))#paste0("cov",1:R)
                       permutation <- FALSE
                       robust <- FALSE
-                      if(se.method=="lik"|se.method=="robust"){
-                        if(verbose&!robust)cat("using Hessian\n")
-                        if(verbose&robust)cat("using robust sandwich estimator\n")
+                      if(se.method=="lik"|se.method=="robust"|se.method=="approx"){
+                        if(se.method=="lik"|se.method=="robust"){
+                          if(verbose&!robust)cat("using Hessian\n")
+                          if(verbose&robust)cat("using robust sandwich estimator\n")
                           hess <- tryCatch(do.call(f_lik_hess,append(self$covariance$.__enclos_env__$private$D_data,
                                                                      list(as.matrix(self$covariance$Z),
                                                                           as.matrix(self$mean_function$X),
@@ -882,7 +1097,6 @@ for more details")
                           
                           hessused <- TRUE
                           semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
-                          hess <<- hess
                           if(se.method == "robust"&!is.null(semat)){
                             hlist <- list()
                             #identify the clustering and sum over independent clusters
@@ -891,7 +1105,7 @@ for more details")
                             gr_count <- D_data$N_dim
                             gr_id <- which(gr_count == min(gr_count[gr_var]))
                             gr_cov_var <- D_data$cov_data[1:D_data$N_dim[gr_id],
-                                                                   1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)],gr_id,drop=FALSE]
+                                                          1:D_data$N_var_func[gr_id,which(D_data$func_def[gr_id,]==1)],gr_id,drop=FALSE]
                             gr_cov_var <- as.data.frame(gr_cov_var)
                             gr_var_id <- which(rev(self$covariance$.__enclos_env__$private$flistvars)[[gr_id]]$funs=="gr")
                             gr_cov_names <- rev(self$covariance$.__enclos_env__$private$flistvars)[[gr_id]]$rhs[
@@ -924,30 +1138,33 @@ for more details")
                           
                           if(!is.null(semat)){
                             SE <- tryCatch(sqrt(Matrix::diag(semat)),
-                                           error=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)))
+                                           error=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)),
+                                           warning=function(e)rep(NA,length(mf_pars)+length(cov_pars_names)))
                           } else {
                             SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
                           }
-                          
-                          res <- data.frame(par = c(mf_pars_names,cov_pars_names,paste0("d",1:Q)),
-                                            est = c(mf_pars,theta[parInds$cov],rowMeans(dsamps)),
-                                            SE=c(SE,apply(dsamps,1,sd)))
+                        }
                         
-                        
-                        if(any(is.na(res$SE[1:P]))){
-                          if(!no_warnings)warning("Hessian was not positive definite, using approximation")
+                        if(se.method=="approx" || any(is.na(SE[1:P]))){
+                          SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
+                          if(!no_warnings&se.method!="approx")warning("Hessian was not positive definite, using approximation")
+                          if(verbose&se.method=="approx")cat("using approximation\n")
                           hessused <- FALSE
                           self$check(verbose=FALSE)
                           invM <- Matrix::solve(private$information_matrix())
                           if(!robust){
-                            res$SE[1:P] <- sqrt(Matrix::diag(invM))
+                            SE[1:P] <- sqrt(Matrix::diag(invM))
                           } else {
                             xb <-self$mean_function$X%*%theta[parInds$b] 
                             XSyXb <- Matrix::t(self$mean_function$X)%*%Matrix::solve(self$Sigma)%*%(y - xb)
                             robSE <- invM %*% XSyXb %*% invM
-                            res$SE[1:P] <- sqrt(Matrix::diag(robSE))
+                            SE[1:P] <- sqrt(Matrix::diag(robSE))
                           }
                         }
+                        
+                        res <- data.frame(par = c(mf_pars_names,cov_pars_names,paste0("d",1:Q)),
+                                          est = c(mf_pars,theta[parInds$cov],rowMeans(dsamps)),
+                                          SE=c(SE,apply(dsamps,1,sd)))
                           
                         res$lower <- res$est - qnorm(1-0.05/2)*res$SE
                         res$upper <- res$est + qnorm(1-0.05/2)*res$SE
@@ -957,11 +1174,14 @@ for more details")
                         permutation = TRUE
                         #get null model
                         # use parameters from fit above rather than null marginal model
-                        perm_out <- self$perumtation_test(permutation.par,
+                        perm_out <- self$permutation_test(y,
+                                                          permutation.par,
                                                           start = theta[parInds$b][permutation.par],
                                                           nsteps = perm_ci_steps,
+                                                          iter = perm_iter,
                                                           type = perm_type,
-                                                          verbose= verbose)
+                                                          verbose= verbose,
+                                                          parallel = perm_parallel)
                         tval <- qnorm(1-perm_out$p/2)
                         par <- theta[parInds$b][permutation.par]
                         se <- abs(par/tval)
@@ -1048,14 +1268,30 @@ for more details")
                     #'Calculates DFBETA deletion diagnostic values
                     #'
                     #'@details
-                    #'Add more description...
+                    #' Calculates the DFBETA deletion diagnostic statistic for each observation for the
+                    #' specified parameter.
                     #'@param y Numeric vector of outcomes data
                     #'@param par Integer indicating which parameter, as a column of X, to report the 
                     #'deletion diagnostics for.
                     #'@return A vector of length self$n() with the value of DFBETA for each observation for
                     #'the specified parameter
                     #'@examples
-                    #'...
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' ysim <- des$sim_data()
+                    #' des$dfbeta(ysim,6)
                     dfbeta = function(y,
                                       par){
                         dfbeta_stat(as.matrix(self$Sigma),
@@ -1064,17 +1300,6 @@ for more details")
                                     par)
                       
                     },
-                    # approx_posterior = function(prior,
-                    #                      var,
-                    #                      parameters){
-                    #   #move to private and set this as Monte Carlo integration
-                    #   #can just request a function that outputs a new set of covariance parameters
-                    #   R <- solve(Matrix::Matrix(diag(prior)))
-                    #   S <- private$genS(self$covariance$sampleD(parameters),self$covariance$Z,private$W,update=FALSE)
-                    #   M <- R + Matrix::crossprod(self$mean_function$X,solve(S))%*%self$mean_function$X
-                    #   M <- solve(M)
-                    #   M[var,var]
-                    # },
                     #'@description
                     #'Conducts a permuation test
                     #'
@@ -1108,7 +1333,41 @@ for more details")
                     #' Gail
                     #' Garthwaite
                     #'@examples
-                    #'...
+                    #'\dontrun{
+                    #'  df <- nelder(~(cl(6)*t(5)) > ind(5))
+                    #'  df$int <- 0
+                    #'  df[df$cl > 3, 'int'] <- 1
+                    #'  #generate function that produces random allocations
+                    #'  treatf <- function(){
+                    #'              tr <- sample(rep(c(0,1),each=3),6,replace = FALSE)
+                    #'              rep(tr,each=25)
+                    #'              }
+                    #'  mf1 <- MeanFunction$new(
+                    #'    formula = ~ factor(t) + int - 1,
+                    #'    data=df,
+                    #'    parameters = c(rep(0,5),0.6),
+                    #'    family =gaussian(),
+                    #'    treat_var = "int",
+                    #'    random_function = treatf)
+                    #'  cov1 <- Covariance$new(
+                    #'    data = df,
+                    #'    formula = ~ (1|gr(cl)),
+                    #'    parameters = c(0.25))
+                    #'  des <- Design$new(
+                    #'    covariance = cov1,
+                    #'    mean.function = mf1,
+                    #'    var_par = 1)
+                    #'  #run MCML to get parameter estimate:
+                    #'  fit1 <- des$MCML(y = ysim,
+                    #'   se.method = "none")
+                    #'  perm1 <- des$permutation_test(
+                    #'    y=ysim,
+                    #'    permutation.par=6,
+                    #'    start = fit1$coefficients$est[6],
+                    #'    type="unw",
+                    #'    iter = 1000,
+                    #'    nsteps = 1000) 
+                    #' }
                     permutation_test = function(y,
                                                 permutation.par,
                                            start,
@@ -1140,6 +1399,12 @@ for more details")
                       }
                       
                       qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
+                      
+                      if(verbose){
+                        pbapply::pboptions(type="timer")
+                      } else {
+                        pbapply::pboptions(type="none")
+                      }
                       
                       if(verbose)cat("Starting permutations\n")
                       if(parallel){
@@ -1175,14 +1440,16 @@ for more details")
                                                       start = par - 2*se,
                                                       b = start,
                                                       w.opt = w.opt,
-                                                      nsteps = nsteps)
+                                                      nsteps = nsteps,
+                                                      verbose=verbose)
                       if(verbose)cat("\nUpper\n")
                       upper <- private$confint_search(y,
                                                       permutation.par,
                                                       start = par + 2*se,
                                                       b = start,
                                                       w.opt = w.opt,
-                                                      nsteps = nsteps)
+                                                      nsteps = nsteps,
+                                                      verbose=verbose)
                       return(list(p=pval,lower=lower,upper=upper))
                     },
                     #' @description 
@@ -1209,7 +1476,31 @@ for more details")
                     #' @return Either an S4 `stanfit` object returned by \link[rstan]{sampling}, or a `cmdstanr` environment, depending on the sampler used.
                     #' @seealso \link[rstan]{sampling}, \link[rstan]{stan}
                     #' @examples 
-                    #' ...
+                    #' \dontrun{
+                    #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' ysim <- des$sim_data()
+                    #' # fits the model with default priors 
+                    #' fit1 <- des$MCMC(y=ysim)
+                    #' #specify priors
+                    #' fit2 <- des$MCMC(y=ysim,
+                    #'   priors = list(
+                    #'     prior_b_mean = rep(0,6),
+                    #'     prior_b_sd = c(rep(3,5),1),
+                    #'     prior_g_sd = rep(1,2)))
+                    #' }
                     MCMC = function(y,
                                     priors,
                                     warmup_iter = 1000,
@@ -1223,7 +1514,7 @@ for more details")
 fixed for the modified Bessel function of the second kind.")
                       
                       if(missing(priors) || !is("priors",list)){
-                        warning("priors not specified properly, using defaults")
+                        message("priors not specified properly, using defaults")
                         priors <- list(
                           prior_b_mean = rep(0,ncol(self$mean_function$X)),
                           prior_b_sd = rep(1,ncol(self$mean_function$X)),
@@ -1263,14 +1554,19 @@ fixed for the modified Bessel function of the second kind.")
                       ## get data
                       stan_data <- private$gen_stan_data(type = "y",
                                                          y=y)
-                      stan_data$prior_b_mean <- priors$prior_b_mean
-                      stan_data$prior_b_sd <- priors$prior_b_sd
-                      stan_data$prior_g_sd <- priors$prior_g_sd
+                      #padding all these as Stan won't read a vector of length 1 from R
+                      stan_data$prior_b_mean <- c(priors$prior_b_mean,0)
+                      stan_data$prior_b_sd <- c(priors$prior_b_sd,0)
+                      stan_data$prior_g_sd <- c(priors$prior_g_sd,0)
                       if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
                         stan_data$sigma_sd <- priors$sigma_sd
                       }
-                      
-                      if(parallel)options(mc.cores=parallel::detectCores())
+                      #print(stan_data)
+                      if(parallel){
+                        options(mc.cores=parallel::detectCores())
+                      } else {
+                        options(mc.cores=1)
+                      }
                       
                       if(use_cmdstanr){
                         pchains <- ifelse(parallel,chains,1)
@@ -1321,9 +1617,50 @@ fixed for the modified Bessel function of the second kind.")
                     #' @param use_cmdstanr Logical indicating whether to use `cmdstanr` instead of `rstan`, the default is FALSE (i.e. use `rstan`)
                     #' @return A `glmmr.sim` object containing the samples of posterior variance and relevant probabilities to summarise the analysis
                     #' @references 
-                    #' ...
+                    #' SBC paper (Talts)
+                    #' APV paper
                     #' @examples 
-                    #' ...
+                    #' \dontrun{
+                    #' #' df <- nelder(~(cl(10)*t(5)) > ind(10))
+                    #' df$int <- 0
+                    #' df[df$cl > 5, 'int'] <- 1
+                    #' des <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)*ar1(t)),
+                    #'     parameters = c(0.25,0.8)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' test <- des$analysis_bayesian(iter=10,
+                    #'   par=6,
+                    #'   warmup_iter = 200,
+                    #'   sampling_iter = 500,
+                    #'   parallel = FALSE,
+                    #'   verbose=FALSE)
+                    #' #to examine misspecification we can sample from a different model 
+                    #' des2 <- Design$new(
+                    #'   covariance = list(
+                    #'     data = df,
+                    #'     formula = ~ (1|gr(cl)),
+                    #'     parameters = c(0.25)),
+                    #'   mean.function = list(
+                    #'     formula = ~ factor(t) + int - 1,
+                    #'     data=df,
+                    #'     parameters = c(rep(0,5),0.6),
+                    #'     family = binomial())
+                    #' )
+                    #' test2 <- des$analysis_bayesian(iter=10,
+                    #'   par=6,
+                    #'   sim_design=des2,
+                    #'   warmup_iter = 200,
+                    #'   sampling_iter = 500,
+                    #'   parallel = FALSE,
+                    #'   verbose=FALSE)
+                    #' }
                     analysis_bayesian = function(iter,
                                                  par,
                                                  priors,
@@ -1333,10 +1670,11 @@ fixed for the modified Bessel function of the second kind.")
                                                  warmup_iter = 200,
                                                  sampling_iter = 200,
                                                  chains=1,
+                                                 parallel=TRUE,
                                                  verbose=TRUE,
                                                  use_cmdstanr=FALSE,...){
-                      if(missing(priors) || !is("priors",list)){
-                        warning("priors not specified properly, using defaults")
+                      if(missing(priors) || !is(priors,"list")){
+                        if(verbose)message("priors not specified properly, using defaults")
                         priors <- list(
                           prior_b_mean = rep(0,ncol(self$mean_function$X)),
                           prior_b_sd = rep(1,ncol(self$mean_function$X)),
@@ -1377,9 +1715,10 @@ fixed for the modified Bessel function of the second kind.")
                       }
                       
                       stan_data <- private$gen_stan_data(type = "s")
-                      stan_data$prior_b_mean <- priors$prior_b_mean
-                      stan_data$prior_b_sd <- priors$prior_b_sd
-                      stan_data$prior_g_sd <- priors$prior_g_sd
+                      #need to pad all these to prevent errors
+                      stan_data$prior_b_mean <- c(priors$prior_b_mean,0)
+                      stan_data$prior_b_sd <- c(priors$prior_b_sd,0)
+                      stan_data$prior_g_sd <- c(priors$prior_g_sd,0)
                       if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
                         stan_data$sigma_sd <- priors$sigma_sd
                       }
@@ -1387,7 +1726,7 @@ fixed for the modified Bessel function of the second kind.")
                       if(!missing(sim_design)){
                         if(!is(sim_design,"Design"))stop("sim_design must be another design")
                         
-                        if(missing(priors_sim)|!is("priors",list)){
+                        if(missing(priors_sim) || !is(priors_sim,"list")){
                           warning("priors_sim not specified properly, using defaults")
                           priors_sim <- list(
                             prior_b_mean = rep(0,ncol(sim_design$mean_function$X)),
@@ -1396,19 +1735,19 @@ fixed for the modified Bessel function of the second kind.")
                             sigma_sd = 1
                           )
                         } else {
-                          if(!"prior_b_mean" %in%names(priors)){
+                          if(!"prior_b_mean" %in%names(priors_sim)){
                             message("prior_b_mean not specified in priors_sim, setting to 0")
                             priors_sim$prior_b_mean <- rep(0,ncol(sim_design$mean_function$X))
                           }
-                          if(!"prior_b_sd" %in%names(priors)){
+                          if(!"prior_b_sd" %in%names(priors_sim)){
                             message("prior_b_sd not specified in priors_sim, setting to 1")
                             priors_sim$prior_b_sd <- rep(1,ncol(sim_design$mean_function$X))
                           }
-                          if(!"prior_g_sd" %in%names(priors)){
+                          if(!"prior_g_sd" %in%names(priors_sim)){
                             message("prior_g_sd not specified in priors_sim, setting to 1")
                             priors_sim$prior_g_sd <- rep(1,length(sim_design$covariance$parameters))
                           }
-                          if(self$mean_function$family[[1]] %in% c("gaussian","gamma")){
+                          if(sim_design$mean_function$family[[1]] %in% c("gaussian","gamma")){
                             if(!"sigma_sd" %in%names(priors)){
                               message("sigma_sd not specified in priors_sim, setting to 1")
                               priors_sim$sigma_sd <- 1
@@ -1417,11 +1756,11 @@ fixed for the modified Bessel function of the second kind.")
                         }
                         
                         stan_data_m <- sim_design$.__enclos_env__$private$gen_stan_data(type = "m")
-                        stan_data_m$prior_b_mean_m <- priors_sim$prior_b_mean
-                        stan_data_m$prior_b_sd_m <- priors_sim$prior_b_sd
-                        stan_data_m$prior_g_sd_m <- priors_sim$prior_g_sd
+                        stan_data_m$prior_b_mean_m <- c(priors_sim$prior_b_mean,0)
+                        stan_data_m$prior_b_sd_m <- c(priors_sim$prior_b_sd,0)
+                        stan_data_m$prior_g_sd_m <- c(priors_sim$prior_g_sd,0)
                         if(sim_design$mean_function$family[[1]] %in% c("gaussian","gamma")){
-                          stan_data_m$sigma_sd <- priors_sim$sigma_sd
+                          stan_data_m$sigma_sd_m <- priors_sim$sigma_sd
                         }
                         
                         stan_data <- append(stan_data,stan_data_m)
@@ -1430,6 +1769,12 @@ fixed for the modified Bessel function of the second kind.")
                       stan_data$par_ind <- par
                       stan_data$threshold <- threshold
                       
+                      if(parallel){
+                        options(mc.cores=parallel::detectCores())
+                      } else {
+                        options(mc.cores=1)
+                      }
+                      
                       posterior_var <- c()
                       sbc_ranks <- c()
                       posterior_threshold <- c()
@@ -1437,17 +1782,29 @@ fixed for the modified Bessel function of the second kind.")
                       if(verbose)cat(progress_bar(0,iter))
                       for(i in 1:iter){
                         if(use_cmdstanr){
+                          pchains <- ifelse(parallel,chains,1)
                           fit <- mod$sample(data = stan_data,
                                             chains = chains,
+                                            parallel_chains=pchains,
                                             iter_warmup = warmup_iter,
                                             iter_sampling = sampling_iter,
                                             ...)
                         } else {
-                          fit <- rstan::sampling(stanmodels[[paste0(self$mean_function$family[[1]],f_str)]],
-                                                 data = stan_data,
-                                                 chains = chains,
-                                                 warmup = warmup_iter,
-                                                 iter = warmup_iter+sampling_iter,...)
+                          if(verbose){
+                            fit <- rstan::sampling(stanmodels[[paste0(self$mean_function$family[[1]],f_str)]],
+                                                   data = stan_data,
+                                                   chains = chains,
+                                                   warmup = warmup_iter,
+                                                   iter = warmup_iter+sampling_iter,...)
+                          } else {
+                            capture.output(suppressWarnings(
+                              fit <- rstan::sampling(stanmodels[[paste0(self$mean_function$family[[1]],f_str)]],
+                                                     data = stan_data,
+                                                     chains = chains,
+                                                     warmup = warmup_iter,
+                                                     iter = warmup_iter+sampling_iter,...)
+                            ),file=tempfile())
+                          }
                           
                           b1 <- rstan::extract(fit,"beta")
                           b1 <- b1$beta[,par]
@@ -1544,14 +1901,16 @@ fixed for the modified Bessel function of the second kind.")
                     saved_sim_data = NULL,
                     gen_sim_data = function(par,
                                             ysim,
+                                            verbose,
+                                            mcml_options,
                                             ...){
                       
                       #ysim <- self$sim_data()
                       # choose mcem for glmm and mcnr for lmm
+                      
                       res <- do.call(self$MCML,list(y=ysim,
-                                                    verbose=TRUE,
-                                                    options= list(method="mcem",
-                                                                  no_warnings=TRUE),...))
+                                                    verbose=verbose,
+                                                    options= mcml_options,...))
                       dfb <- self$dfbeta(y=ysim,
                                          par = par)
                         

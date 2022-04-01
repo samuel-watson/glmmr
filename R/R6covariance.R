@@ -47,25 +47,24 @@ Covariance <- R6::R6Class("Covariance",
                         #' Covariance functions on the right side of the vertical bar are multiplied 
                         #' together, i.e. \code{(1|f(j)*g(t))}. 
                         #' 
-                        #' There are several common functions included for a named variable in data \code{x},
-                        #' see respective help files for the functions for parameterisation:
-                        #' * \code{gr(x)}: Indicator function   
-                        #' * \code{fexp(x)}: Exponential function
-                        #' * \code{ar1(x)}: AR1 function
+                        #' There are several common functions included for a named variable in data \code{x}:
+                        #' * \code{gr(x)}: Indicator function (1 parameter)   
+                        #' * \code{fexp(x)}: Exponential function (2 parameters)
+                        #' * \code{ar1(x)}: AR1 function (1 parameter)
+                        #' * \code{sqexp(x)}: Squared exponential (1 parameter)
+                        #' * \code{matern(x)}: Matern function (2 parameters)
+                        #' * \code{bessel(x)}: Modified Bessel function of the 2nd kind (1 parameter)
                         #' 
-                        #' One can add other functions by specifying a function that takes a list as an 
-                        #' argument with first element called data that contains the data, and a second 
-                        #' element called pars that contains the parameters as a vector.
-                        #' 
-                        #' Parameters are provided to the covariance function as a list of lists. 
-                        #' The elements of the list should be lists corresponding to the additive elements of the 
-                        #' covariance function. Each of those lists should have elements that are vectors or scalars 
-                        #' providing the values of the parameters for each function in the order they are written. 
+                        #' Parameters are provided to the covariance function as a vector. 
+                        #' The parameters in the vector for each function should be provided 
+                        #' in the order the covariance functions are written are written. 
                         #' For example,
-                        #' * Formula: `~(1|gr(j))+(1|gr(j)*gr(t))`; parameters: `c(0.25,0.1)`
+                        #' * Formula: `~(1|gr(j))+(1|gr(j*t))`; parameters: `c(0.25,0.1)`
                         #' * Formula: `~(1|gr(j)*fexp(t))`; parameters: `c(0.25,1,0.5)`
+                        #' Note that it is also possible to specify a group membership with two
+                        #' variable alternatively as `(1|gr(j)*gr(t))`, for example, but this 
+                        #' will require two parameters to be specified, so it is recommended against.
                         #' @return A Covariance object
-                        #' @seealso \code{gr}, \code{fexp}, \code{ar1}
                         #' @examples 
                         #' df <- nelder(~(cl(5)*t(5)) > ind(5))
                         #' cov <- Covariance$new(formula = ~(1|gr(j)*ar1(t)),
@@ -251,7 +250,16 @@ Covariance <- R6::R6Class("Covariance",
                           D_data$func_def <- matrix(0,nrow=D_data$B,ncol=max(D_data$N_func))
                           for(b in 1:D_data$B)D_data$func_def[b,1:D_data$N_func[b]] <- match(unlist(rev(fl[[b]]$funs)),fnames)
                           fvar <- lapply(rev(flistvars),function(x)x$groups)
-                          nvar <- lapply(lapply(fvar,table),as.vector)
+                          nvar <- list()
+                          for(b in 1:D_data$B){
+                            varcnt <- 1
+                            varidx <- c()
+                            while(varcnt<=length(fvar[[b]])){
+                              varidx <- c(varidx,fvar[[b]][varcnt])
+                              varcnt = varcnt + fvar[[b]][varcnt]
+                            }
+                            nvar[[b]] <- varidx
+                          }
                           D_data$N_var_func <- matrix(0,ncol=max(D_data$N_func),nrow=D_data$B)
                           for(b in 1:D_data$B)D_data$N_var_func[b,1:D_data$N_func[b]] <- nvar[[b]]
                           D_data$col_id <- array(0,dim=c(max(D_data$N_func),max(D_data$N_var_func),D_data$B))

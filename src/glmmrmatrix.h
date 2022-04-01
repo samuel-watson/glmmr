@@ -10,7 +10,7 @@ using namespace arma;
 
 // [[Rcpp::export]]
 arma::mat blockMat(arma::field<arma::mat> matfield){
-  arma::uword nmat = matfield.n_elem;
+  arma::uword nmat = matfield.n_rows;
   if(nmat==1){
     return matfield(0);
   } else {
@@ -19,7 +19,7 @@ arma::mat blockMat(arma::field<arma::mat> matfield){
     if(nmat==2){
       mat2 = matfield(1);
     } else {
-      mat2 = blockMat(matfield.rows(1,nmat));
+      mat2 = blockMat(matfield.rows(1,nmat-1));
     }
     arma::uword n1 = mat1.n_rows;
     arma::uword n2 = mat2.n_rows;

@@ -21,7 +21,7 @@ matrix[N,P] X;
 matrix[N,Q] Z;
 
 //prior parameters
-vector[P] prior_b_mean;
-vector[P] prior_b_sd;
-vector[sum_N_par] prior_g_sd;
+vector[P+1] prior_b_mean;
+vector[P+1] prior_b_sd;
+vector[sum_N_par+1] prior_g_sd; //padding to read data from R of length 1
 
