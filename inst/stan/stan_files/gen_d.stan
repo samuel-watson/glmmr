@@ -19,7 +19,10 @@ matrix gen_d(vector gamma,
 //loop over blocks
 for(b in 1:B){
   //loop over the elements of the submatrix
-  for(i in idx:(idx+N_dim[b]-2)){
+  int gr1 = 0;
+  for(p in 1:N_func[b]) gr1 += func_def[b,p] == 1;
+  if(gr1 == 0){
+    for(i in idx:(idx+N_dim[b]-2)){
     for(j in (i+1):(idx+N_dim[b]-1)){
       real val = 1;
       //loop over all the functions
@@ -28,8 +31,8 @@ for(b in 1:B){
         // generate the distance
         real dist = 0;
         for(p in 1:N_var_func[b,k]){
-          dist += pow(cov_data[i+1-idx,col_id[b,k,p],b] - 
-            cov_data[j+1-idx,col_id[b,k,p],b],2);
+          dist += pow(cov_data[i+1-idx,col_id[k,p,b],b] - 
+            cov_data[j+1-idx,col_id[k,p,b],b],2);
         }
         dist = sqrt(dist);
          // now to generate the right function
@@ -67,6 +70,8 @@ for(b in 1:B){
      D[j,i] = val;
     }
   }
+  }
+  
   
   for(i in idx:(idx+N_dim[b]-1)){
       real val = 1;

@@ -106,73 +106,73 @@ arma::vec d_lik_optim(const arma::uword &B,
   return opt.par();
 }
 
-// [[Rcpp::export]]
-arma::mat d_lik_hess(const arma::uword &B,
-                      const arma::uvec &N_dim,
-                      const arma::uvec &N_func,
-                      const arma::umat &func_def,
-                      const arma::umat &N_var_func,
-                      const arma::ucube &col_id,
-                      const arma::umat &N_par,
-                      const arma::uword &sum_N_par,
-                      const arma::cube &cov_data, 
-                      const arma::mat &u,
-                      arma::vec start,
-                      const arma::vec &lower,
-                      const arma::vec &upper,
-                      double tol = 1e-4){
-  D_likelihood dl(B,N_dim,
-                  N_func,
-                  func_def,N_var_func,
-                  col_id,N_par,sum_N_par,
-                  cov_data, u);
-  
-  dl.os.usebounds_ = 1;
-  if(!lower.is_empty()){
-    dl.os.lower_ = lower;
-  }
-  if(!upper.is_empty()){
-    dl.os.upper_ = upper;
-  }
-  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-  arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
-  dl.Hessian(start,hessian);
-  return hessian;
-}
-
-// [[Rcpp::export]]
-arma::vec d_lik_grad(const arma::uword &B,
-                     const arma::uvec &N_dim,
-                     const arma::uvec &N_func,
-                     const arma::umat &func_def,
-                     const arma::umat &N_var_func,
-                     const arma::ucube &col_id,
-                     const arma::umat &N_par,
-                     const arma::uword &sum_N_par,
-                     const arma::cube &cov_data, 
-                     const arma::mat &u,
-                     arma::vec start,
-                     const arma::vec &lower,
-                     const arma::vec &upper,
-                     double tol = 1e-4){
-  D_likelihood dl(B,N_dim,
-                  N_func,
-                  func_def,N_var_func,
-                  col_id,N_par,sum_N_par,
-                  cov_data, u);
-  
-  dl.os.usebounds_ = 1;
-  if(!lower.is_empty()){
-    dl.os.lower_ = lower;
-  }
-  if(!upper.is_empty()){
-    dl.os.upper_ = upper;
-  }
-  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-  arma::vec gradient(start.n_elem,fill::zeros);
-  dl.Gradient(start,gradient);
-  return gradient;
-}
+// // [[Rcpp::export]]
+// arma::mat d_lik_hess(const arma::uword &B,
+//                       const arma::uvec &N_dim,
+//                       const arma::uvec &N_func,
+//                       const arma::umat &func_def,
+//                       const arma::umat &N_var_func,
+//                       const arma::ucube &col_id,
+//                       const arma::umat &N_par,
+//                       const arma::uword &sum_N_par,
+//                       const arma::cube &cov_data, 
+//                       const arma::mat &u,
+//                       arma::vec start,
+//                       const arma::vec &lower,
+//                       const arma::vec &upper,
+//                       double tol = 1e-4){
+//   D_likelihood dl(B,N_dim,
+//                   N_func,
+//                   func_def,N_var_func,
+//                   col_id,N_par,sum_N_par,
+//                   cov_data, u);
+//   
+//   dl.os.usebounds_ = 1;
+//   if(!lower.is_empty()){
+//     dl.os.lower_ = lower;
+//   }
+//   if(!upper.is_empty()){
+//     dl.os.upper_ = upper;
+//   }
+//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
+//   arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
+//   dl.Hessian(start,hessian);
+//   return hessian;
+// }
+// 
+// // [[Rcpp::export]]
+// arma::vec d_lik_grad(const arma::uword &B,
+//                      const arma::uvec &N_dim,
+//                      const arma::uvec &N_func,
+//                      const arma::umat &func_def,
+//                      const arma::umat &N_var_func,
+//                      const arma::ucube &col_id,
+//                      const arma::umat &N_par,
+//                      const arma::uword &sum_N_par,
+//                      const arma::cube &cov_data, 
+//                      const arma::mat &u,
+//                      arma::vec start,
+//                      const arma::vec &lower,
+//                      const arma::vec &upper,
+//                      double tol = 1e-4){
+//   D_likelihood dl(B,N_dim,
+//                   N_func,
+//                   func_def,N_var_func,
+//                   col_id,N_par,sum_N_par,
+//                   cov_data, u);
+//   
+//   dl.os.usebounds_ = 1;
+//   if(!lower.is_empty()){
+//     dl.os.lower_ = lower;
+//   }
+//   if(!upper.is_empty()){
+//     dl.os.upper_ = upper;
+//   }
+//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
+//   arma::vec gradient(start.n_elem,fill::zeros);
+//   dl.Gradient(start,gradient);
+//   return gradient;
+// }
 
 
 
@@ -248,57 +248,57 @@ arma::vec l_lik_optim(const arma::mat &Z,
   return opt.par();
 }
 
-// [[Rcpp::export]]
-arma::mat l_lik_hess(const arma::mat &Z, 
-                      const arma::mat &X,
-                      const arma::vec &y, 
-                      const arma::mat &u, 
-                      std::string family, 
-                      std::string link,
-                      arma::vec start,
-                      const arma::vec &lower,
-                      const arma::vec &upper,
-                      double tol = 1e-4){
-  L_likelihood dl(Z,X,y,u,family,link);
-  
-  dl.os.usebounds_ = 1;
-  if(!lower.is_empty()){
-    dl.os.lower_ = lower;
-  }
-  if(!upper.is_empty()){
-    dl.os.upper_ = upper;
-  }
-  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-  arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
-  dl.Hessian(start,hessian);
-  return hessian;
-}
-
-// [[Rcpp::export]]
-arma::vec l_lik_grad(const arma::mat &Z, 
-                     const arma::mat &X,
-                     const arma::vec &y, 
-                     const arma::mat &u, 
-                     std::string family, 
-                     std::string link,
-                     arma::vec start,
-                     const arma::vec &lower,
-                     const arma::vec &upper,
-                     double tol = 1e-4){
-  L_likelihood dl(Z,X,y,u,family,link);
-  
-  dl.os.usebounds_ = 1;
-  if(!lower.is_empty()){
-    dl.os.lower_ = lower;
-  }
-  if(!upper.is_empty()){
-    dl.os.upper_ = upper;
-  }
-  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-  arma::vec gradient(start.n_elem,fill::zeros);
-  dl.Gradient(start,gradient);
-  return gradient;
-}
+// // [[Rcpp::export]]
+// arma::mat l_lik_hess(const arma::mat &Z, 
+//                       const arma::mat &X,
+//                       const arma::vec &y, 
+//                       const arma::mat &u, 
+//                       std::string family, 
+//                       std::string link,
+//                       arma::vec start,
+//                       const arma::vec &lower,
+//                       const arma::vec &upper,
+//                       double tol = 1e-4){
+//   L_likelihood dl(Z,X,y,u,family,link);
+//   
+//   dl.os.usebounds_ = 1;
+//   if(!lower.is_empty()){
+//     dl.os.lower_ = lower;
+//   }
+//   if(!upper.is_empty()){
+//     dl.os.upper_ = upper;
+//   }
+//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
+//   arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
+//   dl.Hessian(start,hessian);
+//   return hessian;
+// }
+// 
+// // [[Rcpp::export]]
+// arma::vec l_lik_grad(const arma::mat &Z, 
+//                      const arma::mat &X,
+//                      const arma::vec &y, 
+//                      const arma::mat &u, 
+//                      std::string family, 
+//                      std::string link,
+//                      arma::vec start,
+//                      const arma::vec &lower,
+//                      const arma::vec &upper,
+//                      double tol = 1e-4){
+//   L_likelihood dl(Z,X,y,u,family,link);
+//   
+//   dl.os.usebounds_ = 1;
+//   if(!lower.is_empty()){
+//     dl.os.lower_ = lower;
+//   }
+//   if(!upper.is_empty()){
+//     dl.os.upper_ = upper;
+//   }
+//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
+//   arma::vec gradient(start.n_elem,fill::zeros);
+//   dl.Gradient(start,gradient);
+//   return gradient;
+// }
 
 
 class F_likelihood : public ObjFun {

@@ -113,24 +113,8 @@ d_lik_optim <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, s
     .Call(`_glmmr_d_lik_optim`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, trace)
 }
 
-d_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_d_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol)
-}
-
-d_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_d_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, u, start, lower, upper, tol)
-}
-
 l_lik_optim <- function(Z, X, y, u, family, link, start, lower, upper, trace) {
     .Call(`_glmmr_l_lik_optim`, Z, X, y, u, family, link, start, lower, upper, trace)
-}
-
-l_lik_hess <- function(Z, X, y, u, family, link, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_l_lik_hess`, Z, X, y, u, family, link, start, lower, upper, tol)
-}
-
-l_lik_grad <- function(Z, X, y, u, family, link, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_l_lik_grad`, Z, X, y, u, family, link, start, lower, upper, tol)
 }
 
 f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {

@@ -257,9 +257,20 @@ Design <- R6::R6Class("Design",
                       
                       if(!missing(sim_design)){
                         f1 <- sim_design$sim_data
+                        sim_mean_formula <- as.character(sim_design$mean_function$formula)
+                        sim_cov_formula <- as.character(sim_design$covariance$formula)
+                        sim_family <- as.character(sim_design$mean_function$family)
+                        bpars <- sim_design$mean_function$parameters
+                        covpars <- sim_design$covariance$parameters
                       } else {
                         f1 <- self$sim_data
+                        sim_mean_formula <- NA
+                        sim_cov_formula <- NA
+                        sim_family <- NA
+                        bpars <- self$mean_function$parameters
+                        covpars <- self$covariance$parameters
                       }
+                      
                       if(type=="sim_data"&is.null(private$saved_sim_data))stop("no simulation data saved in object")
                       if(type=="sim"){
                         if(parallel){
@@ -286,8 +297,7 @@ Design <- R6::R6Class("Design",
                         }
                         
                         
-                        sim_mean_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$mean_function$formula))
-                        sim_cov_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$covariance$formula))
+                        
                         
                         
                         res <- list(
@@ -299,13 +309,15 @@ Design <- R6::R6Class("Design",
                           m = out[[1]][[1]]$m,
                           tol =out[[1]][[1]]$tol,
                           nsim = iter,
+                          n = self$n(),
                           alpha = alpha,
-                          b_parameters = self$mean_function$parameters,
-                          cov_parameters = self$covariance$parameters,
+                          b_parameters = bpars,
+                          cov_parameters = covpars,
                           mean_formula = self$mean_function$formula,
                           cov_formula = self$covariance$formula,
                           sim_mean_formula = sim_mean_formula,
                           sim_cov_formula = sim_cov_formula,
+                          sim_family=sim_family,
                           family = self$mean_function$family,
                           aic = lapply(out,function(i)i[[1]]$aic),
                           Rsq = lapply(out,function(i)i[[1]]$Rsq),
@@ -351,15 +363,18 @@ Design <- R6::R6Class("Design",
                           convergence = NA,
                           m = NA,
                           tol = NA,
-                          nsim = iter,
+                          n = self$n(),
                           alpha = alpha,
-                          b_parameters = self$mean_function$parameters,
-                          cov_parameters = self$covariance$parameters,
+                          b_parameters = bpars,
+                          cov_parameters = covpars,
                           mean_formula = self$mean_function$formula,
                           cov_formula = self$covariance$formula,
+                          sim_mean_formula = sim_mean_formula,
+                          sim_cov_formula = sim_cov_formula,
+                          sim_family=sim_family,
                           family = self$mean_function$family,
-                          aic = lapply(out,function(i)i[[1]]$aic),
-                          Rsq = lapply(out,function(i)i[[1]]$Rsq),
+                          aic = NA,
+                          Rsq = NA,
                           n = self$n(),
                           par = par,
                           type = 1
@@ -975,7 +990,7 @@ for more details")
                         robust <- FALSE
                       }
                       
-                     rownames(dsamps) <- Reduce(c,rev(cov1$.__enclos_env__$private$flistlabs))
+                     rownames(dsamps) <- Reduce(c,rev(self$covariance$.__enclos_env__$private$flistlabs))
                      
                      ## model summary statistics
                      aic_data <- append(list(Z = as.matrix(self$covariance$Z),
@@ -1188,6 +1203,7 @@ for more details")
                     #' @param warmup_iter A positive integer specifying the number of warmup iterations for each MCMC chain
                     #' @param sampling_iter A positive integer specifying the number of sampling iterations for each MCMC chain
                     #' @param chain A positive integer specifying the number of MCMC chains to run
+                    #' @param parallel Logical indicating whether to run the chains in parallel
                     #' @param use_cmdstanr Logical indicating whether to use `cmdstanr`, the default is FALSE, which will use `rstan`
                     #' @param ... Additional arguments to pass to \link[rstan]{sampling}.
                     #' @return Either an S4 `stanfit` object returned by \link[rstan]{sampling}, or a `cmdstanr` environment, depending on the sampler used.
@@ -1199,10 +1215,11 @@ for more details")
                                     warmup_iter = 1000,
                                     sampling_iter = 1000,
                                     chains = 4,
-                                    use_cmdstanr=FALSE,...){
+                                    use_cmdstanr=FALSE,
+                                    parallel=TRUE,...){
                       
-                      fn1 <- Reduce(cbind,self$covariance$.__enclos_env__$private$Funclist)
-                      if(any(fn1[1,]==5))warning("Matern not implemented exactly in Stan, order one is assumed as 
+                      fn1 <- c(self$covariance$.__enclos_env__$private$D_data$func_def)
+                      if(any(fn1==5))warning("Matern not implemented exactly in Stan, order one is assumed as 
 fixed for the modified Bessel function of the second kind.")
                       
                       if(missing(priors) || !is("priors",list)){
@@ -1253,10 +1270,13 @@ fixed for the modified Bessel function of the second kind.")
                         stan_data$sigma_sd <- priors$sigma_sd
                       }
                       
+                      if(parallel)options(mc.cores=parallel::detectCores())
                       
                       if(use_cmdstanr){
+                        pchains <- ifelse(parallel,chains,1)
                         fit <- mod$sample(data = stan_data,
                                           chains = chains,
+                                          parallel_chains = pchains,
                                           iter_warmup = warmup_iter,
                                           iter_sampling = sampling_iter,
                                           ...)
@@ -1441,22 +1461,34 @@ fixed for the modified Bessel function of the second kind.")
                         if(verbose)cat("\rSimulations progress: ",progress_bar(i,iter))
                       }
                       
-                      sim_mean_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$mean_function$formula))
-                      sim_cov_formula <- ifelse(missing(sim_design),NA,as.character(sim_design$covariance$formula))
-                      psim <- ifelse(missing(priors_sim),NA,priors_sim)
+                      if(!missing(sim_design)){
+                        sim_mean_formula <- as.character(sim_design$mean_function$formula)
+                        sim_cov_formula <- as.character(sim_design$covariance$formula)
+                        sim_family <- as.character(sim_design$mean_function$family)
+                        psim <- priors_sim
+                      } else {
+                        sim_mean_formula <- NA
+                        sim_cov_formula <- NA
+                        sim_family <- NA
+                        psim <- NA
+                      }
                       
                       res <- list(posterior_var = posterior_var,
                                   sbc_ranks=sbc_ranks,
                                   posterior_threshold=posterior_threshold,
-                                  iter = iter,
+                                  threshold = threshold,
+                                  nsim = iter,
+                                  n = self$n(),
                                   priors = priors,
                                   priors_sim = psim,
                                   mean_formula = self$mean_function$formula,
                                   cov_formula = self$covariance$formula,
                                   sim_mean_formula = sim_mean_formula,
                                   sim_cov_formula = sim_cov_formula,
+                                  sim_family = sim_family,
                                   family = self$mean_function$family,
-                                  type = 2)
+                                  type = 2,
+                                  sim_method="bayesian")
                       
                       class(res) <- "glmmr.sim"
                       ## add on other return, include model specification and misspecification
@@ -1633,49 +1665,48 @@ fixed for the modified Bessel function of the second kind.")
                     },
                     gen_stan_data = function(type="s",
                                              y = NULL){
-                      B <- length(self$covariance$.__enclos_env__$private$flist)
-                      N_dim <- c(unlist(rev(self$covariance$.__enclos_env__$private$flistcount)),0)
-                      N_func <-  c(unlist(lapply(self$covariance$.__enclos_env__$private$Funclist,function(x)ncol(x))),0)
-                      func_def <- matrix(0,nrow=B,ncol=max(N_func))
-                      for(b in 1:B)func_def[b,1:N_func[b]] <- self$covariance$.__enclos_env__$private$Funclist[[b]][1,]
-                      fvar <- lapply(rev(self$covariance$.__enclos_env__$private$flistvars),function(x)x$groups)
-                      nvar <- lapply(lapply(fvar,table),as.vector)
-                      N_var_func <- matrix(0,ncol=max(N_func),nrow=B)
-                      for(b in 1:B)N_var_func[b,1:N_func[b]] <- nvar[[b]]
-                      col_id <- array(0,dim=c(B,max(N_func),max(N_var_func)))
                       
-                      for(b in 1:B){
-                        for(k in 1:N_func[b]){
-                          vnames <- rev(self$covariance$.__enclos_env__$private$flistvars)[[b]]
-                          vnames <- vnames$rhs[vnames$groups==(N_func[b]+1-k)]
-                          col_id[b,k,1:N_var_func[b,k]] <- match(vnames,colnames(self$covariance$.__enclos_env__$private$Distlist[[b]]))
-                        }
-                      }
-                      n_par <- matrix(0,nrow=B,ncol=max(N_func))
-                      for(b in 1:B)for(k in 1:N_func[b])n_par[b,k] <- sum(self$covariance$.__enclos_env__$private$Funclist[[b]][6:9,k] > -1)
-                      cov_data <- array(0,dim=c(B,max(N_dim),max(rowSums(N_var_func))))
-                      for(b in 1:B)cov_data[b,1:N_dim[b],1:ncol(self$covariance$.__enclos_env__$private$Distlist[[b]])] <- self$covariance$.__enclos_env__$private$Distlist[[b]]
-                      
-                      stan_data <- list(
-                        B = B,
-                        N_dim = N_dim,
-                        max_N_dim = max(N_dim),
-                        N_func = N_func,
-                        max_N_func = max(N_func),
-                        func_def = func_def,
-                        N_var_func = N_var_func,
-                        max_N_var = max(rowSums(N_var_func)),
-                        max_N_var_func = max(N_var_func),
-                        col_id = col_id,
-                        N_par = n_par,
-                        sum_N_par = sum(n_par),
-                        cov_data = cov_data,
-                        N = self$n(),
-                        P = ncol(self$mean_function$X),
-                        Q = ncol(self$covariance$Z),
-                        X = as.matrix(self$mean_function$X),
-                        Z = as.matrix(self$covariance$Z)
+                      stan_data <- append(
+                        self$covariance$.__enclos_env__$private$D_data,
+                        list(N = self$n(),
+                             P = ncol(self$mean_function$X),
+                             Q = ncol(self$covariance$Z),
+                             X = as.matrix(self$mean_function$X),
+                             Z = as.matrix(self$covariance$Z))
                       )
+                      
+                      stan_data <- append(stan_data,
+                                          list(
+                                            max_N_dim = max(stan_data$N_dim),
+                                            max_N_func = max(stan_data$N_func),
+                                            max_N_var = max(rowSums(stan_data$N_var_func)),
+                                            max_N_var_func = max(stan_data$N_var_func)
+                                          ))
+                      
+                      #pad to prevent Stan errors
+                      stan_data$N_dim <- c(stan_data$N_dim,0)
+                      stan_data$N_func <- c(stan_data$N_func,0)
+                      
+                      # stan_data <- list(
+                      #   B = B,
+                      #   N_dim = N_dim,
+                      #   max_N_dim = max(N_dim),
+                      #   N_func = N_func,
+                      #   max_N_func = max(N_func),
+                      #   func_def = func_def,
+                      #   N_var_func = N_var_func,
+                      #   max_N_var = max(rowSums(N_var_func)),
+                      #   max_N_var_func = max(N_var_func),
+                      #   col_id = col_id,
+                      #   N_par = n_par,
+                      #   sum_N_par = sum(n_par),
+                      #   cov_data = cov_data,
+                      #   N = self$n(),
+                      #   P = ncol(self$mean_function$X),
+                      #   Q = ncol(self$covariance$Z),
+                      #   X = as.matrix(self$mean_function$X),
+                      #   Z = as.matrix(self$covariance$Z)
+                      # )
                       if(type=="m"){
                         for(i in 1:length(stan_data))names(stan_data)[i] <- paste0(names(stan_data)[i],"_m")
                       } else if(type=="y"){

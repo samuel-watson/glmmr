@@ -107,70 +107,164 @@ print.glmmr.sim <- function(x, digits = 2,...){
   cat("glmmr simulation-based analysis\n",paste0(rep("-",31),collapse = ""),"\n")
   cat("Number of iterations: ",x$nsim,"\n")
   cat("Simulation method: ",x$sim_method,"\n")
-  cat("For model with family",x$family[[1]],", link function",x$family[[2]],", ",
-      x$n,"observations and \nMean function: ",as.character(x$mean_formula),"\nCovariance function: ",
-      as.character(x$cov_formula),"\nTrue beta parameters: ",x$b_parameters,"\nCovariance parameters: ",unlist(x$cov_parameters),"\n")
-  cat("\nSimulation diagnostics \n",paste0(rep("-",31),collapse = ""),
-      "\nSimulation algorithm: ",x$mcml_method,"\n")
-  conv <- mean(x$convergence)
-  ## get coverage
-  thresh <- qnorm(1-x$alpha/2)
-  nbeta <- length(x$b_parameters)
-  rows_to_include <- 1:nbeta
-  cover <- Reduce(rbind,lapply(x$coefficients,function(i){
-    (i$est[rows_to_include] - thresh*i$SE[rows_to_include]) <= x$b_parameters & 
-      (i$est[rows_to_include] + thresh*i$SE[rows_to_include]) >= x$b_parameters
-  }))
-  cover <- colMeans(cover)
-  cat("MCML algorithm convergence: ",round(conv*100,1),"%\nalpha: ",paste0(x$alpha*100,"%"),
-      "\nCI coverage (beta):",paste0(round(cover*100,1),"%"))
-  rsq <- ifelse(x$sim_method=="sim",Reduce(rbind,x$Rsq),NA)
-  cat("\nRange of cAIC: ",ifelse(x$sim_method=="sim",range(unlist(x$aic)),NA),"\nRange of: conditional R-squared",
-      ifelse(x$sim_method=="sim",range(rsq[,1]),NA),
-      " marginal R-squared: ",ifelse(x$sim_method=="sim",range(rsq[,2]),NA))
+  if(all(is.na(x$sim_mean_formula))){
+    cat("\nSimulation and analysis model:\nFamily",x$family[[1]],", link function",x$family[[2]],", ",
+        x$n,"observations and \nMean function: ",as.character(x$mean_formula),"\nCovariance function: ",
+        as.character(x$cov_formula))
+  } else {
+    cat("\nSimulation model:\nFamily",x$sim_family[[1]],", link function",x$sim_family[[2]],", ",
+        x$n,"observations and \nMean function: ",as.character(x$sim_mean_formula),"\nCovariance function: ",
+        as.character(x$sim_cov_formula))
+    cat("\n\nAnalysis model:\nFamily",x$family[[1]],", link function",x$family[[2]],", ",
+        x$n,"observations and \nMean function: ",as.character(x$mean_formula),"\nCovariance function: ",
+        as.character(x$cov_formula))
+  }
   
-  ## errors 
-  cat("\n\n Errors\n",paste0(rep("-",31),collapse = ""),"\n")
+  if(x$sim_method!="bayesian"){
+    cat("\n\nTrue beta parameters: ",x$b_parameters,"\nTrue covariance parameters: ",
+        unlist(x$cov_parameters),"\n")
+  } else {
+    if(any(!is.na(x$priors_sim))){
+      sim_priors <- x$priors_sim
+      cat("\n\nSimulation model priors:\nBeta: ",paste0("~N([",paste0(sim_priors$prior_b_mean,collapse=","),
+                                                                         "],[",paste0(sim_priors$prior_b_sd,collapse=","),"])^2)"))
+      cat("\nCovariance parameters: ",paste0("~N_+([",paste0(rep(0,length(sim_priors$prior_g_sd)),collapse=","),
+                                                   "],[",paste0(sim_priors$prior_g_sd,collapse=","),"]^2)"))
+      if(x$family[[1]]=="gaussian"){
+        cat("\nScale parameter: ",paste0("~N_+(0,",sim_priors$sigma_sd,"^2)"))
+      }
+    }
+    sim_priors <- x$priors
+    cat("\n\nAnalysis model priors:\nBeta: ",paste0("~N([",paste0(sim_priors$prior_b_mean,collapse=","),
+                                             "],[",paste0(sim_priors$prior_b_sd,collapse=","),"])^2)"))
+    cat("\nCovariance parameters: ",paste0("~N_+([",paste0(rep(0,length(sim_priors$prior_g_sd)),collapse=","),
+                                                 "],[",paste0(sim_priors$prior_g_sd,collapse=","),"]^2)"))
+    if(x$family[[1]]=="gaussian"){
+      cat("\nScale parameter: ",paste0("~N_+(0,",sim_priors$sigma_sd,"^2)"))
+    }
+  }
   
-  errdf <- sapply(1:nbeta,function(i)summarize.errors(x$coefficients,
-                                  par = i,
-                                  true = x$b_parameters[i],
-                                  alpha = x$alpha))
-  rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)","Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)")
-  colnames(errdf) <- paste0("b",1:nbeta)
-  print(apply(errdf,2,round,digits=digits))
-  
-  ## statistics
-  cat("\n\n Distribution of statistics\n",paste0(rep("-",31),collapse = ""),"\np-values\n")
-  statdf <- sapply(1:nbeta,function(i)summarize.stats(x$coefficients,
-                                                      par = i,
-                                                      alpha = x$alpha))
-  pvdf <- apply(statdf,2,function(i)i$ptot)
-  rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
-  colnames(pvdf) <- paste0("b",1:nbeta)
-  print(apply(pvdf,2,round,digits = digits))
-  cat("\nConfidence interval half-width (+/-) quantiles\n")
-  cidf <- apply(statdf,2,function(i)i$citot)
-  colnames(cidf) <- paste0("b",1:nbeta)
-  print(apply(cidf,2,round,digits = digits))
-  
-  ### dfbeta
-  
-  
-  
-  ##robustness
-  cat("\n\n Deletion diagnostics for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
-  
-  dfb <- summarize.dfbeta(x$dfbeta)
-  cat("Mean maximum DFBETA: ",signif(dfb$maxb,digits = digits),
-      "\nRange of mean DFBETA for each observation: ",signif(dfb$dfbrange,digits=digits),
-      "\nObservations with largest DFBETA: ",dfb$maxobs)
-  # cat("Mean minimum number of observations required to: \n\n")
-  # dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
-  #                   Number = round(c(mean(
-  # dfb[[1]]),mean(dfb[[3]]),mean(dfb[[5]])),digits = digits),
-  #                   Proportion = round(c(mean(dfb[[2]]),mean(dfb[[4]]),mean(dfb[[6]])),digits = digits))
-  # print(dfbdf)
+  if(x$sim_method!="bayesian"){
+    cat("\nSimulation diagnostics \n",paste0(rep("-",31),collapse = ""),
+        "\nSimulation algorithm: ",x$mcml_method,"\n")
+    conv <- mean(x$convergence)
+    ## get coverage
+    thresh <- qnorm(1-x$alpha/2)
+    nbeta <- length(x$b_parameters)
+    rows_to_include <- 1:nbeta
+    cover <- Reduce(rbind,lapply(x$coefficients,function(i){
+      (i$est[rows_to_include] - thresh*i$SE[rows_to_include]) <= x$b_parameters & 
+        (i$est[rows_to_include] + thresh*i$SE[rows_to_include]) >= x$b_parameters
+    }))
+    cover <- colMeans(cover)
+    cat("MCML algorithm convergence: ",round(conv*100,1),"%\nalpha: ",paste0(x$alpha*100,"%"),
+        "\nCI coverage (beta):",paste0(round(cover*100,1),"%"))
+    if(x$sim_method=="full.sim"){
+      rsq <- Reduce(rbind,x$Rsq)
+      raic <- paste0(round(range(unlist(x$aic)),digits = digits),collpase=",")
+      rmsq <- paste0(round(range(rsq[,1]),digits = digits),collpase=",")
+      rcsq <- paste0(round(range(rsq[,2]),digits = digits),collpase=",")
+    } else {
+      rsq <- NA
+      raic <- NA
+      rmsq <- NA
+      rcsq <- NA
+    }
+    
+    cat("\nRange of cAIC: ",raic,
+        "\nRange of: conditional R-squared",rmsq,
+        " marginal R-squared: ",rcsq)
+    
+    ## errors 
+    cat("\n\n Errors\n",paste0(rep("-",31),collapse = ""),"\n")
+    
+    errdf <- sapply(1:nbeta,function(i)summarize.errors(x$coefficients,
+                                                        par = i,
+                                                        true = x$b_parameters[i],
+                                                        alpha = x$alpha))
+    rownames(errdf) <- c("Type 2 (Power)","Type M (Exaggeration ratio)",
+                         "Type S1 (Wrong sign)","Type S2 (Significant & wrong sign)","Bias")
+    colnames(errdf) <- x$coefficients[[1]]$par[1:nbeta]#paste0("b",1:nbeta)
+    print(apply(errdf,2,round,digits=digits))
+    
+    ## statistics
+    cat("\n\n Distribution of statistics\n",paste0(rep("-",31),collapse = ""),"\np-values\n")
+    statdf <- sapply(1:nbeta,function(i)summarize.stats(x$coefficients,
+                                                        par = i,
+                                                        alpha = x$alpha))
+    pvdf <- apply(statdf,2,function(i)i$ptot)
+    rownames(pvdf) <- c("0.00 - 0.01","0.01 - 0.05", "0.05 - 0.10", "0.10 - 0.25", "0.25 - 0.50", "0.50 - 1.00")
+    colnames(pvdf) <- x$coefficients[[1]]$par[1:nbeta]
+    print(apply(pvdf,2,round,digits = digits))
+    cat("\nConfidence interval half-width (+/-) quantiles\n")
+    cidf <- apply(statdf,2,function(i)i$citot)
+    colnames(cidf) <- x$coefficients[[1]]$par[1:nbeta]
+    print(apply(cidf,2,round,digits = digits))
+    
+    ### dfbeta
+    
+    
+    
+    ##robustness
+    cat("\n\n Deletion diagnostics for parameter: ",x$coefficients[[1]]$par[x$par],"\n",paste0(rep("-",41),collapse = ""),"\n")
+    
+    dfb <- summarize.dfbeta(x$dfbeta)
+    cat("Mean maximum DFBETA: ",signif(dfb$maxb,digits = digits),
+        "\nRange of mean DFBETA for each observation: ",signif(dfb$dfbrange,digits=digits),
+        "\nObservations with largest DFBETA: ",dfb$maxobs)
+    # cat("Mean minimum number of observations required to: \n\n")
+    # dfbdf <- data.frame(x=c("Make estimate not significant","Change the sign of the estimate","Create wrong sign and significant estimate"),
+    #                   Number = round(c(mean(
+    # dfb[[1]]),mean(dfb[[3]]),mean(dfb[[5]])),digits = digits),
+    #                   Proportion = round(c(mean(dfb[[2]]),mean(dfb[[4]]),mean(dfb[[6]])),digits = digits))
+    # print(dfbdf)
+  } else {
+    cat("\n\nSimulation diagnostics \n",paste0(rep("-",31),collapse = ""))
+    cat("\nUse plot() to view the simulation based calibration plot\n")
+    cat("\nQuantiles of the posterior variance:\n")
+    print(round(quantile(x$posterior_var,seq(0,1,by=0.1)),digits = digits))
+    cat("\nProbability of the probability that the parameter will be greater than ",x$threshold,":\n")
+    print(round(quantile(x$posterior_threshold,seq(0,1,by=0.1)),digits = digits))
+  }
+}
+
+#' Plotting method for glmmr.sim
+#' 
+#' Plots a glmmr.sim object
+#' 
+#' For a Bayesian simulation analysis, this will plot the simulation based calibration ranks and the 
+#' distribution of the posterior variance. Otherwise, it will plot the distribution of confidence interval 
+#' half widths.
+#' @param x A `glmmr.sim` object
+#' @param par Integer indicating the index of the parameter to plot if not a Bayesian analysis
+#' @param alpha Numeric indictaing the type I error rate for non-Bayesian analysis
+#' @return A `ggplot2` plot
+#' @examples 
+#' ...
+#' @export
+plot.glmmr.sim <- function(x,
+                          par,
+                          alpha=0.05){
+  if(x$type==1){
+    out <- summarize.stats(x$coefficients,par,alpha)
+    dfp <- data.frame(stat = rep(c("p-values","CI half-width"),each=x$iter),
+                      value = c(out$pstats,out$cis))
+    ggplot2::ggplot(aes(x=value),data=dfp)+
+      ggplot2::facet_wrap(~stat,scales = "free")+
+      ggplot2::geom_histogram()+
+      ggplot2::labs(x="Value",y="Count")+
+      ggplot2::theme_bw()+
+      ggplot2::theme(panel.grid=ggplot2::element_blank())
+  } else {
+    dfp <- data.frame(stat = rep(c("Posterior variance","Rank"),each=x$iter),
+                      value = c(x$posterior_var,x$sbc_ranks))
+    ggplot2::ggplot(aes(x=value),data=dfp)+
+      ggplot2::facet_wrap(~stat,scales = "free")+
+      ggplot2::geom_histogram()+
+      ggplot2::labs(x="Value",y="Count")+
+      ggplot2::theme_bw()+
+      ggplot2::theme(panel.grid=ggplot2::element_blank())
+  }
 }
 
 #' Method to summarise errors 
@@ -219,8 +313,11 @@ summarize.errors <- function(out,
   if(length(ss.ests)>0){
     s.err2 <- mean(sign(ss.ests)!=sign(true))
   }
+  
+  #bias 
+  bias <- mean(bests[,par]) - true
 
-  setNames(c(pwr,m.err,s.err1,s.err2),c("p","m","s1","s2"))
+  setNames(c(pwr,m.err,s.err1,s.err2,bias),c("p","m","s1","s2","bias"))
 
 }
 
@@ -256,7 +353,7 @@ summarize.stats <- function(out,
 
   citot <- quantile(cis,c(0.01,0.1,0.25,0.5,0.75,0.9,0.99))
 
-  return(list(ptot = ptot,citot = citot))
+  return(list(ptot = ptot,citot = citot,pstats=pstats,cis=cis))
 }
 
 
