@@ -66,6 +66,9 @@ Design <- R6::R6Class("Design",
                     #' that can be passed to `MeanFunction` to create a new object.
                     #' @param var_par Scale parameter required for some distributions, including Gaussian. Default is NULL.
                     #' @param verbose Logical indicating whether to provide detailed output
+                    #' @param skip.sigma Logical indicating whether to skip the creating of the covariance matrix Sigma. For 
+                    #' very large designs with thousands of observations or more, the covariance matrix will be too big to 
+                    #' fit in memory, so this option will prevent sigma being created.
                     #' @return A new Design class object
                     #' @seealso \link[glmmr]{nelder}, \link[glmmr]{MeanFunction}, \link[glmmr]{Covariance}
                     #' @examples 
@@ -278,6 +281,7 @@ Design <- R6::R6Class("Design",
                     #' simulate data to allow for model misspecification.
                     #' @param parallel Logical indicating whether to run the simulations in parallel
                     #' @param verbose Logical indicating whether to report detailed output. Defaults to TRUE.
+                    #' @param options Optional. A named list to pass to the options argument of `MCML`
                     #' @param ... Additional arguments passed to `MCML`, see below.
                     #' @return A `glmmr.sim` object containing the estimates from all the simulations, including
                     #' standard errors, deletion diagnostic statistics, and details about the simulation.
@@ -781,7 +785,6 @@ Design <- R6::R6Class("Design",
                     #'* `use_cmdstanr` TRUE (uses `cmdstanr` for the MCMC sampling, requires cmdstanr), or FALSE (uses `rstan`). Default is FALSE.
                     #'* `skip_cov_optim` TRUE (skips the covariance parameter estimation step, and uses the values covariance$parameters), or 
                     #'FALSE (run the whole algorithm)], default is FALSE
-                    #'* `method` One of either `mcnr` or `mcem`, see above. Default is `mcnr`.
                     #'* `sim_lik_step` TRUE (conduct a simulated likelihood step at the end of the algorithm), or FALSE (does
                     #'not do this step), defaults to FALSE.
                     #'* `no_warnings` TRUE (do not report any warnings) or FALSE (report warnings), default to FALSE
@@ -799,6 +802,8 @@ Design <- R6::R6Class("Design",
                     #'@param start Optional. A numeric vector indicating starting values for the MCML algorithm iterations. 
                     #'If this is not specified then the parameter values stored in the linked mean function object will be used.
                     #'@param se.method One of either `'lik'`, `'approx'`, `'perm'`, or `'none'`, see Details.
+                    #'@param method The MCML algorithm to use, either `mcem` or `mcnr`, see Details. Default is `mcem`.
+                    #'@param permutation.par Optional. Integer specifing the index of the parameter if permutation tests are being used.
                     #'@param verbose Logical indicating whether to provide detailed output, defaults to TRUE.
                     #'@param tol Numeric value, tolerance of the MCML algorithm, the maximum difference in parameter estimates 
                     #'between iterations at which to stop the algorithm.
@@ -1469,7 +1474,7 @@ for more details")
                     #' @param priors A named list specifying the prior mean and standard deviation for the Gaussian prior distributions, see Details.
                     #' @param warmup_iter A positive integer specifying the number of warmup iterations for each MCMC chain
                     #' @param sampling_iter A positive integer specifying the number of sampling iterations for each MCMC chain
-                    #' @param chain A positive integer specifying the number of MCMC chains to run
+                    #' @param chains A positive integer specifying the number of MCMC chains to run
                     #' @param parallel Logical indicating whether to run the chains in parallel
                     #' @param use_cmdstanr Logical indicating whether to use `cmdstanr`, the default is FALSE, which will use `rstan`
                     #' @param ... Additional arguments to pass to \link[rstan]{sampling}.
@@ -1604,7 +1609,7 @@ fixed for the modified Bessel function of the second kind.")
                     #' of X
                     #' @param priors A named list specifying the priors, see Details in the `MCMC()` function in this class
                     #' @param threshold A number specifying the threshold. The probability that the parameter of interest is greater than this threshold will be calculated.
-                    #' @param sim_design. Optional. A different `Design` object that should be used to simulate the data for the simulation. 
+                    #' @param sim_design Optional. A different `Design` object that should be used to simulate the data for the simulation. 
                     #' @param priors_sim Optional. A named list of the same structure as `priors` the specifies the priors from which to simulate data, if they are different
                     #' to the priors for model fitting.
                     #' @param warmup_iter A positive integer specifying the number of warmup iterations for each MCMC chain when fitting the model on each simulation
@@ -1613,8 +1618,10 @@ fixed for the modified Bessel function of the second kind.")
                     #' iteration.
                     #' @param chains A positive integer specifying the number of MCMC chains when fitting the model on each simulation
                     #' iteration.
+                    #' @param parallel Logical indicating whether to run the MCMC chains in parallel
                     #' @param verbose Logical indicating whether to provide detailed output of the progress of simulations.
                     #' @param use_cmdstanr Logical indicating whether to use `cmdstanr` instead of `rstan`, the default is FALSE (i.e. use `rstan`)
+                    #' @param ... Additional options to pass to `rstan::sampling` or `cmdstanr::sample`
                     #' @return A `glmmr.sim` object containing the samples of posterior variance and relevant probabilities to summarise the analysis
                     #' @references 
                     #' SBC paper (Talts)

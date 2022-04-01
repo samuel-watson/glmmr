@@ -18,7 +18,7 @@ dfactor <- function(x){
   matrix(model.matrix(~factor(a)-1,data.frame(a=x$data)),nrow=length(x$data))
 }
 
-dpexp <- function(x){
+dar1 <- function(x){
   
 }
 

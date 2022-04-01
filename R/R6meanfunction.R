@@ -22,7 +22,7 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           #' @field parameters A vector of parameter values for \eqn{\beta} used for simulating data and calculating
                           #' covariance matrix of observations for non-linear models.
                           parameters = NULL,
-                          #' @field randomiser A function that generates a new set of values representing the treatment allocation in an 
+                          #' @field randomise A function that generates a new set of values representing the treatment allocation in an 
                           #' experimental study
                           randomise = NULL,
                           #' @field treat_var A string naming the column in data that represents the treatment variable in data. Used
@@ -93,8 +93,8 @@ MeanFunction <- R6::R6Class("MeanFunction",
                           #' @param verbose Logical indicating whether to report detailed output
                           #' @param random_function A string naming a function in the global environment that produces a vector of data describing a new
                           #' treatment allocation in an experimental model. When used, the output of this function replaces the column of data named by
-                          #' `treat_par`
-                          #' @param treat_par The name of a column in data (or the name to give a new column) that a random treatment allocation generated
+                          #' `treat_var`
+                          #' @param treat_var The name of a column in data (or the name to give a new column) that a random treatment allocation generated
                           #' by `random_function` replaces.
                           #' @return A MeanFunction object
                           #' @examples 
@@ -223,6 +223,13 @@ and the parameters should also be in this order"))
                           subset_cols = function(index){
                             self$X <- self$X[,index]
                           },
+                          #' @description 
+                          #' Generates a new random allocation
+                          #' 
+                          #' If a randomising function has been provided then a new random allocation will
+                          #' be generated, and will replace the exisitng data at `treat_var` in the X matrix
+                          #' @param ... ignored
+                          #' @return Nothing is returned, the X matrix is updated
                           rerandomise = function(){
                             new_draw <- self$randomise()
                             if(!self$treat_var %in% colnames(self$X)){

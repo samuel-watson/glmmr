@@ -12,13 +12,11 @@
 #' The DesignSpace functions can modify the linked design objects.
 DesignSpace <- R6::R6Class("DesignSpace",
                  public = list(
-                   #' @field 
-                   #' A vector denoting the prior weighting of each Design in the design space. Required if robust optimisation is used based on a 
+                   #' @field weights A vector denoting the prior weighting of each Design in the design space. Required if robust optimisation is used based on a 
                    #' weighted average variance over the linked designs. If it is not specified in the call to `new()` then designs are assumed
                    #' to have equal weighting.
                    weights = NULL,
-                   #' @field 
-                   #' A vector indicating the unique identifier of the experimental condition for each observation/row in the matrices X and Z.
+                   #' @field experimental_condition A vector indicating the unique identifier of the experimental condition for each observation/row in the matrices X and Z.
                    experimental_condition = NULL,
                    #' @description 
                    #' Create a new Design Space
