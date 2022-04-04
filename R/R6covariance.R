@@ -255,8 +255,8 @@ Covariance <- R6::R6Class("Covariance",
                             varcnt <- 1
                             varidx <- c()
                             while(varcnt<=length(fvar[[b]])){
-                              varidx <- c(varidx,fvar[[b]][varcnt])
-                              varcnt = varcnt + fvar[[b]][varcnt]
+                              varidx <- c(varidx,sum(fvar[[b]][fvar[[b]]==varcnt]))
+                              varcnt = varcnt + sum(fvar[[b]][fvar[[b]]==varcnt])
                             }
                             nvar[[b]] <- varidx
                           }
