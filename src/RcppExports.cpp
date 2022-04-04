@@ -71,6 +71,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gen_dhdmu
+arma::vec gen_dhdmu(arma::vec xb, std::string family, std::string link);
+RcppExport SEXP _glmmr_gen_dhdmu(SEXP xbSEXP, SEXP familySEXP, SEXP linkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type xb(xbSEXP);
+    Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
+    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gen_dhdmu(xb, family, link));
+    return rcpp_result_gen;
+END_RCPP
+}
 // fexp
 double fexp(const double& x, double par1, double par2);
 RcppExport SEXP _glmmr_fexp(SEXP xSEXP, SEXP par1SEXP, SEXP par2SEXP) {
@@ -374,6 +387,105 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fast_glm_impl
+List fast_glm_impl(Rcpp::NumericMatrix Xs, Rcpp::NumericVector ys, Rcpp::NumericVector weightss, Rcpp::NumericVector offsets, Rcpp::NumericVector starts, Rcpp::NumericVector mus, Rcpp::NumericVector etas, Function var, Function mu_eta, Function linkinv, Function dev_resids, Function valideta, Function validmu, int type, double tol, int maxit);
+RcppExport SEXP _glmmr_fast_glm_impl(SEXP XsSEXP, SEXP ysSEXP, SEXP weightssSEXP, SEXP offsetsSEXP, SEXP startsSEXP, SEXP musSEXP, SEXP etasSEXP, SEXP varSEXP, SEXP mu_etaSEXP, SEXP linkinvSEXP, SEXP dev_residsSEXP, SEXP validetaSEXP, SEXP validmuSEXP, SEXP typeSEXP, SEXP tolSEXP, SEXP maxitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xs(XsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type ys(ysSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type weightss(weightssSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type offsets(offsetsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type starts(startsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type mus(musSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type etas(etasSEXP);
+    Rcpp::traits::input_parameter< Function >::type var(varSEXP);
+    Rcpp::traits::input_parameter< Function >::type mu_eta(mu_etaSEXP);
+    Rcpp::traits::input_parameter< Function >::type linkinv(linkinvSEXP);
+    Rcpp::traits::input_parameter< Function >::type dev_resids(dev_residsSEXP);
+    Rcpp::traits::input_parameter< Function >::type valideta(validetaSEXP);
+    Rcpp::traits::input_parameter< Function >::type validmu(validmuSEXP);
+    Rcpp::traits::input_parameter< int >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
+    rcpp_result_gen = Rcpp::wrap(fast_glm_impl(Xs, ys, weightss, offsets, starts, mus, etas, var, mu_eta, linkinv, dev_resids, valideta, validmu, type, tol, maxit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// myglm
+Rcpp::List myglm(Rcpp::NumericMatrix Xs, Rcpp::NumericVector ys, Rcpp::NumericVector weightss, Rcpp::NumericVector offsets, Rcpp::List family);
+RcppExport SEXP _glmmr_myglm(SEXP XsSEXP, SEXP ysSEXP, SEXP weightssSEXP, SEXP offsetsSEXP, SEXP familySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xs(XsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type ys(ysSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type weightss(weightssSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type offsets(offsetsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type family(familySEXP);
+    rcpp_result_gen = Rcpp::wrap(myglm(Xs, ys, weightss, offsets, family));
+    return rcpp_result_gen;
+END_RCPP
+}
+// qscore_impl
+double qscore_impl(const arma::vec& resids, arma::vec tr, const arma::vec& xb, const arma::mat& invS, const std::string& family2, bool weight);
+RcppExport SEXP _glmmr_qscore_impl(SEXP residsSEXP, SEXP trSEXP, SEXP xbSEXP, SEXP invSSEXP, SEXP family2SEXP, SEXP weightSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type resids(residsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type tr(trSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type xb(xbSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type invS(invSSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type family2(family2SEXP);
+    Rcpp::traits::input_parameter< bool >::type weight(weightSEXP);
+    rcpp_result_gen = Rcpp::wrap(qscore_impl(resids, tr, xb, invS, family2, weight));
+    return rcpp_result_gen;
+END_RCPP
+}
+// permutation_test_impl
+arma::vec permutation_test_impl(const arma::vec& resids, const arma::mat& tr_mat, const arma::vec& xb, const arma::mat& invS, const std::string& family2, bool weight, int iter, bool verbose);
+RcppExport SEXP _glmmr_permutation_test_impl(SEXP residsSEXP, SEXP tr_matSEXP, SEXP xbSEXP, SEXP invSSEXP, SEXP family2SEXP, SEXP weightSEXP, SEXP iterSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type resids(residsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type tr_mat(tr_matSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type xb(xbSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type invS(invSSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type family2(family2SEXP);
+    Rcpp::traits::input_parameter< bool >::type weight(weightSEXP);
+    Rcpp::traits::input_parameter< int >::type iter(iterSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(permutation_test_impl(resids, tr_mat, xb, invS, family2, weight, iter, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
+// confint_search
+double confint_search(double start, double b, Rcpp::NumericMatrix Xnull_, Rcpp::NumericVector y_, Rcpp::NumericVector tr_, const arma::mat& new_tr_mat, const arma::vec& xb, const arma::mat& invS, Rcpp::List family, const std::string& family2, int nsteps, bool weight, double alpha, bool verbose);
+RcppExport SEXP _glmmr_confint_search(SEXP startSEXP, SEXP bSEXP, SEXP Xnull_SEXP, SEXP y_SEXP, SEXP tr_SEXP, SEXP new_tr_matSEXP, SEXP xbSEXP, SEXP invSSEXP, SEXP familySEXP, SEXP family2SEXP, SEXP nstepsSEXP, SEXP weightSEXP, SEXP alphaSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type start(startSEXP);
+    Rcpp::traits::input_parameter< double >::type b(bSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xnull_(Xnull_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type y_(y_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tr_(tr_SEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type new_tr_mat(new_tr_matSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type xb(xbSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type invS(invSSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type family(familySEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type family2(family2SEXP);
+    Rcpp::traits::input_parameter< int >::type nsteps(nstepsSEXP);
+    Rcpp::traits::input_parameter< bool >::type weight(weightSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(confint_search(start, b, Xnull_, y_, tr_, new_tr_mat, xb, invS, family, family2, nsteps, weight, alpha, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_stan_fit4binomial_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4binomial_sim_mod();
@@ -393,6 +505,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_GradRobustStep", (DL_FUNC) &_glmmr_GradRobustStep, 11},
     {"_glmmr_log_factorial_approx", (DL_FUNC) &_glmmr_log_factorial_approx, 1},
     {"_glmmr_log_mv_gaussian_pdf", (DL_FUNC) &_glmmr_log_mv_gaussian_pdf, 3},
+    {"_glmmr_gen_dhdmu", (DL_FUNC) &_glmmr_gen_dhdmu, 3},
     {"_glmmr_fexp", (DL_FUNC) &_glmmr_fexp, 3},
     {"_glmmr_sqexp", (DL_FUNC) &_glmmr_sqexp, 3},
     {"_glmmr_matern", (DL_FUNC) &_glmmr_matern, 3},
@@ -409,6 +522,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_f_lik_optim", (DL_FUNC) &_glmmr_f_lik_optim, 20},
     {"_glmmr_mcnr_step", (DL_FUNC) &_glmmr_mcnr_step, 7},
     {"_glmmr_aic_mcml", (DL_FUNC) &_glmmr_aic_mcml, 17},
+    {"_glmmr_fast_glm_impl", (DL_FUNC) &_glmmr_fast_glm_impl, 16},
+    {"_glmmr_myglm", (DL_FUNC) &_glmmr_myglm, 5},
+    {"_glmmr_qscore_impl", (DL_FUNC) &_glmmr_qscore_impl, 6},
+    {"_glmmr_permutation_test_impl", (DL_FUNC) &_glmmr_permutation_test_impl, 8},
+    {"_glmmr_confint_search", (DL_FUNC) &_glmmr_confint_search, 14},
     {"_rcpp_module_boot_stan_fit4binomial_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4binomial_mod, 0},
     {"_rcpp_module_boot_stan_fit4binomial_sim_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4binomial_sim_mod, 0},
     {"_rcpp_module_boot_stan_fit4binomial_sim_misspec_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4binomial_sim_misspec_mod, 0},

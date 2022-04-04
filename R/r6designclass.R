@@ -1374,87 +1374,120 @@ for more details")
                     #'    nsteps = 1000) 
                     #' }
                     permutation_test = function(y,
-                                                permutation.par,
-                                           start,
-                                           iter = 1000,
-                                           nsteps=1000,
-                                           type="cov",
-                                           parallel = TRUE,
-                                           verbose=TRUE){
-                      if(is.null(self$mean_function$randomise))stop("random allocations
-are created using the function in self$mean_function$randomise, but this has not been set. Please see help(MeanFunction)
-for more details")
-                      Xnull <- as.matrix(self$mean_function$X)
-                      Xnull <- Xnull[,-permutation.par]
-                      null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family)
-                      xb <- null_fit$linear.predictors
-                      
-                      tr <- self$mean_function$X[,permutation.par]
-                      if(any(!tr%in%c(0,1)))stop("permuational inference only available for dichotomous treatments")
-                      tr[tr==0] <- -1
-                      
-                      if(verbose&type=="cov")message("using covariance weighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
-                      if(verbose&type=="unw")message("using unweighted statistic, to change permutation statistic set option perm_type, see details in help(Design)")
-                      w.opt <- type=="cov"
-                      #invS <- ifelse(type=="cov",Matrix::solve(self$Sigma),1)
-                      if(w.opt){
-                        invS <- Matrix::solve(self$Sigma)
-                      } else {
-                        invS <- 1
-                      }
-                      
-                      qstat <- private$qscore(y,tr,xb,permutation.par,invS,w.opt)
+                                                 permutation.par,
+                                                 start,
+                                                 iter = 1000,
+                                                 nsteps=1000,
+                                                 type="cov",
+                                                 parallel = TRUE,
+                                                 verbose=TRUE){
+                      if(is.null(self$mean_function$randomise))
+                        stop("random allocations are created using the function
+                                                  in self$mean_function$randomise, but this has not
+                                                  been set. Please see help(MeanFunction) for more
+                                                  details")
+
+                      if(verbose&type=="cov")
+                        message("using covariance weighted statistic, to change
+                                                    permutation statistic set option perm_type, see
+                                                    details in help(Design)")
+                      if(verbose&type=="unw")
+                        message("using unweighted statistic, to change permutation
+                                                     statistic set option perm_type, see details in
+                                                     help(Design)")
                       
                       if(verbose){
                         pbapply::pboptions(type="timer")
                       } else {
                         pbapply::pboptions(type="none")
                       }
-                      
-                      if(verbose)cat("Starting permutations\n")
-                      if(parallel){
-                        cl <- parallel::makeCluster(parallel::detectCores()-1)
-                        parallel::clusterEvalQ(cl,library(Matrix))
-                        #change when package built!
-                        parallel::clusterEvalQ(cl,devtools::load_all())
-                        qtest <- pbapply::pbsapply(1:iter,function(i){
-                          new_tr <- self$mean_function$randomise()
-                          new_tr[new_tr==0] <- -1
-                          private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
-                        }, cl = cl)
-                        parallel::stopCluster(cl)
+
+                      Xnull <- as.matrix(self$mean_function$X)
+                      Xnull <- Xnull[,-permutation.par]
+
+                      family <- self$mean_function$family
+                      unless.null <- function(x, if.null) if(is.null(x)) if.null else x
+                      valideta    <- unless.null(family$valideta, function(eta) TRUE)
+                      validmu     <- unless.null(family$validmu,  function(mu)  TRUE)
+
+                      weights  = rep(1, NROW(y))
+                      offset   = rep(0, NROW(y))
+                      null_fit <- myglm(Xnull,y, weights, offset, family)
+                      xb <- null_fit$linear.predictors
+
+                      tr <- self$mean_function$X[, permutation.par]
+                      if(any(!tr%in%c(0,1)))stop("permuational inference only available for dichotomous treatments")
+                      #tr[tr==0] <- -1
+
+                      w.opt <- type=="cov"
+                      if(w.opt) {
+                        invS <- Matrix::solve(self$Sigma)
                       } else {
-                        qtest <- pbapply::pbsapply(1:iter,function(i){
-                          new_tr <- self$mean_function$randomise()
-                          new_tr[new_tr==0] <- -1
-                          private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
-                        })
+                        invS <- 1
                       }
-                      
+
+                      tr_mat <- pbapply::pbsapply(1:iter,function(i){
+                        self$mean_function$randomise()
+                      })
+
+                      ############
+                      # Will the resid ever change?
+                      ypred <- self$mean_function$family$linkinv(Matrix::drop(xb))
+                      resids <- Matrix::Matrix(y-ypred)
+                      family2 <- self$mean_function$family[[2]]
+                      dtr <- tr
+                      dtr[dtr==0] <- -1
+                      qstat <- qscore_impl(as.vector(resids),dtr,xb,as.matrix(invS),family2,w.opt)
+                      qtest <- as.vector(permutation_test_impl(as.vector(resids),
+                                                               tr_mat, xb, as.matrix(invS),
+                                                               family2, w.opt, iter, verbose))
+                      ############
+
                       #permutation confidence intervals
-                      if(verbose)cat("Starting permutational confidence intervals\n")
+                      if(verbose)
+                        cat("Starting permutational confidence intervals\n")
                       pval <- length(qtest[qtest>qstat])/iter
                       #print(pval)
                       if(pval==0)pval <- 0.5/iter
                       tval <- qnorm(1-pval/2)
                       par <- start#theta[parInds$b][permutation.par]
                       se <- abs(par/tval)
+                      
+                      tr_mat <- pbapply::pbsapply(1:nsteps,function(i){
+                        self$mean_function$randomise()
+                      })
+
                       if(verbose)cat("Lower\n")
-                      lower <- private$confint_search(y,
-                                                      permutation.par,
-                                                      start = par - 2*se,
-                                                      b = start,
-                                                      w.opt = w.opt,
-                                                      nsteps = nsteps,
-                                                      verbose=verbose)
+                      lower <- confint_search(start = par - 2*0.2,
+                                              b = start,
+                                              Xnull,
+                                              y,
+                                              tr,
+                                              new_tr_mat = as.matrix(tr_mat),
+                                              xb,
+                                              as.matrix(invS),
+                                              family,
+                                              family2,
+                                              nsteps,
+                                              w.opt,
+                                              alpha = 0.05,
+                                              verbose = verbose)
                       if(verbose)cat("\nUpper\n")
-                      upper <- private$confint_search(y,
-                                                      permutation.par,
-                                                      start = par + 2*se,
-                                                      b = start,
-                                                      w.opt = w.opt,
-                                                      nsteps = nsteps,
-                                                      verbose=verbose)
+                      upper <- confint_search(start = par + 2*0.2,
+                                              b = start,
+                                              Xnull,
+                                              y,
+                                              tr,
+                                              new_tr_mat = tr_mat,
+                                              xb,
+                                              as.matrix(invS),
+                                              family,
+                                              family2,
+                                              nsteps,
+                                              w.opt,
+                                              alpha = 0.05,
+                                              verbose = verbose)
+
                       return(list(p=pval,lower=lower,upper=upper))
                     },
                     #' @description 
@@ -1947,88 +1980,6 @@ fixed for the modified Bessel function of the second kind.")
                     information_matrix = function(){
                       Matrix::crossprod(self$mean_function$X,solve(self$Sigma))%*%self$mean_function$X
                     },
-                    qscore = function(y,
-                                      tr,
-                                      xb,
-                                      permutation.par,
-                                      invS,
-                                      weight=TRUE){
-                      
-                      #xb <- self$mean_function$X[,-permutation.par] %*% b + offset
-                      ypred <- self$mean_function$family$linkinv(Matrix::drop(xb))
-                      resids <- Matrix::Matrix(y-ypred)
-                      
-                      if(weight){
-                        tr_mat <- Matrix::diag(tr)
-                        g <- Matrix::t(private$get_G(xb))
-                        q <- (g%*%invS)%*%(tr_mat%*%resids)
-                        
-                      } else {
-                        tr_mat <- Matrix::Matrix(tr,nrow=1)
-                        q <- (tr_mat%*%resids)
-                      }
-                      return(abs(Matrix::drop(q)))
-                    },
-                    get_G = function(x){
-                      family = self$mean_function$family
-                      
-                      if(family[[2]] == "identity"){
-                        dx <- rep(1,length(x))
-                      } else if(family[[2]] == "log"){
-                        dx <- exp(x)
-                      } else if(family[[2]] == "logit"){
-                        dx <- (exp(x)/(1+exp(x)))*(1-exp(x)/(1+exp(x)))
-                      } else if(family[[2]] == "probit"){
-                        dx <- -1/dnorm(x)
-                      }
-                      return(dx)
-                    },
-                    confint_search = function(y,
-                                              permutation.par,
-                                              start,
-                                              b,
-                                              nsteps = 1000,
-                                              w.opt = TRUE,
-                                              alpha=0.05,
-                                              verbose=TRUE){
-                      bound <- start
-                      Xnull <- as.matrix(self$mean_function$X)
-                      Xnull <- Xnull[,-permutation.par]
-                      tr <- as.matrix(self$mean_function$X)[,permutation.par]
-                      dtr <- tr
-                      dtr[dtr==0] <- -1
-                      k <- 2/(pnorm(1-alpha)*((2*pi)^-0.5)*exp((-pnorm(1-alpha)^2)/2))
-                      if(w.opt){
-                        invS <- Matrix::solve(self$Sigma)
-                      } else {
-                        invS <- 1
-                      }
-                      
-                      for(i in 1:nsteps){
-                        null_fit <- stats::glm.fit(Xnull,y,family=self$mean_function$family,offset = tr*bound)
-                        #pars <- null_fit$coefficients
-                        xb <- null_fit$linear.predictors
-                        qstat <- private$qscore(y,dtr,xb,permutation.par,invS,w.opt)
-                        
-                        new_tr <- self$mean_function$randomise()
-                        new_tr[new_tr==0] <- -1
-                        qtest <- private$qscore(y,new_tr,xb,permutation.par,invS,w.opt)
-                        rjct <- qstat > qtest
-                        #cat("\r bound: ",bound," qscore: ",qstat," qtest: ",qtest," iter: ",i)
-                        
-                        step <- k*(b - bound)
-                        if(rjct){
-                          bound <- bound + step*alpha/i
-                        } else {
-                          bound <- bound - step*(1-alpha)/i
-                        }
-                        
-                        if(verbose)cat("\r",progress_bar(i,nsteps))
-                      }
-                      
-                      return(bound)
-                      
-                    },
                     gen_stan_data = function(type="s",
                                              y = NULL){
                       
@@ -2052,27 +2003,6 @@ fixed for the modified Bessel function of the second kind.")
                       #pad to prevent Stan errors
                       stan_data$N_dim <- c(stan_data$N_dim,0)
                       stan_data$N_func <- c(stan_data$N_func,0)
-                      
-                      # stan_data <- list(
-                      #   B = B,
-                      #   N_dim = N_dim,
-                      #   max_N_dim = max(N_dim),
-                      #   N_func = N_func,
-                      #   max_N_func = max(N_func),
-                      #   func_def = func_def,
-                      #   N_var_func = N_var_func,
-                      #   max_N_var = max(rowSums(N_var_func)),
-                      #   max_N_var_func = max(N_var_func),
-                      #   col_id = col_id,
-                      #   N_par = n_par,
-                      #   sum_N_par = sum(n_par),
-                      #   cov_data = cov_data,
-                      #   N = self$n(),
-                      #   P = ncol(self$mean_function$X),
-                      #   Q = ncol(self$covariance$Z),
-                      #   X = as.matrix(self$mean_function$X),
-                      #   Z = as.matrix(self$covariance$Z)
-                      # )
                       if(type=="m"){
                         for(i in 1:length(stan_data))names(stan_data)[i] <- paste0(names(stan_data)[i],"_m")
                       } else if(type=="y"){

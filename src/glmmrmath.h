@@ -132,6 +132,7 @@ arma::vec mod_inv_func(arma::vec mu,
   return mu;
 }
 
+// [[Rcpp::export]]
 arma::vec gen_dhdmu(arma::vec xb,
                     std::string family,
                     std::string link){
