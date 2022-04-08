@@ -398,7 +398,10 @@ Algorithms to identify a c-optimal design of size m within the design space.
   keep = FALSE,
   verbose = TRUE,
   robust_function = "weighted",
-  force_hill = FALSE
+  force_hill = FALSE,
+  s = 10,
+  r = 0.01,
+  b = 1
 )}\if{html}{\out{</div>}}
 }
 
@@ -421,6 +424,12 @@ linked design objects. Defaults to FALSE.}
 
 \item{\code{force_hill}}{Logical. If the experimental conditions are uncorrelated, if this option is TRUE then the hill climbing 
 algorithm will be used, otherwise if it is FALSE, then a fast approximate alternative will be used. See Details}
+
+\item{\code{s}}{Positive integer specifying the maximum search depth, which is the number of swaps to make on each iteration}
+
+\item{\code{r}}{Positive number between 0 and 1 for the parameter r, default is 0.01}
+
+\item{\code{b}}{Positive number between 0 and 1 for the parameter b, default is 1}
 }
 \if{html}{\out{</div>}}
 }

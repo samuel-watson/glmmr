@@ -5,33 +5,31 @@
 \title{Hill-Climbing algorithm to identify optimal GLMM design}
 \usage{
 GradRobustStep(
-  N,
   idx_in,
   C_list,
   X_list,
-  sig_list,
+  Z_list,
+  D_list,
+  w_diag,
+  max_obs,
   weights,
-  exp_cond,
   nfix,
+  s = 10L,
+  r = 0.01,
+  b = 1,
   any_fix = 0L,
   rd_mode = 1L,
   trace = TRUE
 )
 }
 \arguments{
-\item{N}{Integer specifying number of experimental conditions in the optimal design}
-
 \item{idx_in}{Integer vector specifying the indexes of the experimental conditions to start from}
 
 \item{C_list}{List of C vectors for the c-optimal function, see \link{glmmr}[DesignSpace]}
 
 \item{X_list}{List of X matrices}
 
-\item{sig_list}{List of inverse covariance matrices}
-
 \item{weights}{Vector specifying the weights of each design}
-
-\item{exp_cond}{Vector specifying the experimental condition index of each observation}
 
 \item{nfix}{Vector listing the experimental condition indexes that are fixed in the design}
 
@@ -40,6 +38,12 @@ GradRobustStep(
 \item{rd_mode}{Integer. Robust objective function, 1=weighted average, 2=minimax}
 
 \item{trace}{Logical indicating whether to provide detailed output}
+
+\item{N}{Integer specifying number of experimental conditions in the optimal design}
+
+\item{sig_list}{List of inverse covariance matrices}
+
+\item{exp_cond}{Vector specifying the experimental condition index of each observation}
 }
 \value{
 A vector of experimental condition indexes in the optimal design

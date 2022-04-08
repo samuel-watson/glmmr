@@ -569,6 +569,7 @@ Design <- R6::R6Class("Design",
                     subset_rows = function(index){
                       self$mean_function$subset_rows(index)
                       self$covariance$subset(index)
+                      self$check(verbose=FALSE)
                     },
                     #' @description 
                     #' Subsets the columns of the design 
@@ -582,6 +583,7 @@ Design <- R6::R6Class("Design",
                     #' des$subset_cols(c(2:8,10))
                     subset_cols = function(index){
                       self$mean_function$subset_cols(index)
+                      self$check(verbose=FALSE)
                     },
                     #'@description 
                     #'Generates a plot of the design
@@ -624,15 +626,15 @@ Design <- R6::R6Class("Design",
                                     z=NULL,
                                     treat){
                       if(is.null(z)){
-                        ggplot2::ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
-                          ggplot2::geom_count(aes(color=self$mean_function$data[,treat]))+
+                        ggplot2::ggplot(data=self$covariance$data,ggplot2::aes(x=.data[[x]],y=.data[[y]]))+
+                          ggplot2::geom_count(ggplot2::aes(color=self$mean_function$data[,treat]))+
                           ggplot2::theme_bw()+
                           ggplot2::theme(panel.grid=ggplot2::element_blank())+
                           ggplot2::scale_color_viridis_c(name=treat)+
                           ggplot2::scale_size_area()
                       } else {
-                        ggplot2::ggplot(data=self$covariance$data,aes(x=.data[[x]],y=.data[[y]]))+
-                          ggplot2::geom_count(aes(color=self$mean_function$data[,treat]))+
+                        ggplot2::ggplot(data=self$covariance$data,ggplot2::aes(x=.data[[x]],y=.data[[y]]))+
+                          ggplot2::geom_count(ggplot2::aes(color=self$mean_function$data[,treat]))+
                           ggplot2::facet_wrap(~.data[[z]])+
                           ggplot2::theme_bw()+
                           ggplot2::theme(panel.grid=ggplot2::element_blank())+

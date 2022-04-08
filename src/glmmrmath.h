@@ -179,6 +179,18 @@ double c_obj_fun(arma::mat M, arma::vec C) {
   return arma::as_scalar(C.t() * M_inv * C);
 }
 
+double c_d_deriv(arma::mat M1, arma::mat M2, arma::vec C) {
+  // this is the directional derivative from M1 to M2 c-optimal
+  arma::mat M_inv = arma::inv_sympd(M1);
+  return arma::as_scalar(C.t() * M_inv * (M1 - M2) * M_inv * C);
+}
+
+double c_deriv(arma::mat M, arma::vec C) {
+  // this is the directional derivative from M1 to M2 c-optimal
+  arma::mat M_inv = arma::inv_sympd(M);
+  return norm(-1 * M_inv * C * C.t() * M_inv,"fro");
+}
+
 arma::mat gen_m(const arma::mat &X, const arma::mat &A) {
   //generate information matrix
   return X.t() * A * X;

@@ -202,8 +202,8 @@ stepped_wedge <- function(J,
       )
       
     }
-    return(ds1)
+    return(invisible(ds1))
   } else {
-    return(d1)
+    return(invisible(d1))
   }
 }

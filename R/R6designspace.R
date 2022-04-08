@@ -194,6 +194,9 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' @param robust_function Either "weighted" or "minimax". Specifies the objective function to use in robust optimisation, see Details.
                    #' @param force_hill Logical. If the experimental conditions are uncorrelated, if this option is TRUE then the hill climbing 
                    #' algorithm will be used, otherwise if it is FALSE, then a fast approximate alternative will be used. See Details
+                   #' @param s Positive integer specifying the maximum search depth, which is the number of swaps to make on each iteration
+                   #' @param r Positive number between 0 and 1 for the parameter r, default is 0.01
+                   #' @param b Positive number between 0 and 1 for the parameter b, default is 1
                    #' @return A vector indicating the identifiers of the experimental conditions in the optimal design, or a vector indicating the
                    #' weights if the approximate algorithm is used. Optionally the linked designs are also modified (see option `keep`).
                    #' @examples
@@ -255,7 +258,8 @@ DesignSpace <- R6::R6Class("DesignSpace",
                                       keep=FALSE,
                                       verbose=TRUE,
                                       robust_function = "weighted",
-                                      force_hill=FALSE){
+                                      force_hill=FALSE,
+                                      s=10,r=0.01,b=1){
                      if(keep&verbose)message("linked design objects will be overwritten with the new design")
                      
                      ## add checks
@@ -326,17 +330,15 @@ each condition will be reported below."))
                        #initialise from random starting index
                        N <- private$designs[[1]]$mean_function$n()
                        X_list <- private$genXlist()
-                       sig_list <- private$genSlist()
+                       Z_list <- private$genZlist()
+                       D_list <- private$genDlist()
+                       #sig_list <- private$genSlist()
                        weights <- self$weights
-                       exp_cond <- as.numeric(as.factor(self$experimental_condition))
-                       ncond <- length(unique(exp_cond))
-                       idx_in <- sort(sample(1:ncond,m,replace=FALSE))
                        rdmode <- ifelse(robust_function=="weighted",1,0)
                        
                        if(!is.null(rm_cols))
                        {
                          if(!is(rm_cols,"list"))stop("rm_cols should be a list")
-                         idx_original <- list()
                          zero_idx <- c()
                          idx_original <- 1:nrow(X_list[[1]])
                          
@@ -351,8 +353,15 @@ each condition will be reported below."))
                            }
                          }
                          zero_idx <- sort(unique(zero_idx))
+                         
+                         # exp_cond <- as.numeric(factor(self$experimental_condition[-zero_idx],
+                         #                                  levels=unique(self$experimental_condition[-zero_idx])))
+                         uexpcond <- unique(self$experimental_condition[-zero_idx])
+                         ncond <- length(uexpcond)
+                         
+                         # idx_in <- sort(sample(1:(N-length(zero_idx)),m,replace=FALSE))
                          idx_original <- idx_original[-zero_idx]
-                         idx_in <- match(idx_in,idx_original)
+                         # idx_in <- match(idx_in,idx_original)
                          
                          if(verbose)message(paste0("removing ",length(zero_idx)," observations"))
                          
@@ -360,55 +369,113 @@ each condition will be reported below."))
                          for(i in 1:length(rm_cols))
                          {
                            X_list[[i]] <- X_list[[i]][-zero_idx,-rm_cols[[i]]]
-                           C_list[[i]] <- matrix(C_list[[i]][-rm_cols[[i]]],ncol=1)
+                           C_list[[i]] <- C_list[[i]][-rm_cols[[i]]]
                            sig_list[[i]] <- sig_list[[i]][-zero_idx,-zero_idx]
                          }
+                         
+                         N <- nrow(X_list[[1]])
+                         
+                       } else {
+                         uexpcond <- unique(self$experimental_condition)
                        }
                        
-                       out_list <- GradRobustStep(N = N,
-                                                  idx_in = idx_in, 
+                       ncond <- length(uexpcond)
+                       #idx_in <- sort(sample(1:N,m,replace=FALSE))
+                       # add check for if unique combinations are different between designs
+                       XZ <- cbind(X_list[[1]],Z_list[[1]])
+                       XZ.hash <- apply(XZ,1,digest::digest)
+                       row.hash <- as.numeric(factor(XZ.hash,levels=unique(XZ.hash)))
+                       idx.nodup <- which(!duplicated(XZ.hash))
+                       n.uni.obs <- length(idx.nodup)
+                       w_diag <- matrix(0,ncol=length(X_list),nrow=n.uni.obs)
+                       for(i in 1:length(X_list)){
+                         X_list[[i]] <- X_list[[i]][idx.nodup,]
+                         Z_list[[i]] <- Z_list[[i]][idx.nodup,]
+                         if(is.null(rm_cols)){
+                           w_diag[,i] <- private$designs[[i]]$.__enclos_env__$private$W@x[idx.nodup]
+                         } else {
+                           w_diag[,i] <- private$designs[[i]]$.__enclos_env__$private$W@x[-zero_idx][idx.nodup]
+                         }
+                       }
+                       idx_in <- sort(sample(row.hash,m,replace=FALSE))
+                       max_obs <- unname(table(row.hash))
+                       
+                       # #for debugging
+                       # X_list <<- X_list
+                       # Z_list <<- Z_list
+                       # D_list <<- D_list
+                       # w_diag <<- w_diag
+                       # idx_in <<- idx_in
+                       # row.hash <<- row.hash
+                       print(unname(table(idx_in)))
+                       out_list <- GradRobustStep(idx_in = idx_in-1, 
                                                   C_list = C_list, 
-                                                  X_list = X_list, 
-                                                  sig_list = sig_list,
-                                                  exp_cond = exp_cond,
-                                                  nfix = 0,
+                                                  X_list = X_list,
+                                                  Z_list = Z_list,
+                                                  D_list = D_list,
+                                                  w_diag = w_diag,
+                                                  max_obs = max_obs,
+                                                  any_fix = 0,
+                                                  nfix = N+10,
+                                                  s=s,
+                                                  r=r,
+                                                  b=b,
                                                   weights = weights, 
                                                   rd_mode=rdmode,
                                                   trace=verbose)
                        
-                       # old algorithm - it doesn't really work!
-                       #   out_list <- GradRobustAlg1(N = N,
-                       #                              idx_in = idx_in, 
-                       #                              C_list = C_list, 
-                       #                              X_list = X_list, 
-                       #                              sig_list = sig_list,
-                       #                              exp_cond = exp_cond,
-                       #                              nfix = 0,
-                       #                              weights = weights, 
-                       #                              rd_mode=rdmode,
-                       #                              trace=verbose)
-                       
                        idx_out <- drop(out_list[["idx_in"]] )
-                       idx_out <- sort(idx_out)
-                       idx_out_exp <- unique(self$experimental_condition)[idx_out]
-                       rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
+                       idx_out_exp <- sort(idx_out)+1
+                       if(verbose){
+                         cat("\nFrequency of observations: \n")
+                         print(table(idx_out_exp))
+                       }
                        
-                       
-                       if(keep){
-                         for(i in 1:self$n()[[1]]){
-                           private$designs[[i]]$subset_rows(rows_to_keep)
-                           ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
-                           if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
+                       # convert back to rows
+                       rows_in <- c()
+                       for(i in 1:N){
+                         if(length(idx_out_exp)==0)break
+                         if(row.hash[i]%in%idx_out_exp){
+                           rows_in <- c(rows_in,i)
+                           idx_out_exp <- idx_out_exp[-which(idx_out_exp==row.hash[i])[1]]
                          }
                        }
-                       if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp)
+
+                       idx_out_exp <- rows_in
+                       
+                       if(!is.null(rm_cols)){
+                         idx_out_exp <- idx_original[idx_out]
+                       } 
+                       if(keep){
+                         for(i in 1:self$n()[[1]]){
+                           private$designs[[i]]$subset_rows(idx_out_exp)
+                           ncol <- 1:ncol(private$designs[[i]]$mean_function$X)
+                           if(!is.null(rm_cols))private$designs[[i]]$subset_cols(ncol[-rm_cols[[i]]])
+                           private$designs[[i]]$check(verbose=FALSE)
+                         }
+                       }
+                       if(ncond < N){
+                         if(!is.null(rm_cols)){
+                           ec <- self$experimental_condition[-zero_idx]
+                         } else {
+                           ec <- self$experimental_condition
+                         }
+                         dp <- as.data.frame(table(ec[idx_out_exp]))
+                         de <- data.frame(ec = uexpcond,Freq = NA)
+                         de$Freq <- dp[match(de$ec,dp$Var1),'Freq']
+                         de[is.na(de$Freq),"Freq"] <- 0
+                         colnames(de) <- c("Exp. Cond.","Freq")
+                         idx_out_exp <- list(rows = idx_out_exp, exp.cond = de)
+                       } else {
+                         idx_out_exp <- list(rows = idx_out_exp, exp.cond = NULL)
+                       }
+                       
+
+                       # rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
+                       
+                       if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp$rows)
                        return(invisible(idx_out_exp))
                      }
-                     
-                     
-                     
-                     
-                     
                    },
                    #' @description 
                    #' Returns a linked design
@@ -434,6 +501,20 @@ each condition will be reported below."))
                        S_list[[i]] <- as.matrix(private$designs[[i]]$Sigma)
                      }
                      return(S_list)
+                   },
+                   genZlist = function(){
+                     Z_list <- list()
+                     for(i in 1:self$n()[[1]]){
+                       Z_list[[i]] <- as.matrix(private$designs[[i]]$covariance$Z)
+                     }
+                     return(Z_list)
+                   },
+                   genDlist = function(){
+                     D_list <- list()
+                     for(i in 1:self$n()[[1]]){
+                       D_list[[i]] <- as.matrix(private$designs[[i]]$covariance$D)
+                     }
+                     return(D_list)
                    },
                    socp_roptimal = function(C,
                                             m){

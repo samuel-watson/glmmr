@@ -229,7 +229,6 @@ double remove_one_many(const arma::mat &A,
   return obj_fun(A2, u(uidx));
 }
 
-
 double add_one(const arma::mat &A, 
                double sigma_jj, 
                const arma::vec &f,
