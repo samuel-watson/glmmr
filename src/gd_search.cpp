@@ -21,7 +21,6 @@ private:
   const arma::field<arma::mat> Z_all_list_; 
   const arma::mat W_all_diag_;
   
-  arma::uvec all_idx_;
   const arma::vec weights_; // weights for each design
   arma::vec count_in_design_;
   arma::uvec max_obs_;
@@ -46,9 +45,8 @@ public:
   double r_;
   double b_;
   
-  arma::cube A_list_; // inverse sigma matrices
-  arma::cube A_list_sub_; // holder of 
-  arma::cube rm1A_list_; // inverse sigma matrices with one removed - initialised to minus one but now needs to resize
+  arma::field<arma::mat> A_list_; // inverse sigma matrices
+  arma::field<arma::mat> A_list_sub_; // holder of 
   arma::field<arma::mat> M_list_; // field of information matrices
   arma::field<arma::mat> M_list_sub_; // field of information matrices
   const arma::uvec nfix_; //the indexes of the experimental conditions to keep
@@ -79,7 +77,6 @@ public:
   X_all_list_(X_list),
   Z_all_list_(Z_list),
   W_all_diag_(w_diag),
-  all_idx_(idx_in.n_elem),
   weights_(weights), 
   count_in_design_(X_list(0,0).n_rows,fill::zeros),
   max_obs_(max_obs),
@@ -100,9 +97,8 @@ public:
   s_(s),
   r_(r),
   b_(b),
-  A_list_(n_,n_,nlist_,fill::zeros), 
-  A_list_sub_(n_,n_,nlist_,fill::zeros),
-  rm1A_list_(n_-1,n_-1,nlist_,fill::zeros),
+  A_list_(nlist_), 
+  A_list_sub_(nlist_),
   M_list_(nlist_),
   M_list_sub_(nlist_),
   nfix_(nfix), 
@@ -135,12 +131,10 @@ public:
       }
       X_list_(j,0) = X;
       X_list_sub_(j,0) = X;
-      arma::vec idx = arma::linspace(0, n_-1, n_);
-      all_idx_ = arma::conv_to<arma::uvec>::from(idx);
       arma::mat tmp = Z*D_list_(j,0)*Z.t();
       tmp.diag() += w_diag;
-      A_list_.slice(j) = tmp.i();
-      A_list_sub_.slice(j) = tmp.i();
+      A_list_(j,0) = tmp.i();
+      A_list_sub_(j,0) = tmp.i();
     }
   }
   
@@ -181,6 +175,7 @@ public:
   }
   
   void optim(){
+    arma::uword s_full_ = s_;
     new_val_ = comp_c_obj_fun();
     int i = 0;
     while(s_ > 0){
@@ -189,48 +184,8 @@ public:
       if (trace_) Rcpp::Rcout << "\nIter " << i << ":Var: " << val_ << " swaps:" << s_;
       // make s swaps
       track_swaps_.fill(0);
-      for(arma::uword k = 0; k<s_;k++){
-        // find optimum swap
-        arma::mat swap_vals(n_,k_,fill::zeros);
-        arma::umat swap_idx(n_,k_);
-#pragma omp parallel for
-        for(arma::uword j=0; j<n_; j++){
-          arma::vec val_in_vec = eval_swap(j);
-          swap_idx.row(j) = sort_index(val_in_vec).t();
-          swap_vals.row(j) = val_in_vec(sort_index(val_in_vec)).t();
-        }
-        bool idx_isin = true;
-        arma::uword out_idx_sort = 0;
-        arma::uword out_idx_sort_col = 0;
-        arma::uvec swap_vals_sort;
-        while(idx_isin){
-          swap_vals_sort = sort_index(swap_vals.col(out_idx_sort_col));
-          if((idx_in_sub_(swap_vals_sort(out_idx_sort)) == swap_idx(swap_vals_sort(out_idx_sort),out_idx_sort_col)) | ((k > 0) && 
-             (any(track_swaps_.col(0).rows(0,k-1) == swap_idx(swap_vals_sort(out_idx_sort),out_idx_sort_col))))){
-            out_idx_sort++;
-            if(out_idx_sort == n_){
-              out_idx_sort = 0;
-              out_idx_sort_col++;
-            }
-          } else {
-            idx_isin = false;
-          }
-        }
-        arma::uword out_idx = swap_vals_sort(out_idx_sort); 
-        //arma::uword out_idx = index_min(swap_vals);
-        // if(idx_in_sub_(out_idx) == swap_idx(out_idx)){
-        //   s_ = k;
-        //   break;
-        // }
-        if (trace_) Rcpp::Rcout << "\nMake swap " << out_idx << " id " << idx_in_sub_(out_idx) << " for " <<  swap_idx(out_idx);// << "var: " << comp_c_obj_fun();
-        
-        track_swaps_(k,0) = idx_in_sub_(out_idx);
-        track_swaps_(k,1) = swap_idx(out_idx);
-        //track_swaps_(k,2) = out_idx;
-        make_swap(out_idx,swap_idx(out_idx));
-        Update_M_list();
-      }
-      //now check conditions
+      make_swap_multi();
+      Update_M_list();
       new_val_ = comp_c_obj_fun();
       double diff = new_val_ - val_;
       double dderiv = direct_deriv();
@@ -241,7 +196,6 @@ public:
       if (trace_)Rcpp::Rcout << "\nDiff " << diff << "<=" << r_*frnorm*dderiv << ":" << cond1;
       if (trace_)Rcpp::Rcout << "\ngderiv " << gderiv << "<=" << b_*frnorm << ":" << cond2;
       if(!(cond1 & cond2)){
-        //Rcpp::Rcout << track_swaps_.head_rows(s_) << std::endl;
         while((!(cond1 & cond2)) & (s_!=0)){
           if (trace_) Rcpp::Rcout << "\nBacktracking..." << s_;
           arma::uvec rm_cond = find(idx_in_sub_==track_swaps_(s_-1,1));
@@ -263,6 +217,7 @@ public:
         A_list_ = A_list_sub_;
         X_list_ = X_list_sub_;
         M_list_ = M_list_sub_;
+        s_ = s_full_;
       }
     }
     Rcpp::Rcout << "\ncompleted, var: " << val_ << "v" << new_val_<< std::endl;
@@ -276,29 +231,121 @@ private:
     idx_in_rm_ = uvec_minus(idx_in_sub_,outobs);
     idx_in_sub_ = join_idx(idx_in_rm_,inobs);
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
-      arma::mat A1 = A_list_sub_.slice(idx);
+      arma::mat A1 = A_list_sub_(idx,0);
       const arma::mat rm1A = remove_one_many_mat(A1, arma::uvec({outobs}));
       arma::rowvec z_j = Z_all_list_(idx,0).row(inobs);
       arma::mat z_d = Z_all_list_(idx,0).rows(idx_in_rm_);
       double sig_jj = arma::as_scalar(z_j * D_list_(idx,0) * z_j.t()); 
       sig_jj += W_all_diag_(inobs);
       arma::vec f = z_d * D_list_(idx,0) * z_j.t();
-      A_list_sub_.slice(idx) = add_one_mat(rm1A, 
+      A_list_sub_(idx,0) = add_one_mat(rm1A, 
                                            sig_jj,
                                            f);
       
       arma::mat X = X_list_sub_(idx,0);
-      X.rows(0,n_-2) = X_list_sub_(idx,0).rows(uvec_minus(all_idx_,outobs));
+      arma::vec idxall = arma::linspace(0, n_-1, n_);
+      arma::uvec all_idx = arma::conv_to<arma::uvec>::from(idxall);
+      X.rows(0,n_-2) = X_list_sub_(idx,0).rows(uvec_minus(all_idx,outobs));
       X.row(n_-1) = X_all_list_(idx,0).row(inobs);
       X_list_sub_(idx,0) = X;
+    }
+  }
+  
+  void make_swap_multi(){
+    // add s_ observations
+    for(arma::uword i_s_=0; i_s_<s_;i_s_++){
+      arma::mat val_in_mat(k_,nlist_,arma::fill::zeros);
+      for (arma::uword j = 0; j < nlist_; j++) {
+        arma::mat A1 = A_list_sub_(j,0);
+        arma::mat X(n_+i_s_+1,X_list_sub_(j,0).n_cols);
+        X.rows(0,n_+i_s_-1) = X_list_sub_(j,0);
+        for (arma::uword i = 0; i < k_; ++i) {
+          if(curr_obs_(i)<max_obs_(i)){
+            X.row(n_+i_s_) = X_all_list_(j,0).row(i);
+            arma::rowvec z_j = Z_all_list_(j,0).row(i);
+            arma::mat z_d = Z_all_list_(j,0).rows(idx_in_sub_);
+            double sig_jj = arma::as_scalar(z_j * D_list_(j,0) * z_j.t()); 
+            sig_jj += W_all_diag_(i);
+            arma::vec f = z_d * D_list_(j,0) * z_j.t();
+            arma::mat sub1 = add_one_mat(A1, 
+                                         sig_jj,
+                                         f);
+            val_in_mat(i,j) = c_obj_fun(
+              X.t() * sub1 * X,
+              C_list_(j,0));
+          } else {
+            val_in_mat(i,j) = 10000;
+          }
+        }
+      }
+      arma::vec val_in = rd_mode_==1 ? val_in_mat * weights_ : arma::vec(arma::max(val_in_mat, 1));
+      arma::uword min_idx = index_min(val_in);
+      curr_obs_(min_idx)++;
+      track_swaps_(i_s_,1) = min_idx;
+      // update the matrices
+      for (arma::uword j = 0; j < nlist_; j++) {
+        arma::mat A1 = A_list_sub_(j,0);
+        arma::mat X(n_+i_s_+1,X_list_sub_(j,0).n_cols);
+        X.rows(0,n_+i_s_-1) = X_list_sub_(j,0);
+        X.row(n_+i_s_) = X_all_list_(j,0).row(min_idx);
+        arma::rowvec z_j = Z_all_list_(j,0).row(min_idx);
+        arma::mat z_d = Z_all_list_(j,0).rows(idx_in_sub_);
+        double sig_jj = arma::as_scalar(z_j * D_list_(j,0) * z_j.t()); 
+        sig_jj += W_all_diag_(min_idx);
+        arma::vec f = z_d * D_list_(j,0) * z_j.t();
+        A_list_sub_(j,0) = add_one_mat(A1, 
+                    sig_jj,
+                    f);
+        X_list_sub_(j,0) = X;
+      }
+      idx_in_sub_ = join_idx(idx_in_sub_,min_idx);
+    }
+    // now remove s_ observations!
+    for(arma::uword i_s_=0; i_s_<s_;i_s_++){
+      arma::mat val_out_mat(k_,nlist_,arma::fill::zeros);
+      
+      for (arma::uword j = 0; j < nlist_; j++) {
+        arma::mat A1 = A_list_sub_(j,0);
+        for (arma::uword i = 0; i < k_; ++i) {
+          if(any(idx_in_sub_==i)){
+            arma::uvec find_idx= find(idx_in_sub_ == i);
+            arma::uword find_idx0 = find_idx(0);
+            arma::vec idxall = arma::linspace(0, n_+s_-i_s_-1, n_+s_-i_s_);
+            arma::uvec all_idx = arma::conv_to<arma::uvec>::from(idxall);
+            arma::mat X = X_list_sub_(j,0).rows(uvec_minus(all_idx,find_idx0));
+            arma::mat rm1 = remove_one_many_mat(A1, arma::uvec({find_idx0}));
+            val_out_mat(i,j) = c_obj_fun(
+              X.t() * rm1 * X,
+              C_list_(j,0));
+          } else {
+            val_out_mat(i,j) = 10000;
+          }
+        }
+      }
+      
+      arma::vec val_out = rd_mode_==1 ? val_out_mat * weights_ : arma::vec(arma::max(val_out_mat, 1));
+      arma::uword out_min_idx = index_min(val_out);
+      arma::uvec find_idx= find(idx_in_sub_ == out_min_idx);
+      arma::uword find_idx0 = find_idx(0);
+      curr_obs_(out_min_idx)--;
+      track_swaps_(i_s_,0) = out_min_idx;
+      idx_in_sub_ = uvec_minus(idx_in_sub_,find_idx0);
+      // update the matrices
+      for (arma::uword j = 0; j < nlist_; j++) {
+        arma::mat A1 = A_list_sub_(j,0);
+        arma::vec idxall = arma::linspace(0, n_+s_-i_s_-1, n_+s_-i_s_);
+        arma::uvec all_idx = arma::conv_to<arma::uvec>::from(idxall);
+        X_list_sub_(j,0) = X_list_sub_(j,0).rows(uvec_minus(all_idx,find_idx0));
+        A_list_sub_(j,0) = remove_one_many_mat(A1,arma::uvec({find_idx0}));
+      }
     }
   }
   
   void Update_M_list(bool useA = false, bool M_check = false) {
     for (arma::uword i = 0; i < nlist_; ++i) {
       arma::mat X1 = useA ? X_list_(i,0) : X_list_sub_(i,0);
-      arma::mat A = useA ? A_list_.slice(i) : 
-        A_list_sub_.slice(i);
+      arma::mat A = useA ? A_list_(i,0) : 
+        A_list_sub_(i,0);
       arma::mat M = X1.t() * A * X1;
       if(useA){
         M_list_(i,0) = M;
@@ -315,45 +362,6 @@ private:
         Rcpp::stop("M not positive semi-definite.");
       }
     }
-  }
-  
-  void UpdateResult(arma::uword idx_to_rm = 0,
-                    arma::uword idx_to_add = 0) {
-    // if we are keeping a swap then this function is called... 
-    idx_in_ = idx_in_sub_;
-    A_list_ = A_list_sub_;
-    X_list_ = X_list_sub_;
-    M_list_ = M_list_sub_;
-  }
-  
-  
-  arma::vec eval_swap(arma::uword obs){
-    arma::mat val_in_mat(k_,nlist_,arma::fill::zeros);
-    for (arma::uword j = 0; j < nlist_; ++j) {
-      arma::mat A1 = A_list_sub_.slice(j);
-      const arma::mat rm1A = remove_one_many_mat(A1, arma::uvec({obs}));
-      arma::mat X(n_,X_list_sub_(j,0).n_cols);
-      X.rows(0,n_-2) = X_list_sub_(j,0).rows(uvec_minus(all_idx_,obs));
-      for (arma::uword i = 0; i < k_; ++i) {
-        if(idx_in_sub_(obs) != i && curr_obs_(i)<max_obs_(i)){
-          X.row(n_-1) = X_all_list_(j,0).row(i);
-          arma::rowvec z_j = Z_all_list_(j,0).row(i);
-          arma::mat z_d = Z_all_list_(j,0).rows(uvec_minus(idx_in_sub_,obs));
-          double sig_jj = arma::as_scalar(z_j * D_list_(j,0) * z_j.t()); 
-          sig_jj += W_all_diag_(i);
-          arma::vec f = z_d * D_list_(j,0) * z_j.t();
-          arma::mat sub1 = add_one_mat(rm1A, 
-                                       sig_jj,
-                                       f);
-          val_in_mat(i,j) = c_obj_fun(
-            X.t() * sub1 * X, 
-            C_list_(j,0));
-        } else {
-          val_in_mat(i,j) = 10000;
-        }
-      }
-    }
-    return rd_mode_==1 ? val_in_mat * weights_ : arma::vec(arma::max(val_in_mat, 1));
   }
 
 };
