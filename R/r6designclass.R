@@ -2002,6 +2002,33 @@ fixed for the modified Bessel function of the second kind.")
                                             max_N_var_func = max(stan_data$N_var_func)
                                           ))
                       
+                      if(self$mean_function$family[[1]]%in%c("poisson","binomial")){
+                        if(self$mean_function$family[[1]]=="binomial"&
+                           self$mean_function$family[[2]]=="logit"){
+                          type <- 1
+                        }
+                        if(self$mean_function$family[[1]]=="binomial"&
+                           self$mean_function$family[[2]]=="log"){
+                          type <- 2
+                        }
+                        if(self$mean_function$family[[1]]=="binomial"&
+                           self$mean_function$family[[2]]=="identity"){
+                          type <- 3
+                        }
+                        if(self$mean_function$family[[1]]=="binomial"&
+                           self$mean_function$family[[2]]=="probit"){
+                          type <- 4
+                        }
+                        if(self$mean_function$family[[1]]=="poisson"&
+                           self$mean_function$family[[2]]=="log"){
+                          type <- 1
+                        }
+                        stan_data <- append(stan_data,
+                                            list(
+                                              type = type
+                                            ))
+                      }
+                      
                       #pad to prevent Stan errors
                       stan_data$N_dim <- c(stan_data$N_dim,0)
                       stan_data$N_func <- c(stan_data$N_func,0)
