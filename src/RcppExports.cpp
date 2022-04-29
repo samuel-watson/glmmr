@@ -27,12 +27,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // GradRobustStep
-Rcpp::List GradRobustStep(arma::uvec idx_in, Rcpp::List C_list, Rcpp::List X_list, Rcpp::List Z_list, Rcpp::List D_list, arma::mat w_diag, arma::uvec max_obs, arma::vec weights, arma::uvec nfix, arma::uword s, double r, double b, arma::uword any_fix, arma::uword rd_mode, bool trace);
-RcppExport SEXP _glmmr_GradRobustStep(SEXP idx_inSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP Z_listSEXP, SEXP D_listSEXP, SEXP w_diagSEXP, SEXP max_obsSEXP, SEXP weightsSEXP, SEXP nfixSEXP, SEXP sSEXP, SEXP rSEXP, SEXP bSEXP, SEXP any_fixSEXP, SEXP rd_modeSEXP, SEXP traceSEXP) {
+Rcpp::List GradRobustStep(arma::uvec idx_in, arma::uword n, Rcpp::List C_list, Rcpp::List X_list, Rcpp::List Z_list, Rcpp::List D_list, arma::mat w_diag, arma::uvec max_obs, arma::vec weights, arma::uvec exp_cond, arma::uvec nfix, arma::uword any_fix, arma::uword type, arma::uword rd_mode, bool trace);
+RcppExport SEXP _glmmr_GradRobustStep(SEXP idx_inSEXP, SEXP nSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP Z_listSEXP, SEXP D_listSEXP, SEXP w_diagSEXP, SEXP max_obsSEXP, SEXP weightsSEXP, SEXP exp_condSEXP, SEXP nfixSEXP, SEXP any_fixSEXP, SEXP typeSEXP, SEXP rd_modeSEXP, SEXP traceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::uvec >::type idx_in(idx_inSEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type n(nSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type C_list(C_listSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type X_list(X_listSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type Z_list(Z_listSEXP);
@@ -40,14 +41,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type w_diag(w_diagSEXP);
     Rcpp::traits::input_parameter< arma::uvec >::type max_obs(max_obsSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type exp_cond(exp_condSEXP);
     Rcpp::traits::input_parameter< arma::uvec >::type nfix(nfixSEXP);
-    Rcpp::traits::input_parameter< arma::uword >::type s(sSEXP);
-    Rcpp::traits::input_parameter< double >::type r(rSEXP);
-    Rcpp::traits::input_parameter< double >::type b(bSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type any_fix(any_fixSEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type type(typeSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type rd_mode(rd_modeSEXP);
     Rcpp::traits::input_parameter< bool >::type trace(traceSEXP);
-    rcpp_result_gen = Rcpp::wrap(GradRobustStep(idx_in, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, nfix, s, r, b, any_fix, rd_mode, trace));
+    rcpp_result_gen = Rcpp::wrap(GradRobustStep(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix, type, rd_mode, trace));
     return rcpp_result_gen;
 END_RCPP
 }

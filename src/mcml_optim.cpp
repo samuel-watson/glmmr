@@ -1,6 +1,6 @@
 #include <cmath>  
 #include <RcppArmadillo.h>
-#include "rbobyqa.h"
+#include <rbobyqa.h>
 #include "glmmrmath.h"
 #include "glmmrmatrix.h"
 using namespace rminqa;
@@ -13,7 +13,7 @@ using namespace arma;
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
-class D_likelihood : public ObjFun {
+class D_likelihood : public Functor {
   arma::uword B_;
   arma::uvec N_dim_;
   arma::uvec N_func_;
@@ -197,7 +197,7 @@ arma::vec d_lik_optim(const arma::uword &B,
 
 
 
-class L_likelihood : public ObjFun {
+class L_likelihood : public Functor {
   arma::mat Z_;
   arma::mat X_;
   arma::vec y_;
@@ -336,7 +336,7 @@ arma::vec l_lik_optim(const arma::mat &Z,
 // }
 
 
-class F_likelihood : public ObjFun {
+class F_likelihood : public Functor {
   arma::uword B_;
   arma::uvec N_dim_;
   arma::uvec N_func_;

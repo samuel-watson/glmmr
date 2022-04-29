@@ -10,6 +10,7 @@ dfbeta_stat <- function(sigma, X, y, par) {
 #' Hill-Climbing algorithm to identify optimal GLMM design
 #' @param N Integer specifying number of experimental conditions in the optimal design
 #' @param idx_in Integer vector specifying the indexes of the experimental conditions to start from
+#' @param n Integer specifying the size of the design to find. For local search, this should be equal to the size of idx_in
 #' @param C_list List of C vectors for the c-optimal function, see \link{glmmr}[DesignSpace]
 #' @param X_list List of X matrices
 #' @param sig_list List of inverse covariance matrices
@@ -17,11 +18,12 @@ dfbeta_stat <- function(sigma, X, y, par) {
 #' @param exp_cond Vector specifying the experimental condition index of each observation
 #' @param nfix Vector listing the experimental condition indexes that are fixed in the design
 #' @param any_fix Integer. 0 = no experimental conditions are fixed, 1 = some experimental conditions are fixed
+#' @param type Integer. 0 = local search algorith. 1 = greedy search algorithm.
 #' @param rd_mode Integer. Robust objective function, 1=weighted average, 2=minimax
 #' @param trace Logical indicating whether to provide detailed output
 #' @return A vector of experimental condition indexes in the optimal design
-GradRobustStep <- function(idx_in, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, nfix, s = 10L, r = 0.01, b = 1, any_fix = 0L, rd_mode = 1L, trace = TRUE) {
-    .Call(`_glmmr_GradRobustStep`, idx_in, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, nfix, s, r, b, any_fix, rd_mode, trace)
+GradRobustStep <- function(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix = 0L, type = 0L, rd_mode = 1L, trace = TRUE) {
+    .Call(`_glmmr_GradRobustStep`, idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix, type, rd_mode, trace)
 }
 
 #' Approximation to the log factorial
