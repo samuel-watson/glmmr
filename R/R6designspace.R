@@ -419,17 +419,18 @@ each condition will be reported below."))
                        } else if(algo %in% 2:4){
                          # find a size p design
                          ispd <- FALSE
-                         n <- nrow(X_list[[1]])
+                         #n <- nrow(X_list[[1]])
                          while(!ispd){
                            idx_in <- sort(sample(unique(row.hash),p,replace=FALSE))
-                           M <- crossprod(X_list[[1]][idx_in,])
+                           M <- crossprod(X_list[[1]][expcond%in%idx_in,])
                            cM <- suppressWarnings(tryCatch(chol(M),error=function(e)NULL))
                            if(!is.null(cM))ispd <- TRUE
                          }
                        }
                        
+                       
+                       # print(m)
                        # print(idx_in)
-                       # print(expcond.id)
                        # print(max_obs)
                        
                        out_list <- GradRobustStep(idx_in = idx_in, 
@@ -446,7 +447,8 @@ each condition will be reported below."))
                                                   exp_cond = expcond.id,
                                                   type = algo-1,
                                                   rd_mode=rdmode,
-                                                  trace=verbose)
+                                                  trace=verbose,
+                                                  uncorr=uncorr)
                        idx_out <- drop(out_list[["idx_in"]] )
                        idx_out_exp <- sort(idx_out)
                        # print(idx_out_exp)
@@ -511,7 +513,8 @@ each condition will be reported below."))
                        # rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
                        
                        #if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp$rows)
-                       return(invisible(list(rows = rows_in, exp.cond = idx_out_exp, val = 1/out_list$best_val_vec)))
+                       return(invisible(list(rows = rows_in, exp.cond = idx_out_exp, val = 1/out_list$best_val_vec,
+                                             func_calls = out_list$func_calls, mat_ops = out_list$mat_ops)))
                      }
                    },
                    #' @description 

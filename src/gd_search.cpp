@@ -42,13 +42,18 @@ public:
   double val_; // overall best value
   double new_val_; // new value
   double rm_val_;
+  arma::uword fcalls_;
+  arma::uword matops_;
   
   arma::cube A_list_; // inverse sigma matrices
   arma::cube rm1A_list_; // inverse sigma matrices with one removed - initialised to minus one but now needs to resize
+  arma::cube M_list_;
+  arma::cube M_list_sub_;
   const arma::uvec nfix_; //the indexes of the experimental conditions to keep
   const arma::uword rd_mode_; // robust designs mode: 1 == weighted, 2 == minimax.
   
   bool trace_;
+  bool uncorr_;
   
 public:
   HillClimbing(arma::uvec idx_in, 
@@ -64,7 +69,8 @@ public:
                arma::uword any_fix,
                arma::uvec nfix, 
                arma::uword rd_mode = 0, 
-               bool trace=false) :
+               bool trace=false,
+               bool uncorr=false) :
   C_list_(C_list), 
   D_list_(D_list),
   X_all_list_(X_list),
@@ -92,11 +98,16 @@ public:
   val_(0.0), 
   new_val_(0.0),
   rm_val_(0.0),
+  fcalls_(0),
+  matops_(0),
   A_list_(nmax_,nmax_,nlist_,fill::zeros), 
   rm1A_list_(nmax_,nmax_,nlist_,fill::zeros),
+  M_list_(p_,p_,nlist_,fill::zeros),
+  M_list_sub_(p_,p_,nlist_,fill::zeros),
   nfix_(nfix), 
   rd_mode_(rd_mode), 
-  trace_(trace) {
+  trace_(trace),
+  uncorr_(uncorr){
     build_XZ();
   }
   
@@ -136,13 +147,19 @@ public:
       arma::mat tmp = Z.head_rows(rowcount)*D_list_(j,0)*Z.head_rows(rowcount).t();
       tmp.diag() += w_diag.head(rowcount);
       
-      Rcpp::Rcout << "\nCount: " << rowcount;
+      //Rcpp::Rcout << "\nCount: " << rowcount;
+      if(uncorr_){
+        M_list_.slice(j) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
+        M_list_sub_.slice(j) = M_list_.slice(j);
+        vals(j) = c_obj_fun( M_list_.slice(j), C_list_(j,0));
+      } else {
+        A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) = tmp.i();
+        vals(j) = c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount), C_list_(j,0));
+      }
       
-      A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) = tmp.i();
-      vals(j) = c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount), C_list_(j,0));
     }
     new_val_ = rd_mode_ == 1 ? 1/arma::dot(vals, weights_) : 1/vals.max();
-    Rcpp::Rcout << "\nval: " << new_val_;
+    //Rcpp::Rcout << "\nval: " << new_val_;
   }
   
   void local_search(){
@@ -161,15 +178,20 @@ public:
           val_swap.row(j-1) = val_in_vec.t();
         }
       }
+      
       double newval = val_swap.max();
       diff = newval - val_;
-      
       if(diff > 0){
         arma::uword swap_sort = val_swap.index_max();
         arma::uword target = floor(swap_sort/k_); 
         arma::uword rm_target = (swap_sort) - target*k_;
-        rm_obs(rm_target+1);
-        new_val_ = add_obs(target+1,true,true);
+        if(uncorr_){
+          rm_obs_uncor(rm_target+1);
+          new_val_ = add_obs_uncor(target+1,true,true);
+        } else {
+          rm_obs(rm_target+1);
+          new_val_ = add_obs(target+1,true,true);
+        }
       }
     }
   }
@@ -188,7 +210,11 @@ public:
       arma::vec val_swap = eval(false);
       arma::uword swap_sort = val_swap.index_max();
       if (trace_) Rcpp::Rcout << " adding " << swap_sort+1;
-      new_val_ = add_obs(swap_sort+1,false,true);
+      if(uncorr_){
+        new_val_ = add_obs_uncor(swap_sort+1,false,true);
+      } else {
+        new_val_ = add_obs(swap_sort+1,false,true); 
+      }
     }
   }
   
@@ -227,10 +253,38 @@ private:
     //Rcpp::Rcout << "\nRm: " << rm_cond.t();
     arma::uvec rowstorm = get_rows(rm_cond(0));
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
+      matops_++;
       arma::mat A1 = A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1);
       const arma::mat rm1A = remove_one_many_mat(A1, rowstorm);
       if(idx==0)r_in_rm_ = rm1A.n_rows;
       rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) = rm1A;
+    }
+    idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
+    count_exp_cond_rm_.head(rm_cond(0)) = count_exp_cond_.head(rm_cond(0));
+    if(rm_cond(0)>=idx_in_.n_elem - 1){
+      count_exp_cond_rm_(rm_cond(0)) = count_exp_cond_(rm_cond(0)+1);
+    } else {
+      count_exp_cond_rm_.subvec(rm_cond(0),idx_in_.n_elem-2) = count_exp_cond_.subvec(rm_cond(0)+1,idx_in_.n_elem-1);
+    }
+  }
+  
+  void rm_obs_uncor(arma::uword outobs){
+    arma::uvec rm_cond = find(idx_in_ == outobs);
+    arma::uvec rowstorm = find(exp_cond_ == outobs);
+    for(arma::uword j=0; j<nlist_;j++){
+      arma::mat X(rowstorm.n_elem,p_,fill::zeros);
+      arma::mat Z(rowstorm.n_elem,q_,fill::zeros);
+      arma::vec w_diag(rowstorm.n_elem);
+      
+      for(arma::uword l=0;l<rowstorm.n_elem;l++){
+        X.row(l) = X_all_list_(j,0).row(rowstorm(l));
+        Z.row(l) = Z_all_list_(j,0).row(rowstorm(l));
+        w_diag(l) = W_all_diag_(rowstorm(l),j);
+      }
+      
+      arma::mat tmp = Z*D_list_(j,0)*Z.t();
+      tmp.diag() += w_diag;
+      M_list_sub_.slice(j) = M_list_.slice(j) - X.t() * tmp.i() * X;
     }
     idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
     count_exp_cond_rm_.head(rm_cond(0)) = count_exp_cond_.head(rm_cond(0));
@@ -295,7 +349,6 @@ private:
         idx_in_ = join_idx(idx_in_,inobs);
         curr_obs_(inobs-1)++;
         count_exp_cond_(idx_in_.n_elem-1) = n_to_add;
-        //n_++;
       }
     }
     double rtn = rd_mode_ == 1 ? arma::dot(vals, weights_) : vals.max();
@@ -304,7 +357,60 @@ private:
     } else {
       return 0;
     }
-    //return rd_mode_ == 1 ? 1/arma::dot(vals, weights_) : 1/vals.max();
+  }
+  
+  double add_obs_uncor(arma::uword inobs,
+                       bool userm = true,
+                       bool keep = false){
+    arma::vec vals(nlist_);
+    arma::uvec rowstoadd = find(exp_cond_ == inobs);
+    bool issympd = true;
+    for(arma::uword j=0; j<nlist_;j++){
+      arma::mat X(rowstoadd.n_elem,p_,fill::zeros);
+      arma::mat Z(rowstoadd.n_elem,q_,fill::zeros);
+      arma::vec w_diag(rowstoadd.n_elem);
+      
+      for(arma::uword l=0;l<rowstoadd.n_elem;l++){
+        X.row(l) = X_all_list_(j,0).row(rowstoadd(l));
+        Z.row(l) = Z_all_list_(j,0).row(rowstoadd(l));
+        w_diag(l) = W_all_diag_(rowstoadd(l),j);
+      }
+      
+      arma::mat tmp = Z*D_list_(j,0)*Z.t();
+      tmp.diag() += w_diag;
+      arma::mat M = userm ? M_list_sub_.slice(j) : M_list_.slice(j);
+      
+      M += X.t() * tmp.i() * X;
+      //Rcpp::Rcout << "\nid:" << inobs << " M: " << M;
+      issympd = M.is_sympd();
+      if(issympd){
+        if(keep){
+          M_list_.slice(j) = M;
+        }
+        vals(j) = c_obj_fun(M, C_list_(j,0));
+      } else {
+        vals.fill(0);
+        break;
+      }
+    }
+    if(keep && issympd){
+      if(userm){
+        idx_in_ = join_idx(idx_in_rm_,inobs);
+        curr_obs_(inobs-1)++;
+        count_exp_cond_.subvec(0,idx_in_.n_elem-2) = count_exp_cond_rm_.subvec(0,idx_in_.n_elem-2);
+        count_exp_cond_(idx_in_.n_elem-1) = rowstoadd.n_elem;
+      } else {
+        idx_in_ = join_idx(idx_in_,inobs);
+        curr_obs_(inobs-1)++;
+        count_exp_cond_(idx_in_.n_elem-1) = rowstoadd.n_elem;
+      }
+    }
+    double rtn = rd_mode_ == 1 ? arma::dot(vals, weights_) : vals.max();
+    if(rtn > 0){
+      return 1/rtn;
+    } else {
+      return 0;
+    }
   }
   
   arma::vec eval(bool userm = true, arma::uword obs = 0){
@@ -312,21 +418,38 @@ private:
     if(userm){
       bool obsisin = any(idx_in_ == obs);
       if(obsisin){
-        rm_obs(obs);
+        if(uncorr_){
+          rm_obs_uncor(obs);
+        } else {
+          rm_obs(obs);
+        }
 #pragma omp parallel for
         for (arma::uword i = 1; i < k_+1; ++i) {
           if(obs != i && curr_obs_(i-1)<max_obs_(i-1)){
-            val_in_mat(i-1) = add_obs(i,true,false);
+            if(uncorr_){
+              val_in_mat(i-1) = add_obs_uncor(i,true,false);
+              
+            } else {
+              val_in_mat(i-1) = add_obs(i,true,false);
+            }
           } 
         }
+        matops_ += k_*nlist_;
+        fcalls_ += k_*nlist_;
       } 
     } else {
 #pragma omp parallel for
       for (arma::uword i = 1; i < k_+1; ++i) {
         if(curr_obs_(i-1)<max_obs_(i-1)){
-          val_in_mat(i-1) = add_obs(i,false,false);
+          if(uncorr_){
+            val_in_mat(i-1) = add_obs_uncor(i,false,false);
+          } else {
+            val_in_mat(i-1) = add_obs(i,false,false);
+          }
         }
       }
+      matops_ += k_*nlist_;
+      fcalls_ += k_*nlist_;
     }
     
     return val_in_mat;
@@ -367,7 +490,8 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
                           arma::uword any_fix = 0,
                           arma::uword type = 0,
                           arma::uword rd_mode = 1,
-                          bool trace = true) {
+                          bool trace = true,
+                          bool uncorr = false) {
   // need to map Rcpp list to the field here:
   arma::uword ndesign = weights.n_elem;
   arma::field<arma::vec> Cfield(ndesign);
@@ -382,7 +506,7 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
   }
   HillClimbing hc(idx_in, n, Cfield, Xfield, Zfield, Dfield,
                   w_diag,max_obs,
-                  weights, exp_cond, any_fix, nfix,rd_mode, trace);
+                  weights, exp_cond, any_fix, nfix,rd_mode, trace, uncorr);
   if(type==0)hc.local_search();
   if(type==1){
     hc.local_search();
@@ -398,5 +522,7 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
     hc.local_search();
   }
   return Rcpp::List::create(Named("idx_in") = hc.idx_in_,
-                            Named("best_val_vec") = hc.val_);
+                            Named("best_val_vec") = hc.val_,
+                            Named("func_calls") = hc.fcalls_,
+                            Named("mat_ops") = hc.matops_);
 }
