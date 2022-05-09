@@ -132,22 +132,18 @@ public:
       arma::uword rowcount = 0;
       for(arma::uword k=0; k<idx_in_.n_elem;k++){
         arma::uvec rowstoincl = find(exp_cond_ == idx_in_(k));
-        
-        //Rcpp::Rcout << "\nR incl: " << rowstoincl.t() << " X dim " << X_all_list_(j,0).n_rows << " " << X.n_rows<< " " << rowcount;
         for(arma::uword l=0;l<rowstoincl.n_elem;l++){
           X.row(rowcount) = X_all_list_(j,0).row(rowstoincl(l));
           Z.row(rowcount) = Z_all_list_(j,0).row(rowstoincl(l));
           w_diag(rowcount) = W_all_diag_(rowstoincl(l),j);
-          count_exp_cond_(k)++;
+          if(j==0)count_exp_cond_(k)++;
           rowcount++;
         }
       }
-      //Rcpp::Rcout << "\nFinish XZ";
       if(j==0)r_in_design_ = rowcount;
       arma::mat tmp = Z.head_rows(rowcount)*D_list_(j,0)*Z.head_rows(rowcount).t();
       tmp.diag() += w_diag.head(rowcount);
       
-      //Rcpp::Rcout << "\nCount: " << rowcount;
       if(uncorr_){
         M_list_.slice(j) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
         M_list_sub_.slice(j) = M_list_.slice(j);
@@ -159,7 +155,7 @@ public:
       
     }
     new_val_ = rd_mode_ == 1 ? 1/arma::dot(vals, weights_) : 1/vals.max();
-    //Rcpp::Rcout << "\nval: " << new_val_;
+    if(trace_)Rcpp::Rcout << "\nval: " << new_val_;
   }
   
   void local_search(){
@@ -250,7 +246,6 @@ private:
   
   void rm_obs(arma::uword outobs){
     arma::uvec rm_cond = find(idx_in_== outobs);
-    //Rcpp::Rcout << "\nRm: " << rm_cond.t();
     arma::uvec rowstorm = get_rows(rm_cond(0));
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
       matops_++;
@@ -259,6 +254,7 @@ private:
       if(idx==0)r_in_rm_ = rm1A.n_rows;
       rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) = rm1A;
     }
+    
     idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
     count_exp_cond_rm_.head(rm_cond(0)) = count_exp_cond_.head(rm_cond(0));
     if(rm_cond(0)>=idx_in_.n_elem - 1){
@@ -304,11 +300,14 @@ private:
     arma::uword n_to_add = rowstoadd.n_elem;
     arma::uword n_already_in = idxexist.n_elem;
     arma::uvec idx_in_vec(n_already_in + n_to_add, fill::zeros);
-    idx_in_vec(span(0,n_already_in - 1)) = idxexist;
     arma::mat X(n_already_in + n_to_add,p_,fill::zeros);
     arma::vec vals(nlist_);
     bool issympd = true;
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
+      n_already_in = idxexist.n_elem;
+      idx_in_vec.fill(0);
+      idx_in_vec(span(0,n_already_in - 1)) = idxexist;
+      X.fill(0);
       arma::mat A = userm ? rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) : 
         A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1);
       X.rows(span(0,n_already_in-1)) = X_all_list_(idx,0).rows(idxexist);
@@ -381,7 +380,6 @@ private:
       arma::mat M = userm ? M_list_sub_.slice(j) : M_list_.slice(j);
       
       M += X.t() * tmp.i() * X;
-      //Rcpp::Rcout << "\nid:" << inobs << " M: " << M;
       issympd = M.is_sympd();
       if(issympd){
         if(keep){
@@ -423,7 +421,7 @@ private:
         } else {
           rm_obs(obs);
         }
-#pragma omp parallel for
+//#pragma omp parallel for
         for (arma::uword i = 1; i < k_+1; ++i) {
           if(obs != i && curr_obs_(i-1)<max_obs_(i-1)){
             if(uncorr_){
@@ -438,7 +436,7 @@ private:
         fcalls_ += k_*nlist_;
       } 
     } else {
-#pragma omp parallel for
+//#pragma omp parallel for
       for (arma::uword i = 1; i < k_+1; ++i) {
         if(curr_obs_(i-1)<max_obs_(i-1)){
           if(uncorr_){
@@ -492,12 +490,11 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
                           arma::uword rd_mode = 1,
                           bool trace = true,
                           bool uncorr = false) {
-  // need to map Rcpp list to the field here:
   arma::uword ndesign = weights.n_elem;
-  arma::field<arma::vec> Cfield(ndesign);
-  arma::field<arma::mat> Xfield(ndesign);
-  arma::field<arma::mat> Zfield(ndesign);
-  arma::field<arma::mat> Dfield(ndesign);
+  arma::field<arma::vec> Cfield(ndesign,1);
+  arma::field<arma::mat> Xfield(ndesign,1);
+  arma::field<arma::mat> Zfield(ndesign,1);
+  arma::field<arma::mat> Dfield(ndesign,1);
   for(arma::uword j=0; j<ndesign; j++){
     Cfield(j,0) = as<arma::vec>(C_list[j]);
     Xfield(j,0) = as<arma::mat>(X_list[j]);

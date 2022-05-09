@@ -261,7 +261,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                                       force_hill=FALSE,
                                       p){
                      if(keep&verbose)message("linked design objects will be overwritten with the new design")
-                     
+                     if(length(C)!=self$n()[[1]])stop("C not equal to number of designs")
                      ## add checks
                      
                      # dispatch to correct algorithm
@@ -332,10 +332,10 @@ each condition will be reported below."))
                        X_list <- private$genXlist()
                        Z_list <- private$genZlist()
                        D_list <- private$genDlist()
+                       
                        #sig_list <- private$genSlist()
                        weights <- self$weights
                        rdmode <- ifelse(robust_function=="weighted",1,0)
-                       
                        if(!is.null(rm_cols))
                        {
                          if(!is(rm_cols,"list"))stop("rm_cols should be a list")
@@ -432,6 +432,7 @@ each condition will be reported below."))
                        # print(m)
                        # print(idx_in)
                        # print(max_obs)
+                       # print(weights)
                        
                        out_list <- GradRobustStep(idx_in = idx_in, 
                                                   n=m,
