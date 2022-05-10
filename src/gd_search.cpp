@@ -26,8 +26,8 @@ private:
   arma::uword n_; //size of the design to find
   arma::uword k_; //unique number of experimental conditions
   arma::uword nmax_;
-  arma::uword p_;
-  arma::uword q_;
+  arma::uvec p_;
+  arma::uvec q_;
   
 public:
   arma::uvec idx_in_; 
@@ -47,8 +47,8 @@ public:
   
   arma::cube A_list_; // inverse sigma matrices
   arma::cube rm1A_list_; // inverse sigma matrices with one removed - initialised to minus one but now needs to resize
-  arma::cube M_list_;
-  arma::cube M_list_sub_;
+  arma::field<arma::mat> M_list_;
+  arma::field<arma::mat> M_list_sub_;
   const arma::uvec nfix_; //the indexes of the experimental conditions to keep
   const arma::uword rd_mode_; // robust designs mode: 1 == weighted, 2 == minimax.
   
@@ -84,8 +84,8 @@ public:
   n_(n), 
   k_(max_obs.n_elem),
   nmax_(2*ceil(X_all_list_(0,0).n_rows/k_)*n_),
-  p_(X_all_list_(0,0).n_cols),
-  q_(Z_all_list_(0,0).n_cols),
+  p_(nlist_,fill::zeros),
+  q_(nlist_,fill::zeros),
   idx_in_(idx_in),
   idx_in_sub_(idx_in),
   idx_in_rm_(idx_in),
@@ -102,8 +102,8 @@ public:
   matops_(0),
   A_list_(nmax_,nmax_,nlist_,fill::zeros), 
   rm1A_list_(nmax_,nmax_,nlist_,fill::zeros),
-  M_list_(p_,p_,nlist_,fill::zeros),
-  M_list_sub_(p_,p_,nlist_,fill::zeros),
+  M_list_(nlist_),
+  M_list_sub_(nlist_),
   nfix_(nfix), 
   rd_mode_(rd_mode), 
   trace_(trace),
@@ -125,11 +125,14 @@ public:
     arma::vec idx = arma::linspace(0, nmax_-1, nmax_);
     rows_in_design_ = arma::conv_to<arma::uvec>::from(idx);
     arma::vec vals(nlist_);
+    arma::uword rowcount;
     for(arma::uword j=0; j<nlist_;j++){
-      arma::mat X(nmax_,p_,fill::zeros);
-      arma::mat Z(nmax_,q_,fill::zeros);
+      p_(j) = X_all_list_(j,0).n_cols;
+      q_(j) = Z_all_list_(j,0).n_cols;
+      arma::mat X(nmax_,p_(j),fill::zeros);
+      arma::mat Z(nmax_,q_(j),fill::zeros);
       arma::vec w_diag(nmax_);
-      arma::uword rowcount = 0;
+      rowcount = 0;
       for(arma::uword k=0; k<idx_in_.n_elem;k++){
         arma::uvec rowstoincl = find(exp_cond_ == idx_in_(k));
         for(arma::uword l=0;l<rowstoincl.n_elem;l++){
@@ -145,29 +148,29 @@ public:
       tmp.diag() += w_diag.head(rowcount);
       
       if(uncorr_){
-        M_list_.slice(j) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
-        M_list_sub_.slice(j) = M_list_.slice(j);
-        vals(j) = c_obj_fun( M_list_.slice(j), C_list_(j,0));
+        M_list_(j,0) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
+        M_list_sub_(j,0) = M_list_(j,0);
+        vals(j) = c_obj_fun( M_list_(j,0), C_list_(j,0));
       } else {
         A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) = tmp.i();
         vals(j) = c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount), C_list_(j,0));
       }
       
     }
-    new_val_ = rd_mode_ == 1 ? 1/arma::dot(vals, weights_) : 1/vals.max();
+    new_val_ = rd_mode_ == 1 ? arma::dot(vals, weights_) : vals.max();
     if(trace_)Rcpp::Rcout << "\nval: " << new_val_;
   }
   
   void local_search(){
     if (trace_) Rcpp::Rcout << "\nLocal search";
     int i = 0;
-    double diff = 1.0;
-    while(diff > 0){
+    double diff = -1.0;
+    while(diff < 0){
       i++;
       val_ = new_val_;
-      if (trace_) Rcpp::Rcout << "\nIter " << i << ": Prec: " << val_ << " Var: " << 1/val_;
+      if (trace_) Rcpp::Rcout << "\nIter " << i << ": Var: " << val_;
       // evaluate the swaps
-      arma::mat val_swap(k_,k_,fill::zeros);
+      arma::mat val_swap(k_,k_,fill::value(10000));
       for(arma::uword j=1; j < k_+1; j++){
         if(any(idx_in_ == j)){
           arma::vec val_in_vec = eval(true,j);
@@ -175,10 +178,11 @@ public:
         }
       }
       
-      double newval = val_swap.max();
+      double newval = val_swap.min();
       diff = newval - val_;
-      if(diff > 0){
-        arma::uword swap_sort = val_swap.index_max();
+      if (trace_) Rcpp::Rcout << " diff: " << diff;
+      if(diff < 0){
+        arma::uword swap_sort = val_swap.index_min();
         arma::uword target = floor(swap_sort/k_); 
         arma::uword rm_target = (swap_sort) - target*k_;
         if(uncorr_){
@@ -204,7 +208,7 @@ public:
       val_ = new_val_;
       if (trace_) Rcpp::Rcout << "\nIter " << i << " size: " << idxcount << " Prec: " << val_ << " Var: " << 1/val_;
       arma::vec val_swap = eval(false);
-      arma::uword swap_sort = val_swap.index_max();
+      arma::uword swap_sort = val_swap.index_min();
       if (trace_) Rcpp::Rcout << " adding " << swap_sort+1;
       if(uncorr_){
         new_val_ = add_obs_uncor(swap_sort+1,false,true);
@@ -268,8 +272,8 @@ private:
     arma::uvec rm_cond = find(idx_in_ == outobs);
     arma::uvec rowstorm = find(exp_cond_ == outobs);
     for(arma::uword j=0; j<nlist_;j++){
-      arma::mat X(rowstorm.n_elem,p_,fill::zeros);
-      arma::mat Z(rowstorm.n_elem,q_,fill::zeros);
+      arma::mat X(rowstorm.n_elem,p_(j),fill::zeros);
+      arma::mat Z(rowstorm.n_elem,q_(j),fill::zeros);
       arma::vec w_diag(rowstorm.n_elem);
       
       for(arma::uword l=0;l<rowstorm.n_elem;l++){
@@ -280,7 +284,7 @@ private:
       
       arma::mat tmp = Z*D_list_(j,0)*Z.t();
       tmp.diag() += w_diag;
-      M_list_sub_.slice(j) = M_list_.slice(j) - X.t() * tmp.i() * X;
+      M_list_sub_(j,0) = M_list_(j,0) - X.t() * tmp.i() * X;
     }
     idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
     count_exp_cond_rm_.head(rm_cond(0)) = count_exp_cond_.head(rm_cond(0));
@@ -300,14 +304,13 @@ private:
     arma::uword n_to_add = rowstoadd.n_elem;
     arma::uword n_already_in = idxexist.n_elem;
     arma::uvec idx_in_vec(n_already_in + n_to_add, fill::zeros);
-    arma::mat X(n_already_in + n_to_add,p_,fill::zeros);
     arma::vec vals(nlist_);
     bool issympd = true;
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
       n_already_in = idxexist.n_elem;
+      arma::mat X(n_already_in + n_to_add,p_(idx),fill::zeros);
       idx_in_vec.fill(0);
       idx_in_vec(span(0,n_already_in - 1)) = idxexist;
-      X.fill(0);
       arma::mat A = userm ? rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) : 
         A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1);
       X.rows(span(0,n_already_in-1)) = X_all_list_(idx,0).rows(idxexist);
@@ -334,7 +337,7 @@ private:
         }
         vals(idx) = c_obj_fun( M, C_list_(idx,0));
       } else {
-        vals.fill(0);
+        vals.fill(10000);
         break;
       }
     }
@@ -351,10 +354,10 @@ private:
       }
     }
     double rtn = rd_mode_ == 1 ? arma::dot(vals, weights_) : vals.max();
-    if(rtn > 0){
-      return 1/rtn;
+    if(rtn < 10000){
+      return rtn;
     } else {
-      return 0;
+      return 10000;
     }
   }
   
@@ -365,8 +368,8 @@ private:
     arma::uvec rowstoadd = find(exp_cond_ == inobs);
     bool issympd = true;
     for(arma::uword j=0; j<nlist_;j++){
-      arma::mat X(rowstoadd.n_elem,p_,fill::zeros);
-      arma::mat Z(rowstoadd.n_elem,q_,fill::zeros);
+      arma::mat X(rowstoadd.n_elem,p_(j),fill::zeros);
+      arma::mat Z(rowstoadd.n_elem,q_(j),fill::zeros);
       arma::vec w_diag(rowstoadd.n_elem);
       
       for(arma::uword l=0;l<rowstoadd.n_elem;l++){
@@ -377,17 +380,17 @@ private:
       
       arma::mat tmp = Z*D_list_(j,0)*Z.t();
       tmp.diag() += w_diag;
-      arma::mat M = userm ? M_list_sub_.slice(j) : M_list_.slice(j);
+      arma::mat M = userm ? M_list_sub_(j,0) : M_list_(j,0);
       
       M += X.t() * tmp.i() * X;
       issympd = M.is_sympd();
       if(issympd){
         if(keep){
-          M_list_.slice(j) = M;
+          M_list_(j,0) = M;
         }
         vals(j) = c_obj_fun(M, C_list_(j,0));
       } else {
-        vals.fill(0);
+        vals.fill(10000);
         break;
       }
     }
@@ -404,15 +407,15 @@ private:
       }
     }
     double rtn = rd_mode_ == 1 ? arma::dot(vals, weights_) : vals.max();
-    if(rtn > 0){
-      return 1/rtn;
+    if(rtn < 10000){
+      return rtn;
     } else {
-      return 0;
+      return 10000;
     }
   }
   
   arma::vec eval(bool userm = true, arma::uword obs = 0){
-    arma::vec val_in_mat(k_,arma::fill::zeros);
+    arma::vec val_in_mat(k_,arma::fill::value(10000));
     if(userm){
       bool obsisin = any(idx_in_ == obs);
       if(obsisin){
@@ -421,7 +424,7 @@ private:
         } else {
           rm_obs(obs);
         }
-//#pragma omp parallel for
+#pragma omp parallel for
         for (arma::uword i = 1; i < k_+1; ++i) {
           if(obs != i && curr_obs_(i-1)<max_obs_(i-1)){
             if(uncorr_){
@@ -436,7 +439,7 @@ private:
         fcalls_ += k_*nlist_;
       } 
     } else {
-//#pragma omp parallel for
+#pragma omp parallel for
       for (arma::uword i = 1; i < k_+1; ++i) {
         if(curr_obs_(i-1)<max_obs_(i-1)){
           if(uncorr_){
