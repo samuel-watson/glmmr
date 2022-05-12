@@ -413,7 +413,6 @@ each condition will be reported below."))
                        # w_diag <<- w_diag
                        # idx_in <<- idx_in
                        # row.hash <<- row.hash
-                       
                        if(algo == 1){
                          idx_in <- sort(sample(row.hash,m,replace=FALSE))
                        } else if(algo %in% 2:4){
@@ -422,7 +421,7 @@ each condition will be reported below."))
                          #n <- nrow(X_list[[1]])
                          while(!ispd){
                            idx_in <- sort(sample(unique(row.hash),p,replace=FALSE))
-                           M <- crossprod(X_list[[1]][expcond%in%idx_in,])
+                           M <- crossprod(X_list[[1]][expcond.id%in%idx_in,])
                            cM <- suppressWarnings(tryCatch(chol(M),error=function(e)NULL))
                            if(!is.null(cM))ispd <- TRUE
                          }
