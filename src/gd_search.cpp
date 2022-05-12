@@ -206,7 +206,7 @@ public:
       i++;
       idxcount++;
       val_ = new_val_;
-      if (trace_) Rcpp::Rcout << "\nIter " << i << " size: " << idxcount << " Prec: " << val_ << " Var: " << 1/val_;
+      if (trace_) Rcpp::Rcout << "\nIter " << i << " size: " << idxcount << " Var: " << val_ ;
       arma::vec val_swap = eval(false);
       arma::uword swap_sort = val_swap.index_min();
       if (trace_) Rcpp::Rcout << " adding " << swap_sort+1;
@@ -306,13 +306,14 @@ private:
     arma::uvec idx_in_vec(n_already_in + n_to_add, fill::zeros);
     arma::vec vals(nlist_);
     bool issympd = true;
+    arma::uword r_in_design_tmp_ = r_in_design_;
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
       n_already_in = idxexist.n_elem;
       arma::mat X(n_already_in + n_to_add,p_(idx),fill::zeros);
       idx_in_vec.fill(0);
       idx_in_vec(span(0,n_already_in - 1)) = idxexist;
       arma::mat A = userm ? rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) : 
-        A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1);
+        A_list_.slice(idx).submat(0,0,r_in_design_tmp_-1,r_in_design_tmp_-1);
       X.rows(span(0,n_already_in-1)) = X_all_list_(idx,0).rows(idxexist);
       for(arma::uword j = 0; j < n_to_add; j++){
         arma::rowvec z_j = Z_all_list_(idx,0).row(rowstoadd(j));
