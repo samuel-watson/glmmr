@@ -146,10 +146,9 @@ public:
       if(j==0)r_in_design_ = rowcount;
       arma::mat tmp = Z.head_rows(rowcount)*D_list_(j,0)*Z.head_rows(rowcount).t();
       tmp.diag() += w_diag.head(rowcount);
-      
+      M_list_(j,0) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
+      M_list_sub_(j,0) = M_list_(j,0);
       if(uncorr_){
-        M_list_(j,0) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
-        M_list_sub_(j,0) = M_list_(j,0);
         vals(j) = c_obj_fun( M_list_(j,0), C_list_(j,0));
       } else {
         A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) = tmp.i();
@@ -251,15 +250,17 @@ private:
   void rm_obs(arma::uword outobs){
     arma::uvec rm_cond = find(idx_in_== outobs);
     arma::uvec rowstorm = get_rows(rm_cond(0));
+    idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
+    arma::uvec idxexist = get_all_rows(idx_in_rm_);
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
       matops_++;
       arma::mat A1 = A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1);
       const arma::mat rm1A = remove_one_many_mat(A1, rowstorm);
       if(idx==0)r_in_rm_ = rm1A.n_rows;
       rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) = rm1A;
+      M_list_sub_(idx,0) = X_all_list_(idx,0).rows(idxexist).t()*rm1A*X_all_list_(idx,0).rows(idxexist);
     }
     
-    idx_in_rm_ = uvec_minus(idx_in_,rm_cond(0));
     count_exp_cond_rm_.head(rm_cond(0)) = count_exp_cond_.head(rm_cond(0));
     if(rm_cond(0)>=idx_in_.n_elem - 1){
       count_exp_cond_rm_(rm_cond(0)) = count_exp_cond_(rm_cond(0)+1);
@@ -308,32 +309,46 @@ private:
     bool issympd = true;
     arma::uword r_in_design_tmp_ = r_in_design_;
     for (arma::uword idx = 0; idx < nlist_; ++idx) {
-      n_already_in = idxexist.n_elem;
-      arma::mat X(n_already_in + n_to_add,p_(idx),fill::zeros);
-      idx_in_vec.fill(0);
-      idx_in_vec(span(0,n_already_in - 1)) = idxexist;
+      arma::mat M;
       arma::mat A = userm ? rm1A_list_.slice(idx).submat(0,0,r_in_rm_-1,r_in_rm_-1) : 
         A_list_.slice(idx).submat(0,0,r_in_design_tmp_-1,r_in_design_tmp_-1);
-      X.rows(span(0,n_already_in-1)) = X_all_list_(idx,0).rows(idxexist);
-      for(arma::uword j = 0; j < n_to_add; j++){
-        arma::rowvec z_j = Z_all_list_(idx,0).row(rowstoadd(j));
-        arma::mat z_d = Z_all_list_(idx,0).rows(idx_in_vec(span(0,n_already_in - 1)));
-        double sig_jj = arma::as_scalar(z_j * D_list_(idx,0) * z_j.t()); 
-        sig_jj += W_all_diag_(rowstoadd(j));
-        arma::vec f = z_d * D_list_(idx,0) * z_j.t();
-        A = add_one_mat(A, 
-                        sig_jj,
-                        f);
-        idx_in_vec(n_already_in) = rowstoadd(j);
-        X.row(n_already_in) = X_all_list_(idx,0).row(rowstoadd(j));
-        n_already_in++;
+      if(!keep){
+        arma::mat Z1 = Z_all_list_(idx,0).rows(idxexist);
+        arma::mat Z2 = Z_all_list_(idx,0).rows(rowstoadd);
+        arma::mat sig112 = (Z2*D_list_(idx,0)*Z1.t());
+        arma::mat sig112A = sig112*A;
+        arma::mat sig2 = Z2*D_list_(idx,0)*Z2.t();
+        sig2.diag() += W_all_diag_(rowstoadd);
+        arma::mat S = sig2 - sig112A*sig112.t();
+        arma::mat X12 = X_all_list_(idx,0).rows(rowstoadd) - sig112A*X_all_list_(idx,0).rows(idxexist);
+        M = userm ? M_list_sub_(idx,0) + X12.t() * S.i() * X12 : M_list_(idx,0) + X12.t() * S.i() * X12;
+      } else {
+        n_already_in = idxexist.n_elem;
+        arma::mat X(n_already_in + n_to_add,p_(idx),fill::zeros);
+        idx_in_vec.fill(0);
+        idx_in_vec(span(0,n_already_in - 1)) = idxexist;
+        X.rows(span(0,n_already_in-1)) = X_all_list_(idx,0).rows(idxexist);
+        for(arma::uword j = 0; j < n_to_add; j++){
+          arma::rowvec z_j = Z_all_list_(idx,0).row(rowstoadd(j));
+          arma::mat z_d = Z_all_list_(idx,0).rows(idx_in_vec(span(0,n_already_in - 1)));
+          double sig_jj = arma::as_scalar(z_j * D_list_(idx,0) * z_j.t()); 
+          sig_jj += W_all_diag_(rowstoadd(j));
+          arma::vec f = z_d * D_list_(idx,0) * z_j.t();
+          A = add_one_mat(A, 
+                          sig_jj,
+                          f);
+          idx_in_vec(n_already_in) = rowstoadd(j);
+          X.row(n_already_in) = X_all_list_(idx,0).row(rowstoadd(j));
+          n_already_in++;
+        }
+        //check if positive definite
+        M = X.t() * A * X;
       }
-      //check if positive definite
-      arma::mat M = X.t() * A * X;
       issympd = M.is_sympd();
       if(issympd){
         if(keep){
           if(idx==0)r_in_design_ = A.n_rows;
+          M_list_(idx,0) = M;
           A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1) = A;
         }
         vals(idx) = c_obj_fun( M, C_list_(idx,0));
