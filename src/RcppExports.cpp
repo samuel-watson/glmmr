@@ -27,8 +27,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // GradRobustStep
-Rcpp::List GradRobustStep(arma::uvec idx_in, arma::uword n, Rcpp::List C_list, Rcpp::List X_list, Rcpp::List Z_list, Rcpp::List D_list, arma::mat w_diag, arma::uvec max_obs, arma::vec weights, arma::uvec exp_cond, arma::uvec nfix, arma::uword any_fix, arma::uword type, arma::uword rd_mode, bool trace, bool uncorr);
-RcppExport SEXP _glmmr_GradRobustStep(SEXP idx_inSEXP, SEXP nSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP Z_listSEXP, SEXP D_listSEXP, SEXP w_diagSEXP, SEXP max_obsSEXP, SEXP weightsSEXP, SEXP exp_condSEXP, SEXP nfixSEXP, SEXP any_fixSEXP, SEXP typeSEXP, SEXP rd_modeSEXP, SEXP traceSEXP, SEXP uncorrSEXP) {
+Rcpp::List GradRobustStep(arma::uvec idx_in, arma::uword n, Rcpp::List C_list, Rcpp::List X_list, Rcpp::List Z_list, Rcpp::List D_list, arma::mat w_diag, arma::uvec max_obs, arma::vec weights, arma::uvec exp_cond, arma::uvec nfix, Rcpp::List V0_list, arma::uword any_fix, arma::uword type, arma::uword rd_mode, bool trace, bool uncorr, bool bayes);
+RcppExport SEXP _glmmr_GradRobustStep(SEXP idx_inSEXP, SEXP nSEXP, SEXP C_listSEXP, SEXP X_listSEXP, SEXP Z_listSEXP, SEXP D_listSEXP, SEXP w_diagSEXP, SEXP max_obsSEXP, SEXP weightsSEXP, SEXP exp_condSEXP, SEXP nfixSEXP, SEXP V0_listSEXP, SEXP any_fixSEXP, SEXP typeSEXP, SEXP rd_modeSEXP, SEXP traceSEXP, SEXP uncorrSEXP, SEXP bayesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -43,12 +43,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type weights(weightsSEXP);
     Rcpp::traits::input_parameter< arma::uvec >::type exp_cond(exp_condSEXP);
     Rcpp::traits::input_parameter< arma::uvec >::type nfix(nfixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type V0_list(V0_listSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type any_fix(any_fixSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type type(typeSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type rd_mode(rd_modeSEXP);
     Rcpp::traits::input_parameter< bool >::type trace(traceSEXP);
     Rcpp::traits::input_parameter< bool >::type uncorr(uncorrSEXP);
-    rcpp_result_gen = Rcpp::wrap(GradRobustStep(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix, type, rd_mode, trace, uncorr));
+    Rcpp::traits::input_parameter< bool >::type bayes(bayesSEXP);
+    rcpp_result_gen = Rcpp::wrap(GradRobustStep(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, V0_list, any_fix, type, rd_mode, trace, uncorr, bayes));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -507,7 +509,7 @@ RcppExport SEXP _rcpp_module_boot_stan_fit4poisson_sim_misspec_mod();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_dfbeta_stat", (DL_FUNC) &_glmmr_dfbeta_stat, 4},
-    {"_glmmr_GradRobustStep", (DL_FUNC) &_glmmr_GradRobustStep, 16},
+    {"_glmmr_GradRobustStep", (DL_FUNC) &_glmmr_GradRobustStep, 18},
     {"_glmmr_log_factorial_approx", (DL_FUNC) &_glmmr_log_factorial_approx, 1},
     {"_glmmr_log_mv_gaussian_pdf", (DL_FUNC) &_glmmr_log_mv_gaussian_pdf, 3},
     {"_glmmr_gen_dhdmu", (DL_FUNC) &_glmmr_gen_dhdmu, 3},

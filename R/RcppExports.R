@@ -22,8 +22,8 @@ dfbeta_stat <- function(sigma, X, y, par) {
 #' @param rd_mode Integer. Robust objective function, 1=weighted average, 2=minimax
 #' @param trace Logical indicating whether to provide detailed output
 #' @return A vector of experimental condition indexes in the optimal design
-GradRobustStep <- function(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix = 0L, type = 0L, rd_mode = 1L, trace = TRUE, uncorr = FALSE) {
-    .Call(`_glmmr_GradRobustStep`, idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, any_fix, type, rd_mode, trace, uncorr)
+GradRobustStep <- function(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, V0_list, any_fix = 0L, type = 0L, rd_mode = 1L, trace = TRUE, uncorr = FALSE, bayes = FALSE) {
+    .Call(`_glmmr_GradRobustStep`, idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, V0_list, any_fix, type, rd_mode, trace, uncorr, bayes)
 }
 
 #' Approximation to the log factorial

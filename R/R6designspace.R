@@ -151,9 +151,9 @@ DesignSpace <- R6::R6Class("DesignSpace",
                      c("n.designs"=length(private$designs),"n" = private$designs[[1]]$n())
                    },
                    #' @description 
-                   #' Identify a c-optimal design of size m
+                   #' Approximate c-optimal design of size m
                    #' 
-                   #' Algorithms to identify a c-optimal design of size m within the design space.
+                   #' Algorithms to identify an approximate c-optimal design of size m within the design space.
                    #' @details 
                    #' The algorithm identifies a c-optimal design of size m from the design space with N designs each with n observations. The objective
                    #' function is
@@ -253,15 +253,16 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #'    verbose=FALSE,robust_function = "minimax")
                    optimal = function(m,
                                       C,
+                                      V0=NULL,
                                       rm_cols=NULL,
                                       keep=FALSE,
                                       verbose=TRUE,
-                                      algo = "local",
-                                      robust_function = "weighted",
+                                      algo = 1,
                                       force_hill=FALSE,
                                       p){
                      if(keep&verbose)message("linked design objects will be overwritten with the new design")
                      if(length(C)!=self$n()[[1]])stop("C not equal to number of designs")
+                     if(!is.null(V0) & length(V0)!=self$n()[[1]])stop("V0 not equal to number of designs")
                      ## add checks
                      
                      # dispatch to correct algorithm
@@ -335,7 +336,7 @@ each condition will be reported below."))
                        
                        #sig_list <- private$genSlist()
                        weights <- self$weights
-                       rdmode <- ifelse(robust_function=="weighted",1,0)
+                       #rdmode <- 1#ifelse(robust_function=="weighted",1,0)
                        if(!is.null(rm_cols))
                        {
                          if(!is(rm_cols,"list"))stop("rm_cols should be a list")
@@ -427,6 +428,18 @@ each condition will be reported below."))
                          }
                        }
                        
+                       bayes <- FALSE
+                       if(!is.null(V0)){
+                         bayes <- TRUE
+                         for(i in 1:length(X_list)){
+                           if(dim(V0[[i]])[1] != ncol(X_list[[i]]))stop(paste0("V0 wrong dimension for design ",i))
+                         }
+                       } else {
+                         V0 <- list()
+                         for(i in 1:length(X_list)){
+                           V0[[i]] <- matrix(1)
+                         }
+                       }
                        
                        # print(m)
                        # print(idx_in)
@@ -443,16 +456,16 @@ each condition will be reported below."))
                                                   max_obs = max_obs,
                                                   any_fix = 0,
                                                   nfix = N+10,
+                                                  V0_list = V0,
                                                   weights = weights, 
                                                   exp_cond = expcond.id,
                                                   type = algo-1,
-                                                  rd_mode=rdmode,
+                                                  rd_mode=1,
                                                   trace=verbose,
-                                                  uncorr=uncorr)
+                                                  uncorr=uncorr,
+                                                  bayes=bayes)
                        idx_out <- drop(out_list[["idx_in"]] )
                        idx_out_exp <- sort(idx_out)
-                       # print(idx_out_exp)
-                       # print(expcond)
                        rows_in <- c()
                        for(i in 1:length(idx_out_exp)){
                          uni.hash <- which(row.hash == idx_out_exp[i])
@@ -463,24 +476,6 @@ each condition will be reported below."))
                          }
                          rows_in <- c(rows_in, which(expcond == idx_out_exp[i]))
                        }
-                       # print(idx_out_exp)
-                       # print(rows_in)
-                       # if(verbose){
-                       #   cat("\nFrequency of observations: \n")
-                       #   print(table(idx_out_exp))
-                       # }
-                       
-                       # convert back to rows
-                       # rows_in <- c()
-                       # for(i in 1:N){
-                       #   if(length(idx_out_exp)==0)break
-                       #   if(row.hash[i]%in%idx_out_exp){
-                       #     rows_in <- c(rows_in,i)
-                       #     idx_out_exp <- idx_out_exp[-which(idx_out_exp==row.hash[i])[1]]
-                       #   }
-                       # }
-                       # 
-                       # idx_out_exp <- rows_in
                        
                        if(!is.null(rm_cols)){
                          rows_in <- idx_original[rows_in]
@@ -493,27 +488,9 @@ each condition will be reported below."))
                            private$designs[[i]]$check(verbose=FALSE)
                          }
                        }
-                       # if(ncond < N){
-                       #   if(!is.null(rm_cols)){
-                       #     ec <- self$experimental_condition[-zero_idx]
-                       #   } else {
-                       #     ec <- self$experimental_condition
-                       #   }
-                       #   dp <- as.data.frame(table(ec[idx_out_exp]))
-                       #   de <- data.frame(ec = uexpcond,Freq = NA)
-                       #   de$Freq <- dp[match(de$ec,dp$Var1),'Freq']
-                       #   de[is.na(de$Freq),"Freq"] <- 0
-                       #   colnames(de) <- c("Exp. Cond.","Freq")
-                       #   idx_out_exp <- list(rows = idx_out_exp, exp.cond = de, val = 1/out_list$best_val_vec)
-                       # } else {
-                       #   idx_out_exp <- list(rows = idx_out_exp, exp.cond = NULL, val = 1/out_list$best_val_vec)
-                       # }
-                       
-
-                       # rows_to_keep <- which(self$experimental_condition %in% idx_out_exp)
                        
                        #if(verbose)cat("Experimental conditions in the optimal design: ", idx_out_exp$rows)
-                       return(invisible(list(rows = rows_in, exp.cond = idx_out_exp, val = 1/out_list$best_val_vec,
+                       return(invisible(list(rows = rows_in, exp.cond = idx_out_exp, val = out_list$best_val_vec,
                                              func_calls = out_list$func_calls, mat_ops = out_list$mat_ops)))
                      }
                    },

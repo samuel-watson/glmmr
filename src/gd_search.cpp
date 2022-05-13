@@ -49,11 +49,13 @@ public:
   arma::cube rm1A_list_; // inverse sigma matrices with one removed - initialised to minus one but now needs to resize
   arma::field<arma::mat> M_list_;
   arma::field<arma::mat> M_list_sub_;
+  arma::field<arma::mat> V0_list_;
   const arma::uvec nfix_; //the indexes of the experimental conditions to keep
   const arma::uword rd_mode_; // robust designs mode: 1 == weighted, 2 == minimax.
   
   bool trace_;
   bool uncorr_;
+  bool bayes_;
   
 public:
   HillClimbing(arma::uvec idx_in, 
@@ -67,10 +69,12 @@ public:
                arma::vec weights,
                arma::uvec exp_cond,
                arma::uword any_fix,
-               arma::uvec nfix, 
+               arma::uvec nfix,
+               arma::field<arma::mat> V0_list,
                arma::uword rd_mode = 0, 
                bool trace=false,
-               bool uncorr=false) :
+               bool uncorr=false,
+               bool bayes = false) :
   C_list_(C_list), 
   D_list_(D_list),
   X_all_list_(X_list),
@@ -104,10 +108,12 @@ public:
   rm1A_list_(nmax_,nmax_,nlist_,fill::zeros),
   M_list_(nlist_),
   M_list_sub_(nlist_),
+  V0_list_(V0_list),
   nfix_(nfix), 
   rd_mode_(rd_mode), 
   trace_(trace),
-  uncorr_(uncorr){
+  uncorr_(uncorr),
+  bayes_(bayes){
     build_XZ();
   }
   
@@ -149,10 +155,10 @@ public:
       M_list_(j,0) = X.head_rows(rowcount).t() * tmp.i() * X.head_rows(rowcount);
       M_list_sub_(j,0) = M_list_(j,0);
       if(uncorr_){
-        vals(j) = c_obj_fun( M_list_(j,0), C_list_(j,0));
+        vals(j) = bayes_ ? c_obj_fun( M_list_(j,0) + V0_list_(j,0), C_list_(j,0)) : c_obj_fun( M_list_(j,0), C_list_(j,0));
       } else {
         A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) = tmp.i();
-        vals(j) = c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount), C_list_(j,0));
+        vals(j) = bayes_ ? c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount) + V0_list_(j,0), C_list_(j,0)) : c_obj_fun( X.head_rows(rowcount).t() * A_list_.slice(j).submat(0,0,r_in_design_-1,r_in_design_-1) * X.head_rows(rowcount), C_list_(j,0));
       }
       
     }
@@ -351,7 +357,7 @@ private:
           M_list_(idx,0) = M;
           A_list_.slice(idx).submat(0,0,r_in_design_-1,r_in_design_-1) = A;
         }
-        vals(idx) = c_obj_fun( M, C_list_(idx,0));
+        vals(idx) = bayes_ ? c_obj_fun( M+V0_list_(idx,0), C_list_(idx,0)) : c_obj_fun( M, C_list_(idx,0));
       } else {
         vals.fill(10000);
         break;
@@ -404,7 +410,7 @@ private:
         if(keep){
           M_list_(j,0) = M;
         }
-        vals(j) = c_obj_fun(M, C_list_(j,0));
+        vals(j) = bayes_ ? c_obj_fun(M + V0_list_(j,0), C_list_(j,0)) : c_obj_fun(M, C_list_(j,0));
       } else {
         vals.fill(10000);
         break;
@@ -504,25 +510,29 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
                           arma::vec weights,
                           arma::uvec exp_cond,
                           arma::uvec nfix, 
+                          Rcpp::List V0_list,
                           arma::uword any_fix = 0,
                           arma::uword type = 0,
                           arma::uword rd_mode = 1,
                           bool trace = true,
-                          bool uncorr = false) {
+                          bool uncorr = false,
+                          bool bayes = false) {
   arma::uword ndesign = weights.n_elem;
   arma::field<arma::vec> Cfield(ndesign,1);
   arma::field<arma::mat> Xfield(ndesign,1);
   arma::field<arma::mat> Zfield(ndesign,1);
   arma::field<arma::mat> Dfield(ndesign,1);
+  arma::field<arma::mat> V0field(ndesign,1);
   for(arma::uword j=0; j<ndesign; j++){
     Cfield(j,0) = as<arma::vec>(C_list[j]);
     Xfield(j,0) = as<arma::mat>(X_list[j]);
     Zfield(j,0) = as<arma::mat>(Z_list[j]);
     Dfield(j,0) = as<arma::mat>(D_list[j]);
+    V0field(j,0) = as<arma::mat>(V0_list[j]);
   }
   HillClimbing hc(idx_in, n, Cfield, Xfield, Zfield, Dfield,
                   w_diag,max_obs,
-                  weights, exp_cond, any_fix, nfix,rd_mode, trace, uncorr);
+                  weights, exp_cond, any_fix, nfix, V0field, rd_mode, trace, uncorr, bayes);
   if(type==0)hc.local_search();
   if(type==1){
     hc.local_search();
@@ -540,5 +550,6 @@ Rcpp::List GradRobustStep(arma::uvec idx_in,
   return Rcpp::List::create(Named("idx_in") = hc.idx_in_,
                             Named("best_val_vec") = hc.val_,
                             Named("func_calls") = hc.fcalls_,
-                            Named("mat_ops") = hc.matops_);
+                            Named("mat_ops") = hc.matops_,
+                            Named("bayes") = hc.bayes_);
 }
