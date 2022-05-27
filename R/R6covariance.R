@@ -35,7 +35,9 @@ Covariance <- R6::R6Class("Covariance",
                         #' @param parameters List of lists with parameter values for the functions in the model
                         #' formula. See Details.
                         #' @param verbose Logical whether to provide detailed output.
-                        #' @details A covariance function is specified as an additive formula made up of 
+                        #' @details 
+                        #' **Intitialisation**
+                        #' A covariance function is specified as an additive formula made up of 
                         #' components with structure \code{(1|f(j))}. The left side of the vertical bar 
                         #' specifies the covariates in the model that have a random effects structure. 
                         #' The right side of the vertical bar specify the covariance function `f` for 
@@ -140,7 +142,6 @@ Covariance <- R6::R6Class("Covariance",
                         #' @description 
                         #' Generate a new D matrix
                         #' 
-                        #' @details 
                         #' D is the covariance matrix of the random effects terms in the generalised linear mixed
                         #' model. This function will return a matrix D for a given set of parameters.
                         #' @param parameters list of lists, see initialize()
@@ -212,7 +213,6 @@ Covariance <- R6::R6Class("Covariance",
                           # build each Z matrix and cbind
                           Zlist <- list()
                           Distlist <- list()
-                          Funclist <- list()
                           flistcount <- list()
                           flistlabs <- list()
                           D_data <- list(B = length(flist))
@@ -240,7 +240,7 @@ Covariance <- R6::R6Class("Covariance",
                           
                           fl <- rev(flistvars)
                           fnames <- c("gr","fexp","ar1","sqexp","matern","bessel")
-                          fnpar <- c(1,2,1,2,2,1)
+                          fnpar <- c(1,1,1,2,2,1)
                           parcount <- 0
                           Funclist <- list()
                           Distlist <- rev(Distlist)
@@ -252,13 +252,14 @@ Covariance <- R6::R6Class("Covariance",
                           fvar <- lapply(rev(flistvars),function(x)x$groups)
                           nvar <- list()
                           for(b in 1:D_data$B){
-                            varcnt <- 1
-                            varidx <- c()
-                            while(varcnt<=length(fvar[[b]])){
-                              varidx <- c(varidx,sum(fvar[[b]][fvar[[b]]==varcnt]))
-                              varcnt = varcnt + sum(fvar[[b]][fvar[[b]]==varcnt])
-                            }
-                            nvar[[b]] <- varidx
+                            nvar[[b]] <- rev(unname(table(fvar[[b]])))
+                            # varcnt <- 1
+                            # varidx <- c()
+                            # while(varcnt<=length(fvar[[b]])){
+                            #   varidx <- c(varidx,sum(fvar[[b]][fvar[[b]]==varcnt]))
+                            #   varcnt = varcnt + sum(fvar[[b]][fvar[[b]]==varcnt])
+                            # }
+                            # nvar[[b]] <- varidx
                           }
                           D_data$N_var_func <- matrix(0,ncol=max(D_data$N_func),nrow=D_data$B)
                           for(b in 1:D_data$B)D_data$N_var_func[b,1:D_data$N_func[b]] <- nvar[[b]]
@@ -280,7 +281,6 @@ Covariance <- R6::R6Class("Covariance",
                           Z <- Matrix::Matrix(Z)
                           if(nrow(Z) < ncol(Z))warning("More random effects than observations")
                           self$Z <- Z
-                          D_data <<- D_data
                           private$D_data <- D_data
                           for(i in 1:length(Zlist))Zlist[[i]] <- Matrix::Matrix(Zlist[[i]])
                           private$Zlist <- Zlist

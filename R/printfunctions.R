@@ -51,7 +51,7 @@ print.mcml <- function(x, digits =2, ...){
   #messages
   if(x$permutation)message("Permutation test used for one parameter, other SEs are not reported. SEs and Z values
 are approximate based on the p-value, and assume normality.")
-  if(!x$hessian&!x$permutation)warning("Hessian was not positive definite, standard errors are approximate")
+  #if(!x$hessian&!x$permutation)warning("Hessian was not positive definite, standard errors are approximate")
   if(!x$converged)warning("Algorithm did not converge")
   return(invisible(pars))
 }

@@ -19,6 +19,8 @@ where h is the link function, this class defines Z and D. The covariance is defi
 A new instance can be generated with $new(). The class will generate the 
 relevant matrices Z and D automatically.
 
+
+**Intitialisation**
 A covariance function is specified as an additive formula made up of 
 components with structure \code{(1|f(j))}. The left side of the vertical bar 
 specifies the covariates in the model that have a random effects structure. 
@@ -48,10 +50,6 @@ For example,
 Note that it is also possible to specify a group membership with two
 variable alternatively as `(1|gr(j)*gr(t))`, for example, but this 
 will require two parameters to be specified, so it is recommended against.
-
-
-D is the covariance matrix of the random effects terms in the generalised linear mixed
-model. This function will return a matrix D for a given set of parameters.
 }
 \examples{
 
@@ -277,6 +275,9 @@ cov$subset(1:100)
 \if{latex}{\out{\hypertarget{method-sampleD}{}}}
 \subsection{Method \code{sampleD()}}{
 Generate a new D matrix
+
+D is the covariance matrix of the random effects terms in the generalised linear mixed
+model. This function will return a matrix D for a given set of parameters.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Covariance$sampleD(parameters)}\if{html}{\out{</div>}}
 }

@@ -22,6 +22,7 @@ All designs must have the same number of rows in their design matrices (X and Z)
 The DesignSpace functions can modify the linked design objects.
 
 
+**Initialisation**
 The experimental condition refers to the smallest "unit" of the study design that could be included in the design. For example, in a
 cluster randomised trial, the experimental condition may be single individuals such that we can observed any number of individuals 
 in any cluster period (including none at all). In this case the experimental condition would be equivalent to row number. Alternatively,
@@ -30,6 +31,7 @@ in a different cluster-period would have the same experimental condition identif
 all periods (a "sequence") is either observed or not.
 
 
+**Approximate c-Optimal designs**
 The algorithm identifies a c-optimal design of size m from the design space with N designs each with n observations. The objective
 function is
 
@@ -387,21 +389,20 @@ Returns the size of the design space and number of observations
 \if{html}{\out{<a id="method-optimal"></a>}}
 \if{latex}{\out{\hypertarget{method-optimal}{}}}
 \subsection{Method \code{optimal()}}{
-Identify a c-optimal design of size m
+Approximate c-optimal design of size m
 
-Algorithms to identify a c-optimal design of size m within the design space.
+Algorithms to identify an approximate c-optimal design of size m within the design space.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DesignSpace$optimal(
   m,
   C,
+  V0 = NULL,
   rm_cols = NULL,
   keep = FALSE,
   verbose = TRUE,
-  robust_function = "weighted",
+  algo = 1,
   force_hill = FALSE,
-  s = 10,
-  r = 0.01,
-  b = 1
+  p
 )}\if{html}{\out{</div>}}
 }
 
@@ -412,6 +413,9 @@ Algorithms to identify a c-optimal design of size m within the design space.
 
 \item{\code{C}}{Either a vector or a list of vectors of the same length as the number of designs, see Details.}
 
+\item{\code{V0}}{Optional. If a Bayesian c-optimality problem then this should be a list of prior covariance matrices for the model parameters
+the same length as the number of designs.}
+
 \item{\code{rm_cols}}{Optional. A list of vectors indicating columns of X to remove from each design, see Details.}
 
 \item{\code{keep}}{Logical indicating whether to "keep" the optimal design in the linked design objects and remove any experimental
@@ -420,16 +424,12 @@ linked design objects. Defaults to FALSE.}
 
 \item{\code{verbose}}{Logical indicating whether to reported detailed output on the progress of the algorithm. Default is TRUE.}
 
-\item{\code{robust_function}}{Either "weighted" or "minimax". Specifies the objective function to use in robust optimisation, see Details.}
+\item{\code{algo}}{character string, either "local" for local search algorithm, or "greedy" for greedy search}
 
 \item{\code{force_hill}}{Logical. If the experimental conditions are uncorrelated, if this option is TRUE then the hill climbing 
 algorithm will be used, otherwise if it is FALSE, then a fast approximate alternative will be used. See Details}
 
-\item{\code{s}}{Positive integer specifying the maximum search depth, which is the number of swaps to make on each iteration}
-
-\item{\code{r}}{Positive number between 0 and 1 for the parameter r, default is 0.01}
-
-\item{\code{b}}{Positive number between 0 and 1 for the parameter b, default is 1}
+\item{\code{p}}{Positive integer specifying the size of the starting design for the greedy algorithm}
 }
 \if{html}{\out{</div>}}
 }

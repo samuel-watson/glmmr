@@ -6,6 +6,7 @@
 \usage{
 GradRobustStep(
   idx_in,
+  n,
   C_list,
   X_list,
   Z_list,
@@ -13,17 +14,21 @@ GradRobustStep(
   w_diag,
   max_obs,
   weights,
+  exp_cond,
   nfix,
-  s = 10L,
-  r = 0.01,
-  b = 1,
+  V0_list,
   any_fix = 0L,
+  type = 0L,
   rd_mode = 1L,
-  trace = TRUE
+  trace = TRUE,
+  uncorr = FALSE,
+  bayes = FALSE
 )
 }
 \arguments{
 \item{idx_in}{Integer vector specifying the indexes of the experimental conditions to start from}
+
+\item{n}{Integer specifying the size of the design to find. For local search, this should be equal to the size of idx_in}
 
 \item{C_list}{List of C vectors for the c-optimal function, see \link{glmmr}[DesignSpace]}
 
@@ -31,9 +36,13 @@ GradRobustStep(
 
 \item{weights}{Vector specifying the weights of each design}
 
+\item{exp_cond}{Vector specifying the experimental condition index of each observation}
+
 \item{nfix}{Vector listing the experimental condition indexes that are fixed in the design}
 
 \item{any_fix}{Integer. 0 = no experimental conditions are fixed, 1 = some experimental conditions are fixed}
+
+\item{type}{Integer. 0 = local search algorith. 1 = greedy search algorithm.}
 
 \item{rd_mode}{Integer. Robust objective function, 1=weighted average, 2=minimax}
 
@@ -42,8 +51,6 @@ GradRobustStep(
 \item{N}{Integer specifying number of experimental conditions in the optimal design}
 
 \item{sig_list}{List of inverse covariance matrices}
-
-\item{exp_cond}{Vector specifying the experimental condition index of each observation}
 }
 \value{
 A vector of experimental condition indexes in the optimal design

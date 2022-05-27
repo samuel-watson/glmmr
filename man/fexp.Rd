@@ -9,12 +9,10 @@ fexp(x)
 fexp(x)
 }
 \arguments{
-\item{x}{A list with named elements `pars` and `data`. `pars` is a vector with two parameter values, and
+\item{x}{A list with named elements `pars` and `data`. `pars` is a vector with one parameter values, and
 `data` is the data `x`}
 
 \item{par1}{First parameter of the distribution}
-
-\item{par2}{Second parameter of the distribution}
 }
 \value{
 vector of values of the function

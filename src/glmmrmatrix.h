@@ -87,7 +87,7 @@ arma::mat genBlockD(size_t N_dim,
               val = 0;
             }
           } else if(func_def(k)==2){
-            val = val*fexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+            val = val*fexp(dist,gamma(gamma_idx));
           }else if(func_def(k)==3){
             val = val*pow(gamma(gamma_idx),dist);
           } else if(func_def(k)==4){

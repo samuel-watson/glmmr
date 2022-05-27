@@ -194,6 +194,7 @@ Design <- R6::R6Class("Design",
                     #' @description
                     #' Returns the number of clusters at each level
                     #' @details
+                    #' **Number of clusters**
                     #' Returns a data frame describing the number of independent clusters or groups at each level in the design. For example,
                     #' if there were cluster-periods nested in clusters, then the top level would be clusters, and the second level would be 
                     #' cluster periods.
@@ -238,6 +239,7 @@ Design <- R6::R6Class("Design",
                     #' @description 
                     #' Run a design analysis of the model via simulation
                     #' @details 
+                    #' **analysis**
                     #' The analysis function conducts a detailed design analysis using the analysis
                     #' model specified by the object. Data are simulated either using the same
                     #' data generating process, or using a different Design object specified by 
@@ -502,6 +504,7 @@ Design <- R6::R6Class("Design",
                     #' @description 
                     #' Approximate power of the design using the GLS variance
                     #' @details 
+                    #' **Approximate power**
                     #' Calculates the approximate power of the design using the square root
                     #' of the relevant element of the GLS variance matrix:
                     #' 
@@ -714,7 +717,7 @@ Design <- R6::R6Class("Design",
                         }
                       }
                      
-                      if(type=="data.frame")y <- cbind(y,self$data$data,self$covariance$location)
+                      if(type=="data.frame"|type=="data")y <- cbind(y,self$mean_function$data)
                       return(y)
                       
                     },
@@ -756,6 +759,7 @@ Design <- R6::R6Class("Design",
                     #'Markov Chain Monte Carlo Maximum Likelihood  model fitting
                     #'
                     #'@details
+                    #'**MCMCML**
                     #'Fits generalised linear mixed models using one of three algorithms: Markov Chain Newton
                     #'Raphson (MCNR), Markov Chain Expectation Maximisation (MCEM), or Maximum simulated
                     #'likelihood (MSL). All the algorithms are described by McCullagh (1997). For each iteration
@@ -858,7 +862,7 @@ Design <- R6::R6Class("Design",
                     MCML = function(y,
                                     start,
                                     se.method = "lik",
-                                    method = "mcem",
+                                    method = "mcnr",
                                     permutation.par,
                                     verbose=TRUE,
                                     tol = 1e-2,
@@ -1099,11 +1103,12 @@ for more details")
                                                                           start = theta[all_pars],
                                                                           lower = c(rep(-Inf,P),rep(1e-6,length(all_pars)-P)),
                                                                           upper = c(rep(Inf,P),upper),
-                                                                          tol=fd_tol))),
+                                                                          tol=fd_tol,importance = TRUE))),
                                            error=function(e)NULL)
                           
                           hessused <- TRUE
-                          semat <- tryCatch(Matrix::solve(hess),error=function(e)NULL)
+                          semat <- tryCatch(Matrix::solve(-hess),error=function(e)NULL)
+                          
                           if(se.method == "robust"&!is.null(semat)){
                             hlist <- list()
                             #identify the clustering and sum over independent clusters
@@ -1154,8 +1159,8 @@ for more details")
                         
                         if(se.method=="approx" || any(is.na(SE[1:P]))){
                           SE <- rep(NA,length(mf_pars)+length(cov_pars_names))
-                          if(!no_warnings&se.method!="approx")warning("Hessian was not positive definite, using approximation")
-                          if(verbose&se.method=="approx")cat("using approximation\n")
+                          #if(!no_warnings&se.method!="approx")warning("Hessian was not positive definite, using approximation")
+                          #if(verbose&se.method=="approx")cat("using approximation\n")
                           hessused <- FALSE
                           self$check(verbose=FALSE)
                           invM <- Matrix::solve(private$information_matrix())
@@ -1274,7 +1279,6 @@ for more details")
                     #'@description
                     #'Calculates DFBETA deletion diagnostic values
                     #'
-                    #'@details
                     #' Calculates the DFBETA deletion diagnostic statistic for each observation for the
                     #' specified parameter.
                     #'@param y Numeric vector of outcomes data
@@ -1313,6 +1317,7 @@ for more details")
                     #' Estimates p-values and confidence intervals using a permutation test
                     #'
                     #'@details
+                    #'**Permutation tests**
                     #' If the user provided a re-randomisation function to the linked mean function object (see \link[glmmr]{MeanFunction}),
                     #' then a permuation test can be conducted. A new random assignment is generated on each iteration of the permutation test.
                     #' The test statistic can be either a quasi-score statistic, weighting the observations using the covariance matrix (`type="cov"`),
@@ -1497,6 +1502,7 @@ for more details")
                     #' 
                     #' Fit the GLMM using MCMC. The function calls a Stan program to draw posterior samples.
                     #' @details 
+                    #' **MCMC**
                     #' Draws samples from the posterior distribution of the model parameters using Stan. Priors are specified using the `priors` argument.
                     #' Currently, only Gaussian (or half-Gaussian for covariance parameters) prior distributions are supported. The argument `priors`
                     #' accepts a list with three or four elements, `prior_b_mean`, `prior_b_sd` which are vectors specifying the prior mean and 
@@ -1629,7 +1635,8 @@ fixed for the modified Bessel function of the second kind.")
                     #' Bayesian design analysis
                     #' 
                     #' Runs a Bayesian design analysis using simulated data
-                    #' @details 
+                    #' @details
+                    #' **Bayesian design analysis** 
                     #' The Bayesian design analysis conducts multiple iterations of simulating data from a GLMM and then fitting a GLMM to analyse
                     #' the properties of the posterior distribution and model calibration to inform study design. Data are either simulated from the same
                     #' model as the analysis model, i.e. there is correct model specification (nothing is specified for the option `sim_design`), or data

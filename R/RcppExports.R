@@ -56,9 +56,8 @@ gen_dhdmu <- function(xb, family, link) {
 #' \deqn{\theta_1 exp(-x/\theta_2)}
 #' @param x Numeric value 
 #' @param par1 First parameter of the distribution
-#' @param par2 Second parameter of the distribution
-fexp <- function(x, par1, par2) {
-    .Call(`_glmmr_fexp`, x, par1, par2)
+fexp <- function(x, par1) {
+    .Call(`_glmmr_fexp`, x, par1)
 }
 
 #' Squared exponential covariance function
@@ -246,6 +245,24 @@ l_lik_optim <- function(Z, X, y, u, family, link, start, lower, upper, trace) {
     .Call(`_glmmr_l_lik_optim`, Z, X, y, u, family, link, start, lower, upper, trace)
 }
 
+#' Optimises the log-likelihood of the observations conditional on the random effects
+#' 
+#' Optimises the log-likelihood of the observations conditional on the random effects
+#' @param Z Matrix Z of the GLMM
+#' @param X Matrix X of the GLMM
+#' @param y Vector of observations
+#' @param u Matrix of samples of the random effects. Each column is a sample.
+#' @param family Character specifying the family
+#' @param link Character specifying the link function
+#' @param start Vector of starting values for the optimisation
+#' @param lower Vector of lower bounds for the model parameters
+#' @param upper Vector of upper bounds for the model parameters
+#' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+#' @return A vector of parameters that maximise the log likelihood
+l_lik_hess <- function(Z, X, y, u, family, link, start, lower, upper, trace, tol = 1e-4) {
+    .Call(`_glmmr_l_lik_hess`, Z, X, y, u, family, link, start, lower, upper, trace, tol)
+}
+
 #' Calculates the gradient of the full log-likelihood 
 #' 
 #' Calculates the gradient of the full log-likelihood 
@@ -274,8 +291,8 @@ l_lik_optim <- function(Z, X, y, u, family, link, start, lower, upper, trace) {
 #' @param upper Vector of upper bounds for the model parameters
 #' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
 #' @return A vector of the gradient for each parameter
-f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_f_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
+f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4, importance = FALSE) {
+    .Call(`_glmmr_f_lik_grad`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, importance)
 }
 
 #' Calculates the Hessian of the full log-likelihood 
@@ -306,8 +323,8 @@ f_lik_grad <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, su
 #' @param upper Vector of upper bounds for the model parameters
 #' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
 #' @return A matrix of the Hessian for each parameter
-f_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4) {
-    .Call(`_glmmr_f_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol)
+f_lik_hess <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol = 1e-4, importance = FALSE) {
+    .Call(`_glmmr_f_lik_hess`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, importance)
 }
 
 #' Simulated likelihood maximisation for the GLMM 

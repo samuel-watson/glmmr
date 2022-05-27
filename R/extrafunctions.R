@@ -43,15 +43,16 @@ match_rows <- function(x,target,by){
 #' 
 #' \dexp{f(x) = \theta_1*exp(-\theta_2*x)}
 #' 
-#' @param x A list with named elements `pars` and `data`. `pars` is a vector with two parameter values, and
+#' @param x A list with named elements `pars` and `data`. `pars` is a vector with one parameter values, and
 #' `data` is the data `x`
 #' @return vector of values of the function
 #' @examples 
 #' fexp(list(pars = c(1,0.2),data=runif(10)))
 #' @export
 fexp <- function(x){
-  if(length(x$pars)!=2)stop("two parameters required for fexp")
-  x$pars[1]*exp(-x$pars[2]*x$data)
+  #if(length(x$pars)!=2)stop("two parameters required for fexp")
+  #x$pars[1]*exp(-x$pars[2]*x$data)
+  exp(-x$pars[1]*x$data)
 }
 
 #' Power exponential covariance function

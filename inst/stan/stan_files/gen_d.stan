@@ -45,7 +45,7 @@ for(b in 1:B){
         }
       } else if(func_def[b,k] == 2){
         // exponential 1
-        val = val * gamma[gamma_idx]*exp(-1*dist*gamma[gamma_idx+1]);
+        val = val * exp(-1*dist*gamma[gamma_idx]);
       } else if(func_def[b,k] == 3){
         // ar1
         val = val * pow(gamma[gamma_idx],dist);
@@ -82,8 +82,8 @@ for(b in 1:B){
       if(func_def[b,k] == 1){
         // group member ship
         val = val*pow(gamma[gamma_idx_ii],2);
-      } else if(func_def[b,k] == 2 || func_def[b,k] == 4){
-        // exponential 1
+      } else if(func_def[b,k] == 4){
+        // exponential 1func_def[b,k] == 2 || 
         val = val * gamma[gamma_idx_ii];
       } 
      gamma_idx_ii += N_par[b,k]; 

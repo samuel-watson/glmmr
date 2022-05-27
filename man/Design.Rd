@@ -38,10 +38,12 @@ Calls the respective print methods of the linked covariance and mean function ob
 
 The matrices X and Z both have n rows, where n is the number of observations in the model/design.
 
+\strong{Number of clusters}
 Returns a data frame describing the number of independent clusters or groups at each level in the design. For example,
 if there were cluster-periods nested in clusters, then the top level would be clusters, and the second level would be
 cluster periods.
 
+\strong{analysis}
 The analysis function conducts a detailed design analysis using the analysis
 model specified by the object. Data are simulated either using the same
 data generating process, or using a different Design object specified by
@@ -74,6 +76,7 @@ the design may have more influence than others over the estimate of interest,
 or have a larger than desired effect. A summary of the DFBETA diagnostic
 is provided.
 
+\strong{Approximate power}
 Calculates the approximate power of the design using the square root
 of the relevant element of the GLS variance matrix:
 
@@ -82,6 +85,7 @@ of the relevant element of the GLS variance matrix:
 Note that this is equivalent to using the "design effect" for many
 models.
 
+\strong{MCMCML}
 Fits generalised linear mixed models using one of three algorithms: Markov Chain Newton
 Raphson (MCNR), Markov Chain Expectation Maximisation (MCEM), or Maximum simulated
 likelihood (MSL). All the algorithms are described by McCullagh (1997). For each iteration
@@ -128,9 +132,7 @@ test, default is 1000. See \code{permutation_test()}.
 is 1e-4.
 }
 
-Calculates the DFBETA deletion diagnostic statistic for each observation for the
-specified parameter.
-
+\strong{Permutation tests}
 If the user provided a re-randomisation function to the linked mean function object (see \link[glmmr]{MeanFunction}),
 then a permuation test can be conducted. A new random assignment is generated on each iteration of the permutation test.
 The test statistic can be either a quasi-score statistic, weighting the observations using the covariance matrix (\code{type="cov"}),
@@ -140,6 +142,7 @@ a single permuation and test statistic is generated, and the current estimate of
 increased or decreased depedning on its value. The procedure converges in probability to the true limits, see Watson et al (2021)
 and Garthwaite (1996).
 
+\strong{MCMC}
 Draws samples from the posterior distribution of the model parameters using Stan. Priors are specified using the \code{priors} argument.
 Currently, only Gaussian (or half-Gaussian for covariance parameters) prior distributions are supported. The argument \code{priors}
 accepts a list with three or four elements, \code{prior_b_mean}, \code{prior_b_sd} which are vectors specifying the prior mean and
@@ -149,6 +152,7 @@ terms in models that have a scale parameter (Gaussian and Gamma currently). By d
 can optionally call \code{cmdstanr} instead if it is installed, using the option \code{use_cmdstanr=TRUE}. For further details on the use and
 arguments that can be used, see \link[rstan]{sampling}.
 
+\strong{Bayesian design analysis}
 The Bayesian design analysis conducts multiple iterations of simulating data from a GLMM and then fitting a GLMM to analyse
 the properties of the posterior distribution and model calibration to inform study design. Data are either simulated from the same
 model as the analysis model, i.e. there is correct model specification (nothing is specified for the option \code{sim_design}), or data
@@ -1271,7 +1275,7 @@ Markov Chain Monte Carlo Maximum Likelihood  model fitting
   y,
   start,
   se.method = "lik",
-  method = "mcem",
+  method = "mcnr",
   permutation.par,
   verbose = TRUE,
   tol = 0.01,
@@ -1364,6 +1368,9 @@ fit4 <- des$MCML(y = des$sim_data(),
 \if{latex}{\out{\hypertarget{method-dfbeta}{}}}
 \subsection{Method \code{dfbeta()}}{
 Calculates DFBETA deletion diagnostic values
+
+Calculates the DFBETA deletion diagnostic statistic for each observation for the
+specified parameter.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Design$dfbeta(y, par)}\if{html}{\out{</div>}}
 }

@@ -92,15 +92,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // fexp
-double fexp(const double& x, double par1, double par2);
-RcppExport SEXP _glmmr_fexp(SEXP xSEXP, SEXP par1SEXP, SEXP par2SEXP) {
+double fexp(const double& x, double par1);
+RcppExport SEXP _glmmr_fexp(SEXP xSEXP, SEXP par1SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const double& >::type x(xSEXP);
     Rcpp::traits::input_parameter< double >::type par1(par1SEXP);
-    Rcpp::traits::input_parameter< double >::type par2(par2SEXP);
-    rcpp_result_gen = Rcpp::wrap(fexp(x, par1, par2));
+    rcpp_result_gen = Rcpp::wrap(fexp(x, par1));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -260,9 +259,30 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// l_lik_hess
+arma::mat l_lik_hess(const arma::mat& Z, const arma::mat& X, const arma::vec& y, const arma::mat& u, std::string family, std::string link, arma::vec start, const arma::vec& lower, const arma::vec& upper, int trace, double tol);
+RcppExport SEXP _glmmr_l_lik_hess(SEXP ZSEXP, SEXP XSEXP, SEXP ySEXP, SEXP uSEXP, SEXP familySEXP, SEXP linkSEXP, SEXP startSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP traceSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type u(uSEXP);
+    Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
+    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type start(startSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type lower(lowerSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type upper(upperSEXP);
+    Rcpp::traits::input_parameter< int >::type trace(traceSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(l_lik_hess(Z, X, y, u, family, link, start, lower, upper, trace, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // f_lik_grad
-arma::vec f_lik_grad(const arma::uword& B, const arma::uvec& N_dim, const arma::uvec& N_func, const arma::umat& func_def, const arma::umat& N_var_func, const arma::ucube& col_id, const arma::umat& N_par, const arma::uword& sum_N_par, const arma::cube& cov_data, const arma::mat& Z, const arma::mat& X, const arma::vec& y, const arma::mat& u, const arma::vec& cov_par_fix, std::string family, std::string link, arma::vec start, const arma::vec& lower, const arma::vec& upper, double tol);
-RcppExport SEXP _glmmr_f_lik_grad(SEXP BSEXP, SEXP N_dimSEXP, SEXP N_funcSEXP, SEXP func_defSEXP, SEXP N_var_funcSEXP, SEXP col_idSEXP, SEXP N_parSEXP, SEXP sum_N_parSEXP, SEXP cov_dataSEXP, SEXP ZSEXP, SEXP XSEXP, SEXP ySEXP, SEXP uSEXP, SEXP cov_par_fixSEXP, SEXP familySEXP, SEXP linkSEXP, SEXP startSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP tolSEXP) {
+arma::vec f_lik_grad(const arma::uword& B, const arma::uvec& N_dim, const arma::uvec& N_func, const arma::umat& func_def, const arma::umat& N_var_func, const arma::ucube& col_id, const arma::umat& N_par, const arma::uword& sum_N_par, const arma::cube& cov_data, const arma::mat& Z, const arma::mat& X, const arma::vec& y, const arma::mat& u, const arma::vec& cov_par_fix, std::string family, std::string link, arma::vec start, const arma::vec& lower, const arma::vec& upper, double tol, bool importance);
+RcppExport SEXP _glmmr_f_lik_grad(SEXP BSEXP, SEXP N_dimSEXP, SEXP N_funcSEXP, SEXP func_defSEXP, SEXP N_var_funcSEXP, SEXP col_idSEXP, SEXP N_parSEXP, SEXP sum_N_parSEXP, SEXP cov_dataSEXP, SEXP ZSEXP, SEXP XSEXP, SEXP ySEXP, SEXP uSEXP, SEXP cov_par_fixSEXP, SEXP familySEXP, SEXP linkSEXP, SEXP startSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP tolSEXP, SEXP importanceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -286,13 +306,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec& >::type lower(lowerSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type upper(upperSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(f_lik_grad(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol));
+    Rcpp::traits::input_parameter< bool >::type importance(importanceSEXP);
+    rcpp_result_gen = Rcpp::wrap(f_lik_grad(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, importance));
     return rcpp_result_gen;
 END_RCPP
 }
 // f_lik_hess
-arma::mat f_lik_hess(const arma::uword& B, const arma::uvec& N_dim, const arma::uvec& N_func, const arma::umat& func_def, const arma::umat& N_var_func, const arma::ucube& col_id, const arma::umat& N_par, const arma::uword& sum_N_par, const arma::cube& cov_data, const arma::mat& Z, const arma::mat& X, const arma::vec& y, const arma::mat& u, const arma::vec& cov_par_fix, std::string family, std::string link, arma::vec start, const arma::vec& lower, const arma::vec& upper, double tol);
-RcppExport SEXP _glmmr_f_lik_hess(SEXP BSEXP, SEXP N_dimSEXP, SEXP N_funcSEXP, SEXP func_defSEXP, SEXP N_var_funcSEXP, SEXP col_idSEXP, SEXP N_parSEXP, SEXP sum_N_parSEXP, SEXP cov_dataSEXP, SEXP ZSEXP, SEXP XSEXP, SEXP ySEXP, SEXP uSEXP, SEXP cov_par_fixSEXP, SEXP familySEXP, SEXP linkSEXP, SEXP startSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP tolSEXP) {
+arma::mat f_lik_hess(const arma::uword& B, const arma::uvec& N_dim, const arma::uvec& N_func, const arma::umat& func_def, const arma::umat& N_var_func, const arma::ucube& col_id, const arma::umat& N_par, const arma::uword& sum_N_par, const arma::cube& cov_data, const arma::mat& Z, const arma::mat& X, const arma::vec& y, const arma::mat& u, const arma::vec& cov_par_fix, std::string family, std::string link, arma::vec start, const arma::vec& lower, const arma::vec& upper, double tol, bool importance);
+RcppExport SEXP _glmmr_f_lik_hess(SEXP BSEXP, SEXP N_dimSEXP, SEXP N_funcSEXP, SEXP func_defSEXP, SEXP N_var_funcSEXP, SEXP col_idSEXP, SEXP N_parSEXP, SEXP sum_N_parSEXP, SEXP cov_dataSEXP, SEXP ZSEXP, SEXP XSEXP, SEXP ySEXP, SEXP uSEXP, SEXP cov_par_fixSEXP, SEXP familySEXP, SEXP linkSEXP, SEXP startSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP tolSEXP, SEXP importanceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -316,7 +337,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec& >::type lower(lowerSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type upper(upperSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(f_lik_hess(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol));
+    Rcpp::traits::input_parameter< bool >::type importance(importanceSEXP);
+    rcpp_result_gen = Rcpp::wrap(f_lik_hess(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, Z, X, y, u, cov_par_fix, family, link, start, lower, upper, tol, importance));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -513,7 +535,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_log_factorial_approx", (DL_FUNC) &_glmmr_log_factorial_approx, 1},
     {"_glmmr_log_mv_gaussian_pdf", (DL_FUNC) &_glmmr_log_mv_gaussian_pdf, 3},
     {"_glmmr_gen_dhdmu", (DL_FUNC) &_glmmr_gen_dhdmu, 3},
-    {"_glmmr_fexp", (DL_FUNC) &_glmmr_fexp, 3},
+    {"_glmmr_fexp", (DL_FUNC) &_glmmr_fexp, 2},
     {"_glmmr_sqexp", (DL_FUNC) &_glmmr_sqexp, 3},
     {"_glmmr_matern", (DL_FUNC) &_glmmr_matern, 3},
     {"_glmmr_bessel1", (DL_FUNC) &_glmmr_bessel1, 2},
@@ -524,8 +546,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_glmmr_add_one_mat", (DL_FUNC) &_glmmr_add_one_mat, 3},
     {"_glmmr_d_lik_optim", (DL_FUNC) &_glmmr_d_lik_optim, 14},
     {"_glmmr_l_lik_optim", (DL_FUNC) &_glmmr_l_lik_optim, 10},
-    {"_glmmr_f_lik_grad", (DL_FUNC) &_glmmr_f_lik_grad, 20},
-    {"_glmmr_f_lik_hess", (DL_FUNC) &_glmmr_f_lik_hess, 20},
+    {"_glmmr_l_lik_hess", (DL_FUNC) &_glmmr_l_lik_hess, 11},
+    {"_glmmr_f_lik_grad", (DL_FUNC) &_glmmr_f_lik_grad, 21},
+    {"_glmmr_f_lik_hess", (DL_FUNC) &_glmmr_f_lik_hess, 21},
     {"_glmmr_f_lik_optim", (DL_FUNC) &_glmmr_f_lik_optim, 20},
     {"_glmmr_mcnr_step", (DL_FUNC) &_glmmr_mcnr_step, 7},
     {"_glmmr_aic_mcml", (DL_FUNC) &_glmmr_aic_mcml, 17},

@@ -23,6 +23,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' 
                    #' Creates a new design space from one or more glmmr designs.
                    #' @details 
+                   #' **Initialisation**
                    #' The experimental condition refers to the smallest "unit" of the study design that could be included in the design. For example, in a
                    #' cluster randomised trial, the experimental condition may be single individuals such that we can observed any number of individuals 
                    #' in any cluster period (including none at all). In this case the experimental condition would be equivalent to row number. Alternatively,
@@ -155,6 +156,7 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' 
                    #' Algorithms to identify an approximate c-optimal design of size m within the design space.
                    #' @details 
+                   #' **Approximate c-Optimal designs**
                    #' The algorithm identifies a c-optimal design of size m from the design space with N designs each with n observations. The objective
                    #' function is
                    #' 
@@ -186,13 +188,14 @@ DesignSpace <- R6::R6Class("DesignSpace",
                    #' function across all designs (`robust_function = "minimax"`).
                    #' @param m A positive integer specifying the number of experimental conditions to include.
                    #' @param C Either a vector or a list of vectors of the same length as the number of designs, see Details.
+                   #' @param V0 Optional. If a Bayesian c-optimality problem then this should be a list of prior covariance matrices for the model parameters
+                   #' the same length as the number of designs.
                    #' @param rm_cols Optional. A list of vectors indicating columns of X to remove from each design, see Details.
                    #' @param keep Logical indicating whether to "keep" the optimal design in the linked design objects and remove any experimental
                    #' conditions and columns that are not part of the optimal design. Irreversible, so that these observations will be lost from the 
                    #' linked design objects. Defaults to FALSE.
                    #' @param verbose Logical indicating whether to reported detailed output on the progress of the algorithm. Default is TRUE.
                    #' @param algo character string, either "local" for local search algorithm, or "greedy" for greedy search
-                   #' @param robust_function Either "weighted" or "minimax". Specifies the objective function to use in robust optimisation, see Details.
                    #' @param force_hill Logical. If the experimental conditions are uncorrelated, if this option is TRUE then the hill climbing 
                    #' algorithm will be used, otherwise if it is FALSE, then a fast approximate alternative will be used. See Details
                    #' @param p Positive integer specifying the size of the starting design for the greedy algorithm
@@ -407,12 +410,7 @@ each condition will be reported below."))
                        
                        max_obs <- unname(table(row.hash))
                        expcond.id <- as.numeric(factor(expcond[idx.nodup],levels = unique(expcond[idx.nodup])))
-                       # #for debugging
-                       # X_list <<- X_list
-                       # Z_list <<- Z_list
-                       # D_list <<- D_list
-                       # w_diag <<- w_diag
-                       # idx_in <<- idx_in
+                       
                        # row.hash <<- row.hash
                        if(algo == 1){
                          idx_in <- sort(sample(row.hash,m,replace=FALSE))
@@ -441,10 +439,12 @@ each condition will be reported below."))
                          }
                        }
                        
-                       # print(m)
-                       # print(idx_in)
-                       # print(max_obs)
-                       # print(weights)
+                       # #for debugging
+                       X_list <<- X_list
+                       Z_list <<- Z_list
+                       D_list <<- D_list
+                       w_diag <<- w_diag
+                       idx_in <<- idx_in
                        
                        out_list <- GradRobustStep(idx_in = idx_in, 
                                                   n=m,

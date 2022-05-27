@@ -127,76 +127,6 @@ arma::vec d_lik_optim(const arma::uword &B,
   return opt.par();
 }
 
-// // [[Rcpp::export]]
-// arma::mat d_lik_hess(const arma::uword &B,
-//                       const arma::uvec &N_dim,
-//                       const arma::uvec &N_func,
-//                       const arma::umat &func_def,
-//                       const arma::umat &N_var_func,
-//                       const arma::ucube &col_id,
-//                       const arma::umat &N_par,
-//                       const arma::uword &sum_N_par,
-//                       const arma::cube &cov_data, 
-//                       const arma::mat &u,
-//                       arma::vec start,
-//                       const arma::vec &lower,
-//                       const arma::vec &upper,
-//                       double tol = 1e-4){
-//   D_likelihood dl(B,N_dim,
-//                   N_func,
-//                   func_def,N_var_func,
-//                   col_id,N_par,sum_N_par,
-//                   cov_data, u);
-//   
-//   dl.os.usebounds_ = 1;
-//   if(!lower.is_empty()){
-//     dl.os.lower_ = lower;
-//   }
-//   if(!upper.is_empty()){
-//     dl.os.upper_ = upper;
-//   }
-//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-//   arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
-//   dl.Hessian(start,hessian);
-//   return hessian;
-// }
-// 
-// // [[Rcpp::export]]
-// arma::vec d_lik_grad(const arma::uword &B,
-//                      const arma::uvec &N_dim,
-//                      const arma::uvec &N_func,
-//                      const arma::umat &func_def,
-//                      const arma::umat &N_var_func,
-//                      const arma::ucube &col_id,
-//                      const arma::umat &N_par,
-//                      const arma::uword &sum_N_par,
-//                      const arma::cube &cov_data, 
-//                      const arma::mat &u,
-//                      arma::vec start,
-//                      const arma::vec &lower,
-//                      const arma::vec &upper,
-//                      double tol = 1e-4){
-//   D_likelihood dl(B,N_dim,
-//                   N_func,
-//                   func_def,N_var_func,
-//                   col_id,N_par,sum_N_par,
-//                   cov_data, u);
-//   
-//   dl.os.usebounds_ = 1;
-//   if(!lower.is_empty()){
-//     dl.os.lower_ = lower;
-//   }
-//   if(!upper.is_empty()){
-//     dl.os.upper_ = upper;
-//   }
-//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-//   arma::vec gradient(start.n_elem,fill::zeros);
-//   dl.Gradient(start,gradient);
-//   return gradient;
-// }
-
-
-
 class L_likelihood : public Functor {
   arma::mat Z_;
   arma::mat X_;
@@ -277,64 +207,50 @@ arma::vec l_lik_optim(const arma::mat &Z,
   opt.set_upper(upper);
   opt.set_lower(lower);
   opt.control.iprint = trace;
-  
   opt.minimize(dl, start);
-  
   return opt.par();
 }
 
-// // [[Rcpp::export]]
-// arma::mat l_lik_hess(const arma::mat &Z, 
-//                       const arma::mat &X,
-//                       const arma::vec &y, 
-//                       const arma::mat &u, 
-//                       std::string family, 
-//                       std::string link,
-//                       arma::vec start,
-//                       const arma::vec &lower,
-//                       const arma::vec &upper,
-//                       double tol = 1e-4){
-//   L_likelihood dl(Z,X,y,u,family,link);
-//   
-//   dl.os.usebounds_ = 1;
-//   if(!lower.is_empty()){
-//     dl.os.lower_ = lower;
-//   }
-//   if(!upper.is_empty()){
-//     dl.os.upper_ = upper;
-//   }
-//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-//   arma::mat hessian(start.n_elem,start.n_elem,fill::zeros);
-//   dl.Hessian(start,hessian);
-//   return hessian;
-// }
-// 
-// // [[Rcpp::export]]
-// arma::vec l_lik_grad(const arma::mat &Z, 
-//                      const arma::mat &X,
-//                      const arma::vec &y, 
-//                      const arma::mat &u, 
-//                      std::string family, 
-//                      std::string link,
-//                      arma::vec start,
-//                      const arma::vec &lower,
-//                      const arma::vec &upper,
-//                      double tol = 1e-4){
-//   L_likelihood dl(Z,X,y,u,family,link);
-//   
-//   dl.os.usebounds_ = 1;
-//   if(!lower.is_empty()){
-//     dl.os.lower_ = lower;
-//   }
-//   if(!upper.is_empty()){
-//     dl.os.upper_ = upper;
-//   }
-//   dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
-//   arma::vec gradient(start.n_elem,fill::zeros);
-//   dl.Gradient(start,gradient);
-//   return gradient;
-// }
-
+//' Optimises the log-likelihood of the observations conditional on the random effects
+//' 
+//' Optimises the log-likelihood of the observations conditional on the random effects
+//' @param Z Matrix Z of the GLMM
+//' @param X Matrix X of the GLMM
+//' @param y Vector of observations
+//' @param u Matrix of samples of the random effects. Each column is a sample.
+//' @param family Character specifying the family
+//' @param link Character specifying the link function
+//' @param start Vector of starting values for the optimisation
+//' @param lower Vector of lower bounds for the model parameters
+//' @param upper Vector of upper bounds for the model parameters
+//' @param trace Integer indicating what to report to the console, 0= nothing, 1-3=detailed output
+//' @return A vector of parameters that maximise the log likelihood
+// [[Rcpp::export]]
+arma::mat l_lik_hess(const arma::mat &Z, 
+                      const arma::mat &X,
+                      const arma::vec &y, 
+                      const arma::mat &u, 
+                      std::string family, 
+                      std::string link,
+                      arma::vec start,
+                      const arma::vec &lower,
+                      const arma::vec &upper,
+                      int trace,
+                      double tol = 1e-4){
+  L_likelihood dl(Z,X,y,u,family,link);
+  
+  dl.os.usebounds_ = 1;
+  if(!lower.is_empty()){
+    dl.os.lower_ = lower;
+  }
+  if(!upper.is_empty()){
+    dl.os.upper_ = upper;
+  }
+  dl.os.ndeps_ = arma::ones<arma::vec>(start.size()) * tol;
+  arma::mat hessian(start.size(),start.size(),fill::zeros);
+  dl.Hessian(start,hessian);
+  return hessian;
+}
 
 class F_likelihood : public Functor {
   arma::uword B_;
@@ -534,7 +450,8 @@ arma::vec f_lik_grad(const arma::uword &B,
                      arma::vec start,
                      const arma::vec &lower,
                      const arma::vec &upper,
-                     double tol = 1e-4){
+                     double tol = 1e-4,
+                     bool importance = false){
   
   F_likelihood dl(B,N_dim,
                   N_func,
@@ -542,7 +459,7 @@ arma::vec f_lik_grad(const arma::uword &B,
                   col_id,N_par,sum_N_par,
                   cov_data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,false);
+                  link,importance);
   
   dl.os.usebounds_ = 1;
   if(!lower.is_empty()){
@@ -606,14 +523,15 @@ arma::mat f_lik_hess(const arma::uword &B,
                      arma::vec start,
                      const arma::vec &lower,
                      const arma::vec &upper,
-                     double tol = 1e-4){
+                     double tol = 1e-4,
+                     bool importance = false){
   F_likelihood dl(B,N_dim,
                   N_func,
                   func_def,N_var_func,
                   col_id,N_par,sum_N_par,
                   cov_data,Z,X,y,u,
                   cov_par_fix,family,
-                  link,false);
+                  link,importance);
   dl.os.usebounds_ = 1;
   if(!lower.is_empty()){
     dl.os.lower_ = lower;

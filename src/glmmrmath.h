@@ -203,13 +203,11 @@ arma::mat gen_m(const arma::mat &X, const arma::mat &A) {
 //' \deqn{\theta_1 exp(-x/\theta_2)}
 //' @param x Numeric value 
 //' @param par1 First parameter of the distribution
-//' @param par2 Second parameter of the distribution
 // [[Rcpp::export]]
 double fexp(const double &x, 
-               double par1,
-               double par2) {
+               double par1) {
   //generate information matrix
-  return par1*exp(-1*x/par2);
+  return exp(-1*x/par1);
 }
 
 //' Squared exponential covariance function
