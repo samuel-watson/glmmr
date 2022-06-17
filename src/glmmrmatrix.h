@@ -113,9 +113,10 @@ arma::mat genBlockD(size_t N_dim,
     for(arma::uword k=0;k<N_func;k++){
       if(func_def(k)==1){
         val = val*pow(gamma(gamma_idx_ii),2);
-      } else if(func_def(k)==2 || func_def(k)==4){
-        val = val*gamma(gamma_idx_ii);
-      }
+      } 
+      // else if(func_def(k)==4){
+      //   val = val*gamma(gamma_idx_ii);
+      // }
     }
     D(i,i) = val;
   }

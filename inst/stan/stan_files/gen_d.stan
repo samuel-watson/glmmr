@@ -82,10 +82,11 @@ for(b in 1:B){
       if(func_def[b,k] == 1){
         // group member ship
         val = val*pow(gamma[gamma_idx_ii],2);
-      } else if(func_def[b,k] == 4){
-        // exponential 1func_def[b,k] == 2 || 
-        val = val * gamma[gamma_idx_ii];
       } 
+      // else if(func_def[b,k] == 4){
+      //   // exponential 1func_def[b,k] == 2 || 
+      //   val = val * gamma[gamma_idx_ii];
+      // } 
      gamma_idx_ii += N_par[b,k]; 
       }
       D[i,i] = val;
