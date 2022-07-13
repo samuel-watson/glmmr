@@ -3,6 +3,11 @@
 
 #include <RcppArmadillo.h>
 #include "glmmrmath.h"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 using namespace Rcpp;
 using namespace arma;
 
@@ -69,6 +74,7 @@ arma::mat genBlockD(size_t N_dim,
                     const arma::vec &gamma){
   arma::mat D(N_dim,N_dim,fill::zeros);
   if(!all(func_def == 1)){
+#pragma omp parallel for
     for(arma::uword i=0;i<(N_dim-1);i++){
       for(arma::uword j=i+1;j<N_dim;j++){
         double val = 1;
@@ -106,7 +112,7 @@ arma::mat genBlockD(size_t N_dim,
     }
   }
   
-  
+#pragma omp parallel for
   for(arma::uword i=0;i<N_dim;i++){
     double val = 1;
     size_t gamma_idx_ii = 0;
