@@ -4,7 +4,7 @@
 #include <RcppEigen.h>
 
 #include "glm.h"
-#include "glmmrmath.h"
+#include "glmmr.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -132,7 +132,7 @@ Rcpp::List myglm(Rcpp::NumericMatrix Xs,
                                    0, 1e-7, 100);
 }
 
-inline arma::vec get_G(const arma::vec &x, 
+arma::vec get_G(const arma::vec &x, 
                        const Rcpp::String &family2){
   arma::vec dx;
   if(family2 == "identity"){

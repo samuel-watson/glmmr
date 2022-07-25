@@ -1,6 +1,5 @@
 #include <RcppArmadillo.h>
-#include "glmmrmath.h"
-#include "glmmrmatrix.h"
+#include "glmmr.h"
 using namespace Rcpp;
 using namespace arma;
 
@@ -9,6 +8,200 @@ using namespace arma;
 #endif
 
 // [[Rcpp::depends(RcppArmadillo)]]
+
+
+double obj_fun(const arma::mat &A, const arma::vec &U2) {
+  // this is the directional derivative
+  return arma::as_scalar(U2.t() * A * U2);
+}
+
+double c_obj_fun(arma::mat M, arma::vec C) {
+  // this is the objective function c-optimal
+  arma::mat M_inv = arma::inv_sympd(M);
+  return arma::as_scalar(C.t() * M_inv * C);
+}
+
+double c_d_deriv(arma::mat M1, arma::mat M2, arma::vec C) {
+  // this is the directional derivative from M1 to M2 c-optimal
+  arma::mat M_inv = arma::inv_sympd(M1);
+  return arma::as_scalar(C.t() * M_inv * (M1 - M2) * M_inv * C);
+}
+
+double c_deriv(arma::mat M, arma::vec C) {
+  // this is the directional derivative from M1 to M2 c-optimal
+  arma::mat M_inv = arma::inv_sympd(M);
+  return norm(-1 * M_inv * C * C.t() * M_inv,"fro");
+}
+
+arma::mat gen_m(const arma::mat &X, const arma::mat &A) {
+  //generate information matrix
+  return X.t() * A * X;
+}
+
+//' Efficiently calculate the inverse of a sub-matrix
+//' 
+//' Efficiently calculate the inverse of a sub-matrix
+//' @details
+//' For a given matrix \eqn{A = B^-1}, this will calculate the inverse of a submatrix of B 
+//' given only matrix A and requiring only vector multiplication. B typically represents a 
+//' covariance matrix for observations 1,...,N and the function is used to calculate the 
+//' inverse covariance matrix for a subset of those observations.
+//' @param A A square inverse matrix
+//' @param i Vector of integers specifying the rows/columns to remove from B, see details
+//' @return The inverse of a submatrix of B
+//' @examples
+//' B <- matrix(runif(16),nrow=4,ncol=4)
+//' diag(B) <- diag(B)+1
+//' A <- solve(B)
+//' remove_one_many_mat(A,1)
+//' #equal to
+//' solve(B[2:4,2:4])
+// [[Rcpp::export]]
+arma::mat remove_one_many_mat(const arma::mat &A, 
+                              const arma::uvec &i) {
+  arma::vec idx = arma::linspace(0, A.n_rows - 1, A.n_rows);
+  arma::uvec uidx = arma::conv_to<arma::uvec>::from(idx);
+  arma::uvec isort = arma::sort(i,"descend"); // sort descending to avoid row conflicts
+  arma::mat A2 = A;
+  
+  for(arma::uword j=0; j<i.n_elem; j++){
+    arma::vec idx_new = arma::linspace(0, uidx.n_elem - 1, uidx.n_elem);
+    arma::uvec uidx_new = arma::conv_to<arma::uvec>::from(idx_new);
+    uidx.shed_row(isort(j));
+    uidx_new.shed_row(isort(j));
+    double d = A2(isort(j), isort(j));
+    arma::vec b = A2.submat(uidx_new, arma::uvec({isort(j)}));
+    A2 = A2.submat(uidx_new, uidx_new) - b * b.t() / d;
+  }
+  
+  return A2;
+}
+
+double remove_one_many(const arma::mat &A, 
+                              const arma::uvec &i,
+                              const arma::vec &u) {
+  arma::vec idx = arma::linspace(0, A.n_rows - 1, A.n_rows);
+  arma::uvec uidx = arma::conv_to<arma::uvec>::from(idx);
+  arma::uvec isort = arma::sort(i,"descend"); // sort descending to avoid row conflicts
+  arma::mat A2 = A;
+  for(arma::uword j=0; j<i.n_elem; j++){
+    arma::vec idx_new = arma::linspace(0, uidx.n_elem - 1, uidx.n_elem);
+    arma::uvec uidx_new = arma::conv_to<arma::uvec>::from(idx_new);
+    uidx.shed_row(isort(j));
+    uidx_new.shed_row(isort(j));
+    double d = A2(isort(j), isort(j));
+    arma::vec b = A2.submat(uidx_new, arma::uvec({isort(j)}));
+    A2 = A2.submat(uidx_new, uidx_new) - b * b.t() / d;
+  }
+  return obj_fun(A2, u(uidx));
+}
+
+double add_one(const arma::mat &A, 
+                      double sigma_jj, 
+                      const arma::vec &f,
+                      const arma::vec &u) {
+  arma::mat A2(A.n_rows + 1, A.n_cols + 1, arma::fill::zeros);
+  A2.submat(0, 0, A2.n_rows - 2, A2.n_cols - 2) = A;
+  A2(A2.n_rows - 1, A2.n_cols - 1) = 1 / sigma_jj;
+  
+  // step 3: compute K2_inv
+  arma::vec u1 = arma::join_cols(f, arma::vec({0}));
+  arma::vec v1(u1.n_elem, arma::fill::zeros);
+  v1(v1.n_elem - 1) = 1;
+  A2 = A2 -
+    ((A2 * u1) * (v1.t() * A2)) / (1 + arma::as_scalar((v1.t() * A2) * u1));
+  
+  // step 4: compute K3_inv
+  A2 = A2 -
+    ((A2 * v1) * (u1.t() * A2)) / (1 + arma::as_scalar((u1.t() * A2) * v1));
+  
+  return obj_fun(A2, u);
+}
+
+
+
+//' Efficiently calculates the inverse of a super-matrix 
+//' 
+//' Efficiently calculates the inverse of a super-matrix by adding an observation
+//' @details
+//' Given matrix \eqn{A = B^-1} where B is a submatrix of a matrix C, this function efficiently calculates
+//' the inverse the matrix B+, which is B adding another row/column from C. For example, if C
+//' is the covariance matrix of observations 1,...,N, and B the covariance matrix of observations
+//' 1,...,n where n<N, then this function will calculate the inverse of the covariance matrix of 
+//' the observations 1,...,n+1.
+//' @param A Inverse matrix of dimensions `n`
+//' @param sigma_jj The element of C corresponding to the element [j,j] in matrix C where j is the index
+//' of the row/column we want to add, see Details
+//' @param f A vector of dimension n x 1, corresponding to the elements [b,j] in C where b is the indexes
+//' that make up submatrix B
+//' @return A matrix of size dim(A)+1
+//' @examples
+//' B <- matrix(runif(16),nrow=4,ncol=4)
+//' diag(B) <- diag(B)+1
+//' A <- solve(B[2:4,2:4])
+//' add_one_mat(A,B[1,1],B[2:4,1])
+//' #equal to
+//' solve(B)
+// [[Rcpp::export]]
+inline arma::mat add_one_mat(const arma::mat &A, 
+                             double sigma_jj, 
+                             const arma::vec &f) {
+  arma::mat A2(A.n_rows + 1, A.n_cols + 1, arma::fill::zeros);
+  // step 1: compute A*
+  A2.submat(0, 0, A2.n_rows - 2, A2.n_cols - 2) = A;
+  for (arma::uword j = 0; j < A2.n_rows - 1; j++) {
+    A2(j, A2.n_cols - 1) = 0;
+    A2(A2.n_rows - 1, j) = 0;
+  }
+  A2(A2.n_rows - 1, A2.n_cols - 1) = 1 / sigma_jj;
+  
+  // step 3: compute K2_inv
+  arma::vec u1 = arma::join_cols(f, arma::vec({0}));
+  arma::vec v1(u1.n_elem, arma::fill::zeros);
+  v1(v1.n_elem - 1) = 1;
+  A2 = A2 -
+    ((A2 * u1) * (v1.t() * A2)) / (1 + arma::as_scalar((v1.t() * A2) * u1));
+  
+  // step 4: compute K3_inv
+  A2 = A2 -
+    ((A2 * v1) * (u1.t() * A2)) / (1 + arma::as_scalar((u1.t() * A2) * v1));
+  
+  return A2;
+}
+
+arma::uvec match_uvec(arma::uvec x, arma::uword val){
+  arma::uvec match_vec(x.n_elem, fill::value(-1));
+  arma::uword count = 0;
+  for(arma::uword j=0; j<x.n_elem; j++){
+    if(x(j)==val){
+      match_vec(count) = j;
+      count += 1;
+    }
+  }
+  return match_vec.rows(0,count-1);
+}
+
+
+arma::uvec std_setdiff(arma::uvec &x, arma::uvec &y) {
+  std::vector<int> a = arma::conv_to<std::vector<int> >::from(arma::sort(x));
+  std::vector<int> b = arma::conv_to<std::vector<int> >::from(arma::sort(y));
+  std::vector<int> out;
+  
+  std::set_difference(a.begin(), a.end(), b.begin(), b.end(),
+                      std::inserter(out, out.end()));
+  
+  return arma::conv_to<arma::uvec>::from(out);
+}
+
+arma::uvec uvec_minus(const arma::uvec &v, arma::uword rm_idx) {
+  arma::uword n = v.size();
+  if (rm_idx == 0) return v.tail(n-1);
+  if (rm_idx == n-1) return v.head(n-1);
+  arma::uvec res(v.size()-1);
+  res.head(rm_idx) = v.head(rm_idx);
+  res.tail(n-1-rm_idx) = v.tail(n-1-rm_idx);
+  return res;
+}
 
 
 class HillClimbing {

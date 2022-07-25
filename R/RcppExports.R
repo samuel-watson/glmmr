@@ -5,6 +5,54 @@ dfbeta_stat <- function(sigma, X, y, par) {
     .Call(`_glmmr_dfbeta_stat`, sigma, X, y, par)
 }
 
+#' Efficiently calculate the inverse of a sub-matrix
+#' 
+#' Efficiently calculate the inverse of a sub-matrix
+#' @details
+#' For a given matrix \eqn{A = B^-1}, this will calculate the inverse of a submatrix of B 
+#' given only matrix A and requiring only vector multiplication. B typically represents a 
+#' covariance matrix for observations 1,...,N and the function is used to calculate the 
+#' inverse covariance matrix for a subset of those observations.
+#' @param A A square inverse matrix
+#' @param i Vector of integers specifying the rows/columns to remove from B, see details
+#' @return The inverse of a submatrix of B
+#' @examples
+#' B <- matrix(runif(16),nrow=4,ncol=4)
+#' diag(B) <- diag(B)+1
+#' A <- solve(B)
+#' remove_one_many_mat(A,1)
+#' #equal to
+#' solve(B[2:4,2:4])
+remove_one_many_mat <- function(A, i) {
+    .Call(`_glmmr_remove_one_many_mat`, A, i)
+}
+
+#' Efficiently calculates the inverse of a super-matrix 
+#' 
+#' Efficiently calculates the inverse of a super-matrix by adding an observation
+#' @details
+#' Given matrix \eqn{A = B^-1} where B is a submatrix of a matrix C, this function efficiently calculates
+#' the inverse the matrix B+, which is B adding another row/column from C. For example, if C
+#' is the covariance matrix of observations 1,...,N, and B the covariance matrix of observations
+#' 1,...,n where n<N, then this function will calculate the inverse of the covariance matrix of 
+#' the observations 1,...,n+1.
+#' @param A Inverse matrix of dimensions `n`
+#' @param sigma_jj The element of C corresponding to the element [j,j] in matrix C where j is the index
+#' of the row/column we want to add, see Details
+#' @param f A vector of dimension n x 1, corresponding to the elements [b,j] in C where b is the indexes
+#' that make up submatrix B
+#' @return A matrix of size dim(A)+1
+#' @examples
+#' B <- matrix(runif(16),nrow=4,ncol=4)
+#' diag(B) <- diag(B)+1
+#' A <- solve(B[2:4,2:4])
+#' add_one_mat(A,B[1,1],B[2:4,1])
+#' #equal to
+#' solve(B)
+add_one_mat <- function(A, sigma_jj, f) {
+    .Call(`_glmmr_add_one_mat`, A, sigma_jj, f)
+}
+
 #' Hill-Climbing algorithm to identify optimal GLMM design
 #' 
 #' Hill-Climbing algorithm to identify optimal GLMM design
@@ -26,15 +74,6 @@ GradRobustStep <- function(idx_in, n, C_list, X_list, Z_list, D_list, w_diag, ma
     .Call(`_glmmr_GradRobustStep`, idx_in, n, C_list, X_list, Z_list, D_list, w_diag, max_obs, weights, exp_cond, nfix, V0_list, any_fix, type, rd_mode, trace, uncorr, bayes)
 }
 
-#' Approximation to the log factorial
-#' 
-#' Ramanujan's approximation to the log factorial
-#' @param n Integer to calculate log(n!)
-#' @return A numeric value
-log_factorial_approx <- function(n) {
-    .Call(`_glmmr_log_factorial_approx`, n)
-}
-
 #' Log multivariate Gaussian probability density funciton
 #' 
 #' Log multivariate Gaussian probability density funciton
@@ -43,10 +82,6 @@ log_factorial_approx <- function(n) {
 #' @param logdetD Log determinant of the covariance matrix
 log_mv_gaussian_pdf <- function(u, D, logdetD) {
     .Call(`_glmmr_log_mv_gaussian_pdf`, u, D, logdetD)
-}
-
-gen_dhdmu <- function(xb, family, link) {
-    .Call(`_glmmr_gen_dhdmu`, xb, family, link)
 }
 
 #' Exponential covariance function
@@ -93,16 +128,6 @@ matern <- function(x, rho, nu) {
 #' @param rho First parameter of the distribution
 bessel1 <- function(x, rho) {
     .Call(`_glmmr_bessel1`, x, rho)
-}
-
-#' Combines a field of matrices into a block diagonal matrix
-#' 
-#' Combines a field of matrices into a block diagonal matrix. Used on
-#' the output of `genD`
-#' @param matfield A field of matrices
-#' @return A block diagonal matrix
-blockMat <- function(matfield) {
-    .Call(`_glmmr_blockMat`, matfield)
 }
 
 #' Generates a block of the random effects covariance matrix
@@ -153,52 +178,17 @@ genD <- function(B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_pa
     .Call(`_glmmr_genD`, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, gamma)
 }
 
-#' Efficiently calculate the inverse of a sub-matrix
+#' Approximation to the log factorial
 #' 
-#' Efficiently calculate the inverse of a sub-matrix
-#' @details
-#' For a given matrix \eqn{A = B^-1}, this will calculate the inverse of a submatrix of B 
-#' given only matrix A and requiring only vector multiplication. B typically represents a 
-#' covariance matrix for observations 1,...,N and the function is used to calculate the 
-#' inverse covariance matrix for a subset of those observations.
-#' @param A A square inverse matrix
-#' @param i Vector of integers specifying the rows/columns to remove from B, see details
-#' @return The inverse of a submatrix of B
-#' @examples
-#' B <- matrix(runif(16),nrow=4,ncol=4)
-#' diag(B) <- diag(B)+1
-#' A <- solve(B)
-#' remove_one_many_mat(A,1)
-#' #equal to
-#' solve(B[2:4,2:4])
-remove_one_many_mat <- function(A, i) {
-    .Call(`_glmmr_remove_one_many_mat`, A, i)
+#' Ramanujan's approximation to the log factorial
+#' @param n Integer to calculate log(n!)
+#' @return A numeric value
+log_factorial_approx <- function(n) {
+    .Call(`_glmmr_log_factorial_approx`, n)
 }
 
-#' Efficiently calculates the inverse of a super-matrix 
-#' 
-#' Efficiently calculates the inverse of a super-matrix by adding an observation
-#' @details
-#' Given matrix \eqn{A = B^-1} where B is a submatrix of a matrix C, this function efficiently calculates
-#' the inverse the matrix B+, which is B adding another row/column from C. For example, if C
-#' is the covariance matrix of observations 1,...,N, and B the covariance matrix of observations
-#' 1,...,n where n<N, then this function will calculate the inverse of the covariance matrix of 
-#' the observations 1,...,n+1.
-#' @param A Inverse matrix of dimensions `n`
-#' @param sigma_jj The element of C corresponding to the element [j,j] in matrix C where j is the index
-#' of the row/column we want to add, see Details
-#' @param f A vector of dimension n x 1, corresponding to the elements [b,j] in C where b is the indexes
-#' that make up submatrix B
-#' @return A matrix of size dim(A)+1
-#' @examples
-#' B <- matrix(runif(16),nrow=4,ncol=4)
-#' diag(B) <- diag(B)+1
-#' A <- solve(B[2:4,2:4])
-#' add_one_mat(A,B[1,1],B[2:4,1])
-#' #equal to
-#' solve(B)
-add_one_mat <- function(A, sigma_jj, f) {
-    .Call(`_glmmr_add_one_mat`, A, sigma_jj, f)
+gen_dhdmu <- function(xb, family, link) {
+    .Call(`_glmmr_gen_dhdmu`, xb, family, link)
 }
 
 #' Optimises the log-likelihood of the random effects
@@ -401,6 +391,16 @@ mcnr_step <- function(y, X, Z, beta, u, family, link) {
 #' @return A matrix of the Hessian for each parameter
 aic_mcml <- function(Z, X, y, u, family, link, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, beta_par, cov_par) {
     .Call(`_glmmr_aic_mcml`, Z, X, y, u, family, link, B, N_dim, N_func, func_def, N_var_func, col_id, N_par, sum_N_par, cov_data, beta_par, cov_par)
+}
+
+#' Combines a field of matrices into a block diagonal matrix
+#' 
+#' Combines a field of matrices into a block diagonal matrix. Used on
+#' the output of `genD`
+#' @param matfield A field of matrices
+#' @return A block diagonal matrix
+blockMat <- function(matfield) {
+    .Call(`_glmmr_blockMat`, matfield)
 }
 
 fast_glm_impl <- function(Xs, ys, weightss, offsets, starts, mus, etas, var, mu_eta, linkinv, dev_resids, valideta, validmu, type, tol, maxit) {
