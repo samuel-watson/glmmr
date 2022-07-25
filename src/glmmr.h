@@ -81,19 +81,18 @@ inline double log_mv_gaussian_pdf(const arma::vec& u,
           0.5*logdetD - 0.5*arma::as_scalar(u.t()*D*u));
 }
 
-//' Exponential covariance function
-//' 
-//' Exponential covariance function
-//' @details
-//' \deqn{\theta_1 exp(-x/\theta_2)}
-//' @param x Numeric value 
-//' @param par1 First parameter of the distribution
-// [[Rcpp::export]]
-inline double fexp(const double &x, 
-                   double par1) {
-  //generate information matrix
-  return exp(-1*x/par1);
-}
+// //' Exponential covariance function
+// //' 
+// //' Exponential covariance function
+// //' @details
+// //' \deqn{\theta_1 exp(-x/\theta_2)}
+// //' @param x Numeric value 
+// //' @param par1 First parameter of the distribution
+// // [[Rcpp::export]]
+// inline double fexp(const double &x, 
+//                    double par1) {
+//   return exp(-1*x/par1);
+// }
 
 //' Squared exponential covariance function
 //' 
@@ -107,7 +106,6 @@ inline double fexp(const double &x,
 inline double sqexp(const double &x, 
                     double par1,
                     double par2) {
-  //generate information matrix
   return par1*exp(-1*pow(x,2)/pow(par2,2));
 }
 
@@ -201,7 +199,7 @@ inline arma::mat genBlockD(size_t N_dim,
               val = 0;
             }
           } else if(func_def(k)==2){
-            val = val*fexp(dist,gamma(gamma_idx));
+            val = val*exp(-1*dist/gamma(gamma_idx));//fexp(dist,gamma(gamma_idx));
           }else if(func_def(k)==3){
             val = val*pow(gamma(gamma_idx),dist);
           } else if(func_def(k)==4){
@@ -228,9 +226,6 @@ inline arma::mat genBlockD(size_t N_dim,
       if(func_def(k)==1){
         val = val*pow(gamma(gamma_idx_ii),2);
       } 
-      // else if(func_def(k)==4){
-      //   val = val*gamma(gamma_idx_ii);
-      // }
     }
     D(i,i) = val;
   }
