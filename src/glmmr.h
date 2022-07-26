@@ -66,13 +66,6 @@ inline arma::vec gaussian_pdf_vec(const arma::vec& v){
   return res;
 }
 
-//' Log multivariate Gaussian probability density funciton
-//' 
-//' Log multivariate Gaussian probability density funciton
-//' @param u Vector of realisations from the distribution
-//' @param D Inverse covariance matrix
-//' @param logdetD Log determinant of the covariance matrix
-// [[Rcpp::export]]
 inline double log_mv_gaussian_pdf(const arma::vec& u,
                                   const arma::mat& D,
                                   const double& logdetD){
@@ -89,64 +82,32 @@ inline double log_mv_gaussian_pdf(const arma::vec& u,
 // //' @param x Numeric value 
 // //' @param par1 First parameter of the distribution
 // // [[Rcpp::export]]
-// inline double fexp(const double &x, 
+// inline double fexp(const double &x,
 //                    double par1) {
 //   return exp(-1*x/par1);
 // }
 
-//' Squared exponential covariance function
-//' 
-//' Squared exponential covariance function
-//' @details
-//' \deqn{\theta_1 exp(-x^2/\theta_2^2)}
-//' @param x Numeric value 
-//' @param par1 First parameter of the distribution
-//' @param par2 Second parameter of the distribution
-// [[Rcpp::export]]
-inline double sqexp(const double &x, 
-                    double par1,
-                    double par2) {
-  return par1*exp(-1*pow(x,2)/pow(par2,2));
-}
-
-//' Matern covariance function
-//' 
-//' Matern covariance function
-//' @details
-//' TBC
-//' @param x Numeric value 
-//' @param rho First parameter of the distribution
-//' @param nu Second parameter of the distribution
-// [[Rcpp::export]]
-inline double matern(const double &x,
-                     double rho, 
-                     double nu){
-  double xr = pow(2*nu,0.5)*x/rho;
-  double ans = 1;
-  if(xr!=0){
-    if(nu == 0.5){
-      ans = exp(-xr);
-    } else {
-      double cte = pow(2,-1*(nu-1))/R::gammafn(nu);
-      ans = cte*pow(xr, nu)*R::bessel_k(xr,nu,1);
-    }
-  }
-  return ans;
-}
-
-//' Bessel covariance function
-//' 
-//' Bessel covariance function
-//' @details
-//' TBC
-//' @param x Numeric value 
-//' @param rho First parameter of the distribution
-// [[Rcpp::export]]
-inline double bessel1(const double &x,
-                      double rho){
-  double xr = x/rho;
-  return xr* R::bessel_k(xr,1,1);
-}
+// inline double sqexp(const double &x, 
+//                     double par1,
+//                     double par2) {
+//   return par1*exp(-1*pow(x,2)/pow(par2,2));
+// }
+// 
+// inline double matern(const double &x,
+//                      double rho, 
+//                      double nu){
+//   double xr = pow(2*nu,0.5)*x/rho;
+//   double ans = 1;
+//   if(xr!=0){
+//     if(nu == 0.5){
+//       ans = exp(-xr);
+//     } else {
+//       double cte = pow(2,-1*(nu-1))/R::gammafn(nu);
+//       ans = cte*pow(xr, nu)*R::bessel_k(xr,nu,1);
+//     }
+//   }
+//   return ans;
+// }
 
 //' Generates a block of the random effects covariance matrix
 //' 
@@ -203,11 +164,21 @@ inline arma::mat genBlockD(size_t N_dim,
           }else if(func_def(k)==3){
             val = val*pow(gamma(gamma_idx),dist);
           } else if(func_def(k)==4){
-            val = val*sqexp(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+            val = val*gamma(gamma_idx)*exp(-1*pow(dist,2)/pow(gamma(gamma_idx+1),2));
           } else if(func_def(k)==5){
-            val = val*matern(dist,gamma(gamma_idx),gamma(gamma_idx+1));
+            double xr = pow(2*gamma(gamma_idx+1),0.5)*dist/gamma(gamma_idx);
+            double ans = 1;
+            if(xr!=0){
+              if(gamma(gamma_idx+1) == 0.5){
+                ans = exp(-xr);
+              } else {
+                double cte = pow(2,-1*(gamma(gamma_idx+1)-1))/R::gammafn(gamma(gamma_idx+1));
+                ans = cte*pow(xr, gamma(gamma_idx+1))*R::bessel_k(xr,gamma(gamma_idx+1),1);
+              }
+            }
+            val = val*ans;
           } else if(func_def(k)==6){
-            val = val*bessel1(dist,gamma(gamma_idx));
+            val = val* R::bessel_k(dist/gamma(gamma_idx),1,1);
           }
           gamma_idx += N_par(k);      
         }
